@@ -26,7 +26,7 @@ def find_nearby_pitches(pitch, octave, max_distance):
             distance_high = abs(target_semitone_high - base_semitone)
 
             if distance_high <= max_distance:
-                result.append((note, octave + oct_shift))
+                result.append([note, octave + oct_shift])
                 keep_searching = True  # Continue searching (search space is symmetric)
 
             # Check lower octaves (only if oct_shift is not zero to avoid double counting the base octave)
@@ -35,7 +35,7 @@ def find_nearby_pitches(pitch, octave, max_distance):
                 distance_low = abs(target_semitone_low - base_semitone)
                 
                 if distance_low <= max_distance:
-                    result.append((note, octave - oct_shift))
+                    result.append([note, octave - oct_shift])
                     keep_searching = True  # Continue searching (search space is symmetric)
 
         oct_shift += 1  # Increase the octave shift for the next loop iteration

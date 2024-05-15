@@ -14,7 +14,8 @@ def extract_notes_from_query(query):
 def reformulate_cypher_query(query):
     # Extracting the parameters from the augmented query
     pitch_distance = int(re.search(r'TOLERANT pitch=(\d+)', query).group(1))
-    duration_distance = int(re.search(r'duration=(\d+)', query).group(1))
+    duration_distance = float(re.search(r'duration=(\d+\.\d+|\d+)', query).group(1))
+    duration_gap = float(re.search(r'gap=(\d+\.\d+|\d+)', query).group(1))
     alpha = float(re.search(r'ALPHA (\d+\.\d+)', query).group(1))
     
     # Extract notes using the new function
@@ -32,14 +33,19 @@ def reformulate_cypher_query(query):
         # Prepare the duration conditions
         duration_condition = f"f{idx}.dur >= {min_duration} AND f{idx}.dur <= {max_duration}"
         
-        where_clauses.append(f"{notes_condition} AND {duration_condition}")
+        where_clauses.append(f" {notes_condition} AND {duration_condition}")
     
     # Constructing the new WHERE clause
-    where_clause = 'WHERE\n' + ' AND\n '.join(where_clauses)
+    where_clause = 'WHERE\n' + ' AND\n'.join(where_clauses)
+
+    # Adding the sequencing constraints to the where clause
+    sequencing_addon = ' AND '.join([f"e{idx}.end >= e{idx+1}.start - {duration_gap}" for idx in range(1, len(notes))])
+    where_clause = where_clause + ' AND \n ' + sequencing_addon
+    print(sequencing_addon)
     
     # Reconstruct the MATCH clause by removing parameters and simplifying node connection syntax
-    event_path = '-[:NEXT]->'.join([f"(e{idx}:Event)" for idx in range(1, len(notes)+1)])+','
-    simplified_connections = ','.join([f"\n (e{idx})--(f{idx})" for idx in range(1, len(notes)+1)])
+    event_path = '-[*]->'.join([f"(e{idx}:Event)" for idx in range(1, len(notes)+1)])+','
+    simplified_connections = ','.join([f"\n (e{idx})-[]->(f{idx}:Fact)" for idx in range(1, len(notes)+1)])
     match_clause = 'MATCH \n' + event_path + simplified_connections
 
     # Reconstruct the RETURN clause
@@ -52,12 +58,12 @@ def reformulate_cypher_query(query):
 # Example usage:
 augmented_query = """
 MATCH
- TOLERANT pitch=3, duration=2
+ TOLERANT pitch=3, duration=0.25, gap=0.25
  ALPHA 0.4
  (e1:Event)-[:NEXT]->(e2:Event)-[:NEXT]->(e3:Event), 
- (e1)--(f1{class:'E',octave:4, dur:4}),
- (e2)--(f2{class:'A',octave:4, dur:4}),
- (e3)--(f3{class:'E',octave:5, dur:4})
+ (e1)--(f1{class:'g',octave:4, dur:8}),
+ (e2)--(f2{class:'b',octave:4, dur:8}),
+ (e3)--(f3{class:'b',octave:4, dur:8})
 RETURN e1.id, e2.id, e3.id
 """
 print(reformulate_cypher_query(augmented_query))
