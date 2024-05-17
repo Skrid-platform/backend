@@ -42,10 +42,32 @@ def find_nearby_pitches(pitch, octave, max_distance):
 
     return result
 
+def find_frequency_bounds(pitch, octave, max_distance):
+# Define pitches and their relative semitone positions from A
+    notes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+    semitones_from_a = [0, 2, 3, 5, 7, 8, 10]  # A to G, cumulative semitone distance
+    
+    # Create a mapping from note to its index and semitone offset
+    note_to_semitone = {note: semitones for note, semitones in zip(notes, semitones_from_a)}
+    
+    # Find the base semitone position for the given pitch and octave
+    if pitch == 'c' or pitch == 'd' or pitch == 'e' or pitch == 'f' or pitch == 'g':
+        base_semitone = note_to_semitone[pitch] + ((octave + 1) * 12) + 21
+    else:
+        base_semitone = note_to_semitone[pitch] + (octave * 12) + 21
+    
+    # Compute the frequency range based on the maximum semitone distance
+    lower_bound_semitone = base_semitone - max_distance
+    upper_bound_semitone = base_semitone + max_distance
+    
+    min_frequency = 440 * 2 ** ((lower_bound_semitone - 69) / 12)
+    max_frequency = 440 * 2 ** ((upper_bound_semitone - 69) / 12)
+    
+    return round(min_frequency,2), round(max_frequency,2)
 
 if __name__ == "__main__":
     # Example usage:
     pitch = 'e'
     octave = 5
     max_distance = 3  # Maximum distance in semitones
-    print(find_nearby_pitches(pitch, octave, max_distance))
+    print(find_frequency_bounds(pitch, octave, max_distance))
