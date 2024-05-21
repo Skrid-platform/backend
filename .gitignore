@@ -2,3 +2,6 @@ __pycache__/find_duration_range.cpython-310.pyc
 __pycache__/find_nearby_pitches.cpython-310.pyc
 notes.txt
 __pycache__/extract_notes_from_query.cpython-310.pyc
+__pycache__/degree_computation.cpython-310.pyc
+__pycache__/note.cpython-310.pyc
+__pycache__/reformulation_V2.cpython-310.pyc
