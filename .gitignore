@@ -5,3 +5,6 @@ __pycache__/extract_notes_from_query.cpython-310.pyc
 __pycache__/degree_computation.cpython-310.pyc
 __pycache__/note.cpython-310.pyc
 __pycache__/reformulation_V2.cpython-310.pyc
+query_examples.cypher
+results.txt
+__pycache__/main.cpython-310.pyc

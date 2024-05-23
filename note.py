@@ -7,5 +7,4 @@ class Note:
         self.end = end
     
     def __repr__(self):
-        return (f"Note(pitch={self.pitch}, octave={self.octave}, duration={self.duration}, "
-                f"start={self.start}, end={self.end})")
+        return (f"Note : {self.pitch}{self.octave}, duration={self.duration}, start={self.start}")

@@ -17,7 +17,7 @@ def reformulate_cypher_query(query):
     # Compute the possible notes and duration ranges for each note
     where_clauses = []
     return_clauses = []
-    for idx, (note, octave, duration) in enumerate(notes, start=1):
+    for idx, (note, octave, duration) in enumerate(notes):
         min_frequency, max_frequency = find_frequency_bounds(note, octave, pitch_distance)
         min_duration, max_duration = find_duration_range_decimal(duration, duration_distance)
 
@@ -29,7 +29,7 @@ def reformulate_cypher_query(query):
         
         # Prepare return clauses with specified names
         return_clauses.extend([
-            f"f{idx}.class AS pitch_{idx}",
+            f"\nf{idx}.class AS pitch_{idx}",
             f"f{idx}.octave AS octave_{idx}",
             f"e{idx}.duration AS duration_{idx}",
             f"e{idx}.start AS start_{idx}",
@@ -40,16 +40,16 @@ def reformulate_cypher_query(query):
     where_clause = 'WHERE\n' + ' AND\n'.join(where_clauses)
 
     # Adding the sequencing constraints to the WHERE clause
-    sequencing_condition = ' AND '.join([f"e{idx}.end >= e{idx+1}.start - {duration_gap}" for idx in range(1, len(notes))])
+    sequencing_condition = ' AND '.join([f"e{idx}.end >= e{idx+1}.start - {duration_gap}" for idx in range(len(notes) - 1)])
     where_clause = where_clause + ' AND \n' + sequencing_condition
     
     # Reconstruct the MATCH clause by removing parameters and simplifying node connection syntax
-    event_path = '-[*]->'.join([f"(e{idx}:Event)" for idx in range(1, len(notes) + 1)]) + ','
-    simplified_connections = ','.join([f"\n (e{idx})-[]->(f{idx}:Fact)" for idx in range(1, len(notes) + 1)])
+    event_path = '-[*]->'.join([f"(e{idx}:Event)" for idx in range(len(notes))]) + ','
+    simplified_connections = ','.join([f"\n (e{idx})-[]->(f{idx}:Fact)" for idx in range(len(notes))])
     match_clause = 'MATCH \n' + event_path + simplified_connections
 
     # Construct the RETURN clause
-    return_clause = 'RETURN ' + ', '.join(return_clauses)
+    return_clause = 'RETURN' + ', '.join(return_clauses) + ', \n' + 'e0.source AS source, e0.start AS start'
     
     # Construct the final query
     new_query = match_clause + '\n' + where_clause + '\n' + return_clause

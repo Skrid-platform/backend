@@ -38,8 +38,14 @@ def sequencing_degree(end_time1, start_time2, max_gap):
     
     return degree
 
+def aggregate_note_degrees(pitch_degree, duration_degree, sequencing_degree):
+    return min(pitch_degree, duration_degree, sequencing_degree)
+
+def aggregate_sequence_degrees(degree_list):
+    return min(degree_list)
+
 if __name__ == "__main__":
-    # # Example usage
+    # # Test Example
     # note1 = 'c'
     # octave1 = 4
     # note2 = 'd'
