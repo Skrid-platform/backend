@@ -18,13 +18,21 @@ def reformulate_cypher_query(query):
     where_clauses = []
     return_clauses = []
     for idx, (note, octave, duration) in enumerate(notes):
-        min_frequency, max_frequency = find_frequency_bounds(note, octave, pitch_distance)
-        min_duration, max_duration = find_duration_range_decimal(duration, duration_distance)
-
-        # Prepare the frequency and duration conditions
-        frequency_condition = f"f{idx}.frequency >= {min_frequency} AND f{idx}.frequency <= {max_frequency}"
-        duration_condition = f"e{idx}.duration >= {min_duration} AND e{idx}.duration <= {max_duration}"
-        
+        # Prepare the frequency conditions
+        if pitch_distance > 0:
+            min_frequency, max_frequency = find_frequency_bounds(note, octave, pitch_distance)
+            frequency_condition = f"f{idx}.frequency >= {min_frequency} AND f{idx}.frequency <= {max_frequency}"
+        else:
+            frequency = find_frequency_bounds(note, octave, pitch_distance)[0]
+            frequency_condition = f"f{idx}.frequency = {frequency}"
+    
+        #Prepare the duration conditions
+        if duration_distance > 0:
+            min_duration, max_duration = find_duration_range_decimal(duration, duration_distance)
+            duration_condition = f"e{idx}.duration >= {min_duration} AND e{idx}.duration <= {max_duration}"
+        else:
+            duration = find_duration_range_decimal(duration, duration_distance)[0]
+            duration_condition = f"e{idx}.duration = {duration}"
         where_clauses.append(f"{frequency_condition} AND {duration_condition}")
         
         # Prepare return clauses with specified names
@@ -40,11 +48,16 @@ def reformulate_cypher_query(query):
     where_clause = 'WHERE\n' + ' AND\n'.join(where_clauses)
 
     # Adding the sequencing constraints to the WHERE clause
-    sequencing_condition = ' AND '.join([f"e{idx}.end >= e{idx+1}.start - {duration_gap}" for idx in range(len(notes) - 1)])
-    where_clause = where_clause + ' AND \n' + sequencing_condition
+    if duration_gap > 0:
+        sequencing_condition = ' AND '.join([f"e{idx}.end >= e{idx+1}.start - {duration_gap}" for idx in range(len(notes) - 1)])
+        where_clause = where_clause + ' AND \n' + sequencing_condition
     
     # Reconstruct the MATCH clause by removing parameters and simplifying node connection syntax
-    event_path = '-[*]->'.join([f"(e{idx}:Event)" for idx in range(len(notes))]) + ','
+    if duration_gap > 0:
+        max_intermediate_nodes = int(duration_gap / 0.015625)
+        event_path = f"-[*0..{max_intermediate_nodes}]->".join([f"(e{idx}:Event)" for idx in range(len(notes))]) + ','
+    else:
+        event_path = f"-[]->".join([f"(e{idx}:Event)" for idx in range(len(notes))]) + ','  
     simplified_connections = ','.join([f"\n (e{idx})-[]->(f{idx}:Fact)" for idx in range(len(notes))])
     match_clause = 'MATCH \n' + event_path + simplified_connections
 

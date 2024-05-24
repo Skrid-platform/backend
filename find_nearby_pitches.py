@@ -43,7 +43,7 @@ def find_nearby_pitches(pitch, octave, max_distance):
     return result
 
 def find_frequency_bounds(pitch, octave, max_distance):
-# Define pitches and their relative semitone positions from A
+    # Define pitches and their relative semitone positions from A
     notes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
     semitones_from_a = [0, 2, 3, 5, 7, 8, 10]  # A to G, cumulative semitone distance
     
