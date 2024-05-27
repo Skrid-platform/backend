@@ -31,6 +31,7 @@ def process_results(result, query_notes, pitch_gap, duration_gap, sequencing_gap
         note_sequences.append((note_sequence, record['source'], record['start']))
 
     with open("results.txt", "w") as file:  # Open in write mode to clear the file
+        rejected_results = 0
         for seq_idx, (note_sequence, source, start) in enumerate(note_sequences):
             note_degrees = []
             note_details = []  # Buffer to store note details before writing
@@ -61,6 +62,9 @@ def process_results(result, query_notes, pitch_gap, duration_gap, sequencing_gap
                     file.write(f"    Sequencing Degree: {sequencing_deg}\n")
                     file.write(f"    Aggregated Note Degree: {note_deg}\n")
                 file.write("\n")  # Add a blank line between sequences
+            else:
+                rejected_results += 1
+        file.write(f"{rejected_results} rejected results\n")
 
 
 # Main function

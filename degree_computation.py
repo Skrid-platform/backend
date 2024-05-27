@@ -18,9 +18,14 @@ def note_distance_in_tones(note1, octave1, note2, octave2):
     return distance_in_tones
 
 def pitch_degree(note1, octave1, note2, octave2, pitch_gap):
+    if pitch_gap == 0:
+        return 1.0
     return max(1 - (note_distance_in_tones(note1, octave1, note2, octave2)/(pitch_gap + pitch_gap*0.1)), 0)
 
 def duration_degree(duration1, duration2, duration_gap):
+    if duration_gap == 0:
+        return 1.0
+    
     # Calculate the absolute difference between the two durations
     duration_difference = abs(duration1 - duration2)
     
@@ -30,6 +35,9 @@ def duration_degree(duration1, duration2, duration_gap):
     return degree
 
 def sequencing_degree(end_time1, start_time2, max_gap):
+    if max_gap == 0:
+        return 1.0
+    
     # Calculate the gap between the end time of the first note and the start time of the second note
     time_gap = start_time2 - end_time1
     
