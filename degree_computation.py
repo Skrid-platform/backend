@@ -46,11 +46,11 @@ def sequencing_degree(end_time1, start_time2, max_gap):
     
     return degree
 
-def aggregate_note_degrees(pitch_degree, duration_degree, sequencing_degree):
-    return min(pitch_degree, duration_degree, sequencing_degree)
+def aggregate_note_degrees(aggregation_fn, pitch_degree, duration_degree, sequencing_degree):
+    return aggregation_fn(pitch_degree, duration_degree, sequencing_degree)
 
-def aggregate_sequence_degrees(degree_list):
-    return min(degree_list)
+def aggregate_sequence_degrees(aggregation_fn, degree_list):
+    return aggregation_fn(*degree_list)
 
 if __name__ == "__main__":
     # # Test Example
