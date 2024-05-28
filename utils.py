@@ -2,7 +2,9 @@ from main import connect_to_neo4j, run_query
 from reformulation_V2 import reformulate_cypher_query
 from generate_audio import generate_mp3
 
-def create_cypher_query(notes, pitch_distance, duration_distance, duration_gap, alpha):
+def create_query_from_list_of_notes(notes, pitch_distance, duration_distance, duration_gap, alpha):
+    # In : a list of notes (as class, octave, duration triples), gaps and alpha parameters
+    # Out : a fuzzy query searching for the notes with the parameters
     match_clause = "MATCH\n TOLERANT pitch={}, duration={}, gap={}\n ALPHA {}\n".format(
         pitch_distance, duration_distance, duration_gap, alpha)
     
@@ -21,7 +23,10 @@ def create_cypher_query(notes, pitch_distance, duration_distance, duration_gap, 
     query = match_clause + return_clause
     return query
 
-def create_first_k_notes_query(k):
+def get_first_k_notes_of_each_score(k, driver):
+    # In : an integer, a driver for the DB
+    # Out : a crisp query returning the sequences of k first notes for each score in the DB
+
     # Initialize the MATCH and WHERE clauses
     match_clause = "MATCH\n"
     event_chain = []
@@ -49,12 +54,14 @@ def create_first_k_notes_query(k):
     
     # Combine all clauses into the final query
     query = match_clause + where_clause + return_clause
-    return query
+    
+    # Run the query
+    results = run_query(driver, query)
 
-def process_first_k_notes_results(result, k):
+    # Process the results
     sequences = []
     
-    for record in result:
+    for record in results:
         sequence = []
         for i in range(1, k + 1):
             pitch = record[f"pitch_{i}"]
@@ -66,19 +73,26 @@ def process_first_k_notes_results(result, k):
     
     return sequences
 
-def query_and_generate_mp3(driver, source, start_time, end_time, bpm=60):
+def generate_mp3_from_source_and_time_interval(driver, source, start_time, end_time, bpm=60):
+    notes = get_notes_from_source_and_time_interval(driver, source, start_time, end_time)
+    file_name = f"{source}_{start_time}_{end_time}.mp3"
+    generate_mp3(notes, file_name, bpm)
+
+def get_notes_from_source_and_time_interval(driver, source, start_time, end_time):
+    # In : driver for DB, a source to identify one score, a starting and ending time
+    # Out : a list of notes (in class, octave, duration triples)
+
     query = f"""
     MATCH (e:Event)-[]->(f:Fact)
     WHERE e.start >= {start_time} AND e.end <= {end_time} AND e.source = '{source}'
     RETURN f.class AS class, f.octave AS octave, f.dur AS duration
     ORDER BY e.start
-    """
+    """  
 
     results = run_query(driver, query)
     notes = [(record['class'], record['octave'], record['duration']) for record in results]
 
-    file_name = f"{source}_{start_time}_{end_time}.mp3"
-    generate_mp3(notes, file_name, bpm)
+    return notes
 
 if __name__ == "__main__":
     # Set up the driver
@@ -87,23 +101,6 @@ if __name__ == "__main__":
     password = "12345678"          # Replace with your actual password
     driver = connect_to_neo4j(uri, user, password)
 
-    # k = 10
-    # query = create_first_k_notes_query(k)
-    # result = run_query(driver, query)
-    # incipits = process_first_k_notes_results(result, k)
-
-    # notes = incipits[1]
-    # pitch_distance = 1
-    # duration_distance = 0.125
-    # duration_gap = 0.25
-    # alpha = 0.4
-
-    # augmented_query = create_cypher_query(notes, pitch_distance, duration_distance, duration_gap, alpha)
-    # print(reformulate_cypher_query(augmented_query))
-
-    # print(notes)
-    # generate_mp3(notes)
-
-    query_and_generate_mp3(driver, 'Air_n_78.mei', 5.3125, 6.875 + 0.125, 60)
+    generate_mp3_from_source_and_time_interval(driver, "10258_Les_matelots_du_port_St_Jacques.mei", 1.0, 1.875 + 0.125)
 
     driver.close()
