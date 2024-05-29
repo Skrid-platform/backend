@@ -1,6 +1,6 @@
 from neo4j import GraphDatabase
 from note import Note
-from degree_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees
+from degree_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees, aggregate_degrees
 from reformulation_V2 import reformulate_cypher_query
 from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters
 
@@ -51,13 +51,13 @@ def process_results(result, query_notes, pitch_gap, duration_gap, sequencing_gap
                 prev_note = note_sequence[idx - 1]
                 sequencing_deg = sequencing_degree(prev_note.end, note.start, sequencing_gap)
             
-            note_deg = aggregate_note_degrees(average_aggregation, pitch_deg, duration_deg, sequencing_deg)
+            note_deg = aggregate_degrees(average_aggregation, [pitch_deg])
             note_degrees.append(note_deg)
             
             note_detail = (note, pitch_deg, duration_deg, sequencing_deg, note_deg)
             note_details.append(note_detail)
         
-        sequence_degree = aggregate_sequence_degrees(average_aggregation, note_degrees)
+        sequence_degree = aggregate_degrees(average_aggregation, note_degrees)
         
         if sequence_degree >= alpha:  # Apply alpha cut
             sequence_details.append((source, start, sequence_degree, note_details))

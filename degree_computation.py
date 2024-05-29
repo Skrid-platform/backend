@@ -52,6 +52,9 @@ def aggregate_note_degrees(aggregation_fn, pitch_degree, duration_degree, sequen
 def aggregate_sequence_degrees(aggregation_fn, degree_list):
     return aggregation_fn(*degree_list)
 
+def aggregate_degrees(aggregation_fn, degree_list):
+    return aggregation_fn(*degree_list)
+
 if __name__ == "__main__":
     # # Test Example
     # note1 = 'c'
