@@ -4,12 +4,30 @@ from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_par
 
 import re
 
+def calculate_base_stone(pitch, octave, accid=None):
+    # Define pitches and their relative semitone positions from A
+    notes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+    semitones_from_a = [0, 2, 3, 5, 7, 8, 10]  # A to G, cumulative semitone distance
+    
+    # Create a mapping from note to its index and semitone offset
+    note_to_semitone = {note: semitones for note, semitones in zip(notes, semitones_from_a)}
+    
+    # Find the base semitone position for the given pitch and octave
+    if pitch == 'a' or pitch == 'b' :
+        base_semitone = note_to_semitone[pitch] + (octave * 12) + 21
+    else :
+        base_semitone = note_to_semitone[pitch] + ((octave - 1) * 12) + 21
+    
+    return base_semitone / 2.0
+
+def calculate_interval(note1, octave1, note2, octave2):
+    return calculate_base_stone(note2, octave2) - calculate_base_stone(note1, octave1)
+
 # This version uses float values for pitch (Fact.frequency) and duration (Event.duration)
 # ALPHA parameter is not taken into account
-
 def reformulate_cypher_query(query):
     # Extract the parameters from the augmented query
-    pitch_distance, duration_distance, duration_gap, alpha = extract_fuzzy_parameters(query)
+    pitch_distance, duration_distance, duration_gap, alpha, allow_transposition = extract_fuzzy_parameters(query)
     
     # Extract notes using the new function
     notes = extract_notes_from_query(query)
@@ -52,7 +70,6 @@ def reformulate_cypher_query(query):
         sequencing_condition = ' AND '.join([f"e{idx}.end >= e{idx+1}.start - {duration_gap}" for idx in range(len(notes) - 1)])
         where_clause = where_clause + ' AND \n' + sequencing_condition
     
-    # Reconstruct the MATCH clause by removing parameters and simplifying node connection syntax
     if duration_gap > 0:
         max_intermediate_nodes = int(duration_gap / 0.015625)
         event_path = f"-[*0..{max_intermediate_nodes}]->".join([f"(e{idx}:Event)" for idx in range(len(notes))]) + ','
