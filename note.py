@@ -1,5 +1,5 @@
 class Note:
-    def __init__(self, pitch, octave, duration, start, end):
+    def __init__(self, pitch, octave, duration, start=None, end=None):
         self.pitch = pitch
         self.octave = octave
         self.duration = duration

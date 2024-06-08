@@ -1,6 +1,7 @@
 from main import connect_to_neo4j, run_query
 from reformulation_V2 import reformulate_cypher_query
 from generate_audio import generate_mp3
+from note import Note
 
 def create_query_from_list_of_notes(notes, pitch_distance, duration_distance, duration_gap, alpha):
     # In : a list of notes (as class, octave, duration triples), gaps and alpha parameters
@@ -11,9 +12,9 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_distance, du
     events = []
     facts = []
     
-    for i, (cls, octave, duration) in enumerate(notes, start=1):
+    for i, (class_, octave, duration) in enumerate(notes, start=1):
         event = "(e{}:Event)".format(i)
-        fact = "(e{})--(f{}{{class:'{}',octave:{}, dur:{}}})".format(i, i, cls, octave, duration)
+        fact = "(e{})--(f{}{{class:'{}',octave:{}, dur:{}}})".format(i, i, class_, octave, duration)
         events.append(event)
         facts.append(fact)
     
@@ -23,7 +24,7 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_distance, du
     query = match_clause + return_clause
     return query
 
-def get_first_k_notes_of_each_score(k, driver):
+def get_first_k_notes_of_each_score(k, source, driver):
     # In : an integer, a driver for the DB
     # Out : a crisp query returning the sequences of k first notes for each score in the DB
 
@@ -39,7 +40,7 @@ def get_first_k_notes_of_each_score(k, driver):
     match_clause += "-[:NEXT]->".join(event_chain) + ",\n " + ",\n ".join(fact_chain)
     
     # Add the WHERE clause
-    where_clause = "\nWHERE\n e1.start = 0"
+    where_clause = f"\nWHERE\n e1.start = 0 AND e1.source = \"{source}\""
     
     # Initialize the RETURN clause
     return_clause = "\nRETURN\n"
@@ -71,7 +72,7 @@ def get_first_k_notes_of_each_score(k, driver):
             sequence.append(note)
         sequences.append(sequence)
     
-    return sequences
+    return sequences[0]
 
 def generate_mp3_from_source_and_time_interval(driver, source, start_time, end_time, bpm=60):
     notes = get_notes_from_source_and_time_interval(driver, source, start_time, end_time)
@@ -85,12 +86,12 @@ def get_notes_from_source_and_time_interval(driver, source, start_time, end_time
     query = f"""
     MATCH (e:Event)-[]->(f:Fact)
     WHERE e.start >= {start_time} AND e.end <= {end_time} AND e.source = '{source}'
-    RETURN f.class AS class, f.octave AS octave, f.dur AS duration
+    RETURN f.class AS class, f.octave AS octave, e.duration AS duration, e.start as start, e.end as end
     ORDER BY e.start
     """  
 
     results = run_query(driver, query)
-    notes = [(record['class'], record['octave'], record['duration']) for record in results]
+    notes = [Note(record['class'], record['octave'], record['duration'], record['start'], record['end']) for record in results]
 
     return notes
 
