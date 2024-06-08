@@ -1,19 +1,8 @@
-from neo4j import GraphDatabase
 from note import Note
+from neo4j_connection import connect_to_neo4j, run_query
 from degree_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees, aggregate_degrees
 from reformulation_V2 import reformulate_cypher_query
 from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters
-
-# Function to connect to the Neo4j database
-def connect_to_neo4j(uri, user, password):
-    driver = GraphDatabase.driver(uri, auth=(user, password))
-    return driver
-
-# Function to run a query and fetch all results
-def run_query(driver, query):
-    with driver.session() as session:
-        result = session.run(query)
-        return list(result)  # Collect all records into a list
 
 def min_aggregation(*degrees):
     return min(degrees)
