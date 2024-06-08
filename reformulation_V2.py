@@ -35,14 +35,12 @@ def reformulate_cypher_query(query):
     # Compute the possible notes and duration ranges for each note
     where_clauses = []
     return_clauses = []
+    # Small epsilon value for floating-point imprecision
+    epsilon = 0.01
     for idx, (note, octave, duration) in enumerate(notes):
         # Prepare the frequency conditions
-        if pitch_distance > 0:
-            min_frequency, max_frequency = find_frequency_bounds(note, octave, pitch_distance)
-            frequency_condition = f"f{idx}.frequency >= {min_frequency} AND f{idx}.frequency <= {max_frequency}"
-        else:
-            frequency = find_frequency_bounds(note, octave, pitch_distance)[0]
-            frequency_condition = f"f{idx}.frequency = {frequency}"
+        min_frequency, max_frequency = find_frequency_bounds(note, octave, pitch_distance)
+        frequency_condition = f"f{idx}.frequency >= {min_frequency - epsilon} AND f{idx}.frequency <= {max_frequency + epsilon}"
     
         #Prepare the duration conditions
         if duration_distance > 0:
@@ -71,7 +69,7 @@ def reformulate_cypher_query(query):
         where_clause = where_clause + ' AND \n' + sequencing_condition
     
     if duration_gap > 0:
-        max_intermediate_nodes = int(duration_gap / 0.015625)
+        max_intermediate_nodes = int(duration_gap / 0.125)
         event_path = f"-[*0..{max_intermediate_nodes}]->".join([f"(e{idx}:Event)" for idx in range(len(notes))]) + ','
     else:
         event_path = f"-[]->".join([f"(e{idx}:Event)" for idx in range(len(notes))]) + ','  
@@ -79,7 +77,7 @@ def reformulate_cypher_query(query):
     match_clause = 'MATCH \n' + event_path + simplified_connections
 
     # Construct the RETURN clause
-    return_clause = 'RETURN' + ', '.join(return_clauses) + ', \n' + 'e0.source AS source, e0.start AS start'
+    return_clause = 'RETURN' + ', '.join(return_clauses) + f', \ne0.source AS source, e0.start AS start, e{len(notes) - 1}.end AS end'
     
     # Construct the final query
     new_query = match_clause + '\n' + where_clause + '\n' + return_clause
