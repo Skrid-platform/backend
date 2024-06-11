@@ -3,9 +3,9 @@ import shutil
 
 from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters
 from note import Note
-from degree_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees, aggregate_degrees
+from degree_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees, aggregate_degrees, pitch_degree_with_intervals
 from generate_audio import generate_mp3
-from utils import get_notes_from_source_and_time_interval
+from utils import get_notes_from_source_and_time_interval, calculate_pitch_interval
 
 def min_aggregation(*degrees):
     return min(degrees)
@@ -14,7 +14,7 @@ def average_aggregation(*degrees):
     return sum(degrees) / len(degrees)
 
 def get_ordered_results(result, query):
- # Extract the query notes and fuzzy parameters    
+    # Extract the query notes and fuzzy parameters    
     query_notes = extract_notes_from_query(query)
     pitch_gap, duration_gap, sequencing_gap, alpha, allow_transpose = extract_fuzzy_parameters(query)
 
@@ -67,8 +67,83 @@ def get_ordered_results(result, query):
 
     return sequence_details
 
+def get_ordered_results_with_transpose(result, query):
+    # Extract the query notes and fuzzy parameters    
+    query_notes = extract_notes_from_query(query)
+    pitch_gap, duration_gap, sequencing_gap, alpha, allow_transpose = extract_fuzzy_parameters(query)
+
+    # Compute the intervals between consecutive notes
+    intervals = []
+    for i in range(len(query_notes) - 1):
+        note1, octave1, _ = query_notes[i]
+        note2, octave2, _ = query_notes[i + 1]
+        interval = calculate_pitch_interval(note1, octave1, note2, octave2)
+        intervals.append(interval)
+
+    note_sequences = []
+    for record in result:
+        note_sequence = []
+        for idx in range(len(query_notes)):
+            pitch = record[f"pitch_{idx}"]
+            octave = record[f"octave_{idx}"]
+            duration = record[f"duration_{idx}"]
+            start = record[f"start_{idx}"]
+            end = record[f"end_{idx}"]
+            note = Note(pitch, octave, duration, start, end)
+            if idx == 0:
+                interval = None
+            else:
+                interval = record[f"interval_{idx - 1}"]
+            note_sequence.append((note, interval))
+        note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
+
+    sequence_details = []
+
+    for seq_idx, (note_sequence, source, start, end) in enumerate(note_sequences):
+        note_degrees = []
+        note_details = []  # Buffer to store note details before writing
+        for idx, (note, interval) in enumerate(note_sequence):
+            query_note = query_notes[idx]
+            if idx == 0:
+                # When considering transposition, the first note always has its pitch degree equal to 1.0
+                pitch_deg = 1.0
+            else:
+                pitch_deg = pitch_degree_with_intervals(intervals[idx - 1], interval, pitch_gap)
+            duration_deg = duration_degree(query_note[2], note.duration, duration_gap)
+            sequencing_deg = 1.0  # Default sequencing degree
+            
+            if idx > 0:  # Compute sequencing degree for the second and third notes
+                prev_note = note_sequence[idx - 1][0]
+                sequencing_deg = sequencing_degree(prev_note.end, note.start, sequencing_gap)
+            
+            relevant_note_degrees = [degree for degree, gap in [(pitch_deg, pitch_gap), (duration_deg, duration_gap), (sequencing_deg, sequencing_gap)] if gap > 0]
+
+            if len(relevant_note_degrees) > 0:
+                note_deg = aggregate_degrees(average_aggregation, relevant_note_degrees)
+            else :
+                note_deg = 1.0
+            note_degrees.append(note_deg)
+            
+            note_detail = (note, pitch_deg, duration_deg, sequencing_deg, note_deg)
+            note_details.append(note_detail)
+        
+        sequence_degree = aggregate_degrees(average_aggregation, note_degrees)
+        
+        if sequence_degree >= alpha:  # Apply alpha cut
+            sequence_details.append((source, start, end, sequence_degree, note_details))
+    
+    # Sort the sequences by their overall degree in descending order
+    sequence_details.sort(key=lambda x: x[3], reverse=True)
+
+    return sequence_details
+
 def process_results_to_text(result, query):
-    sequence_details = get_ordered_results(result, query)
+    _, _, _, _, allow_transpose = extract_fuzzy_parameters(query)
+
+    if allow_transpose:
+        sequence_details = get_ordered_results_with_transpose(result, query)
+    else:
+        sequence_details = get_ordered_results(result, query)
 
     with open("results.txt", "w") as file:  # Open in write mode to clear the file
         for source, start, end, sequence_degree, note_details in sequence_details:
@@ -83,7 +158,12 @@ def process_results_to_text(result, query):
 
 
 def process_results_to_mp3(result, query, max_files, driver):
-    sequence_details = get_ordered_results(result, query)
+    _, _, _, _, allow_transpose = extract_fuzzy_parameters(query)
+
+    if allow_transpose:
+        sequence_details = get_ordered_results_with_transpose(result, query)
+    else:
+        sequence_details = get_ordered_results(result, query)
 
     if len(sequence_details) > max_files:
         # Limit the number of files to generate

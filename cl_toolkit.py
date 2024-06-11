@@ -23,11 +23,15 @@ def write_fuzzy_pattern_query():
     pitch_distance = float(input("Enter pitch distance (default 0.0): ") or "0.0")
     duration_distance = float(input("Enter duration distance (default 0.0): ") or "0.0")
     duration_gap = float(input("Enter duration gap (default 0.0): ") or "0.0")
+    
+    allow_transposition_input = input("Allow transposition? (y/n): ") or "n"
+    allow_transposition = allow_transposition_input.lower() == 'y'
+    
     alpha = float(input("Enter alpha (default 0.0): ") or "0.0")
     
-    query = create_query_from_list_of_notes(notes, pitch_distance, duration_distance, duration_gap, alpha)
+    query = create_query_from_list_of_notes(notes, pitch_distance, duration_distance, duration_gap, alpha, allow_transposition)
     print(query)
-    save_option = (input("Do you want to save the query to fuzzy_query.cypher? (y/n): ") or "y")
+    save_option = input("Do you want to save the query to fuzzy_query.cypher? (y/n, default y): ") or "y"
     if save_option.lower() == 'y':
         with open("fuzzy_query.cypher", "w") as file:
             file.write(query)
@@ -56,7 +60,7 @@ def get_query_result(driver):
     confirm = (input("Do you want to proceed? (y/n): ") or "y")
     if confirm.lower() == 'y':
         result = run_query(driver, crisp_query)
-        output_format = input("Do you want the results in text (t) or as MP3 files (m)? ")
+        output_format = (input("Do you want the results in text (t) or as MP3 files (m)? ") or "t")
         if output_format.lower() == 't':
             process_results_to_text(result, fuzzy_query)
         elif output_format.lower() == 'm':
@@ -81,8 +85,12 @@ def get_first_k_notes_of_song(driver):
         pitch_distance = float(input("Enter pitch distance (default 0.0): ") or "0.0")
         duration_distance = float(input("Enter duration distance (default 0.0): ") or "0.0")
         duration_gap = float(input("Enter duration gap (default 0.0): ") or "0.0")
+            
+        allow_transposition_input = input("Allow transposition? (y/n): ") or "n"
+        allow_transposition = allow_transposition_input.lower() == 'y'
+
         alpha = float(input("Enter alpha (default 0.0): ") or "0.0")
-        query = create_query_from_list_of_notes(result, pitch_distance, duration_distance, duration_gap, alpha)
+        query = create_query_from_list_of_notes(result, pitch_distance, duration_distance, duration_gap, alpha, allow_transposition)
         print(query)
         with open("fuzzy_query.cypher", "w") as file:
             file.write(query)
