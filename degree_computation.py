@@ -49,7 +49,6 @@ def duration_degree_with_multiplicative_factor(expected_duration, duration, fact
 
     # Calculate the degree based on the duration gap
     degree = max(1 - (duration_difference / (max_duration_distance + max_duration_distance*0.1)), 0)
-    print(f"{degree}, actual computation = 1 - ({duration_difference} / ({max_duration_distance} + {max_duration_distance}*0.1)) = {1 - (duration_difference / (max_duration_distance + max_duration_distance*0.1))} ")
     return degree
 
 def sequencing_degree(end_time1, start_time2, max_gap):

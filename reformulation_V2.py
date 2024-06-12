@@ -81,7 +81,6 @@ def reformulate_with_transposition(query):
     
     # Extract notes using the new function
     notes = extract_notes_from_query(query)
-    print(notes)
     
     # Compute the intervals between consecutive notes
     intervals = []
