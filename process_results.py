@@ -3,7 +3,7 @@ import shutil
 
 from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters
 from note import Note
-from degree_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees, aggregate_degrees, pitch_degree_with_intervals
+from degree_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees, aggregate_degrees, pitch_degree_with_intervals, duration_degree_with_multiplicative_factor
 from generate_audio import generate_mp3
 from utils import get_notes_from_source_and_time_interval, calculate_pitch_interval
 
@@ -16,7 +16,7 @@ def average_aggregation(*degrees):
 def get_ordered_results(result, query):
     # Extract the query notes and fuzzy parameters    
     query_notes = extract_notes_from_query(query)
-    pitch_gap, duration_gap, sequencing_gap, alpha, allow_transpose = extract_fuzzy_parameters(query)
+    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose = extract_fuzzy_parameters(query)
 
     note_sequences = []
     for record in result:
@@ -39,14 +39,14 @@ def get_ordered_results(result, query):
         for idx, note in enumerate(note_sequence):
             query_note = query_notes[idx]
             pitch_deg = pitch_degree(query_note[0], query_note[1], note.pitch, note.octave, pitch_gap)
-            duration_deg = duration_degree(query_note[2], note.duration, duration_gap)
+            duration_deg = duration_degree_with_multiplicative_factor(query_note[2], note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             
             if idx > 0:  # Compute sequencing degree for the second and third notes
                 prev_note = note_sequence[idx - 1]
                 sequencing_deg = sequencing_degree(prev_note.end, note.start, sequencing_gap)
             
-            relevant_note_degrees = [degree for degree, gap in [(pitch_deg, pitch_gap), (duration_deg, duration_gap), (sequencing_deg, sequencing_gap)] if gap > 0]
+            relevant_note_degrees = [degree for degree, gap in [(pitch_deg, pitch_gap), (duration_deg, duration_factor), (sequencing_deg, sequencing_gap)] if gap > 0]
 
             if len(relevant_note_degrees) > 0:
                 note_deg = aggregate_degrees(average_aggregation, relevant_note_degrees)
@@ -70,7 +70,7 @@ def get_ordered_results(result, query):
 def get_ordered_results_with_transpose(result, query):
     # Extract the query notes and fuzzy parameters    
     query_notes = extract_notes_from_query(query)
-    pitch_gap, duration_gap, sequencing_gap, alpha, allow_transpose = extract_fuzzy_parameters(query)
+    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose = extract_fuzzy_parameters(query)
 
     # Compute the intervals between consecutive notes
     intervals = []
@@ -109,14 +109,14 @@ def get_ordered_results_with_transpose(result, query):
                 pitch_deg = 1.0
             else:
                 pitch_deg = pitch_degree_with_intervals(intervals[idx - 1], interval, pitch_gap)
-            duration_deg = duration_degree(query_note[2], note.duration, duration_gap)
+            duration_deg = duration_degree_with_multiplicative_factor(query_note[2], note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             
             if idx > 0:  # Compute sequencing degree for the second and third notes
                 prev_note = note_sequence[idx - 1][0]
                 sequencing_deg = sequencing_degree(prev_note.end, note.start, sequencing_gap)
             
-            relevant_note_degrees = [degree for degree, gap in [(pitch_deg, pitch_gap), (duration_deg, duration_gap), (sequencing_deg, sequencing_gap)] if gap > 0]
+            relevant_note_degrees = [degree for degree, gap in [(pitch_deg, pitch_gap), (duration_deg, duration_factor), (sequencing_deg, sequencing_gap)] if gap > 0]
 
             if len(relevant_note_degrees) > 0:
                 note_deg = aggregate_degrees(average_aggregation, relevant_note_degrees)

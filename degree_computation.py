@@ -28,15 +28,28 @@ def pitch_degree_with_intervals(interval1, interval2, pitch_gap):
     return max(1 - (abs(interval1 - interval2)/(pitch_gap + pitch_gap*0.1)), 0)
   
 
-def duration_degree(duration1, duration2, duration_gap):
-    if duration_gap == 0:
+def duration_degree(duration1, duration2, max_duration_distance):
+    if max_duration_distance == 0:
         return 1.0
     # Calculate the absolute difference between the two durations
     duration_difference = abs(duration1 - duration2)
     
     # Calculate the degree based on the duration gap
-    degree = max(1 - (duration_difference / (duration_gap + duration_gap*0.1)), 0)
+    degree = max(1 - (duration_difference / (max_duration_distance + max_duration_distance*0.1)), 0)
     
+    return degree
+
+def duration_degree_with_multiplicative_factor(expected_duration, duration, factor):
+    if factor == 1.0:
+        return 1.0
+    # Calculate the absolute difference between the two durations
+    duration_difference = abs(duration - expected_duration)
+
+    max_duration_distance = abs(expected_duration - expected_duration*factor)
+
+    # Calculate the degree based on the duration gap
+    degree = max(1 - (duration_difference / (max_duration_distance + max_duration_distance*0.1)), 0)
+    print(f"{degree}, actual computation = 1 - ({duration_difference} / ({max_duration_distance} + {max_duration_distance}*0.1)) = {1 - (duration_difference / (max_duration_distance + max_duration_distance*0.1))} ")
     return degree
 
 def sequencing_degree(end_time1, start_time2, max_gap):
@@ -61,28 +74,4 @@ def aggregate_degrees(aggregation_fn, degree_list):
     return aggregation_fn(*degree_list)
 
 if __name__ == "__main__":
-    # # Test Example
-    # note1 = 'c'
-    # octave1 = 4
-    # note2 = 'd'
-    # octave2 = 4
-    # pitch_gap = 1.5
-
-    # degree = pitch_degree(note1, octave1, note2, octave2, pitch_gap)
-    # print(f"The pitch degree between {note1}{octave1} and {note2}{octave2} is {degree}.")
-
-    # # Test Example
-    # duration1 = 0.5  # Half note
-    # duration2 = 0.375  # Three-eighths note
-    # duration_gap = 0.25  # Allowed gap as a fraction of a whole note
-
-    # degree = duration_degree(duration1, duration2, duration_gap)
-    # print(f"Duration Degree between {duration1} and {duration2} with a gap of {duration_gap} is {degree}")
-
-    # Test Example
-    end_time1 = 1.0  # End time of the first note (whole note)
-    start_time2 = 1.125  # Start time of the second note (slightly after the first note)
-    max_gap = 0.25  # Allowed gap as a fraction of a whole note
-
-    degree = sequencing_degree(end_time1, start_time2, max_gap)
-    print(f"Sequencing Degree between end time {end_time1} and start time {start_time2} with a gap of {max_gap} is {degree}")
+    print(duration_degree_with_multiplicative_factor(0.25, 0.125, 0.5))

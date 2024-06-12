@@ -2,16 +2,16 @@ from neo4j_connection import connect_to_neo4j, run_query
 from generate_audio import generate_mp3
 from note import Note
 
-def create_query_from_list_of_notes(notes, pitch_distance, duration_distance, duration_gap, alpha, allow_transposition):
+def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition):
     # In : a list of notes (as class, octave, duration triples), gaps and alpha parameters
     # Out : a fuzzy query searching for the notes with the parameters
     if allow_transposition:
         print("ok")
         match_clause = "MATCH\n ALLOW_TRANSPOSITION\n TOLERANT pitch={}, duration={}, gap={}\n ALPHA {}\n".format(
-            pitch_distance, duration_distance, duration_gap, alpha)
+            pitch_distance, duration_factor, duration_gap, alpha)
     else:
         match_clause = "MATCH\n TOLERANT pitch={}, duration={}, gap={}\n ALPHA {}\n".format(
-            pitch_distance, duration_distance, duration_gap, alpha)
+            pitch_distance, duration_factor, duration_gap, alpha)
 
     events = []
     facts = []

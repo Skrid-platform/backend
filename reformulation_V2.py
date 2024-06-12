@@ -1,5 +1,5 @@
 from find_nearby_pitches import find_frequency_bounds
-from find_duration_range import find_duration_range_decimal
+from find_duration_range import find_duration_range_decimal, find_duration_range_multiplicative_factor
 from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters
 from utils import calculate_pitch_interval
 
@@ -18,7 +18,7 @@ def reformulate_cypher_query(query):
 
 def reformulate_without_transposition(query):
     # Extract the parameters from the augmented query
-    pitch_distance, duration_distance, duration_gap, alpha, allow_transposition = extract_fuzzy_parameters(query)
+    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition = extract_fuzzy_parameters(query)
     
     # Extract notes using the new function
     notes = extract_notes_from_query(query)
@@ -34,11 +34,11 @@ def reformulate_without_transposition(query):
         frequency_condition = f"f{idx}.frequency >= {min_frequency - epsilon} AND f{idx}.frequency <= {max_frequency + epsilon}"
     
         #Prepare the duration conditions
-        if duration_distance > 0:
-            min_duration, max_duration = find_duration_range_decimal(duration, duration_distance)
+        if duration_factor != 1:
+            min_duration, max_duration = find_duration_range_multiplicative_factor(duration, duration_factor)
             duration_condition = f"e{idx}.duration >= {min_duration} AND e{idx}.duration <= {max_duration}"
         else:
-            duration = find_duration_range_decimal(duration, duration_distance)[0]
+            duration = find_duration_range_multiplicative_factor(duration, duration_factor)[0]
             duration_condition = f"e{idx}.duration = {duration}"
         where_clauses.append(f"{frequency_condition} AND {duration_condition}")
         
@@ -77,7 +77,7 @@ def reformulate_without_transposition(query):
 
 def reformulate_with_transposition(query):
     # Extract the parameters from the augmented query
-    pitch_distance, duration_distance, duration_gap, alpha, allow_transposition = extract_fuzzy_parameters(query)
+    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition = extract_fuzzy_parameters(query)
     
     # Extract notes using the new function
     notes = extract_notes_from_query(query)
@@ -99,11 +99,12 @@ def reformulate_with_transposition(query):
     epsilon = 0.01
     
     for idx, (note, octave, duration) in enumerate(notes):
-        if duration_distance > 0:
-            min_duration, max_duration = find_duration_range_decimal(duration, duration_distance)
+        #Prepare the duration conditions
+        if duration_factor != 1:
+            min_duration, max_duration = find_duration_range_multiplicative_factor(duration, duration_factor)
             duration_condition = f"e{idx}.duration >= {min_duration} AND e{idx}.duration <= {max_duration}"
         else:
-            duration = find_duration_range_decimal(duration, duration_distance)[0]
+            duration = find_duration_range_multiplicative_factor(duration, duration_factor)[0]
             duration_condition = f"e{idx}.duration = {duration}"
         where_clauses.append(duration_condition)
         

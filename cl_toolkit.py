@@ -21,7 +21,7 @@ def write_fuzzy_pattern_query():
     notes_input = input("Enter the list of notes (as triples e.g., [(c, 5, 1), (d, 5, 4)]): ")
     notes = eval(notes_input)  # Convert string input to list of tuples
     pitch_distance = float(input("Enter pitch distance (default 0.0): ") or "0.0")
-    duration_distance = float(input("Enter duration distance (default 0.0): ") or "0.0")
+    duration_factor = float(input("Enter duration factor (default 1.0): ") or "1.0")
     duration_gap = float(input("Enter duration gap (default 0.0): ") or "0.0")
     
     allow_transposition_input = input("Allow transposition? (y/n): ") or "n"
@@ -29,7 +29,7 @@ def write_fuzzy_pattern_query():
     
     alpha = float(input("Enter alpha (default 0.0): ") or "0.0")
     
-    query = create_query_from_list_of_notes(notes, pitch_distance, duration_distance, duration_gap, alpha, allow_transposition)
+    query = create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition)
     print(query)
     save_option = input("Do you want to save the query to fuzzy_query.cypher? (y/n, default y): ") or "y"
     if save_option.lower() == 'y':
@@ -83,14 +83,14 @@ def get_first_k_notes_of_song(driver):
     save_option = (input("Do you want to save a fuzzy query searching for this pattern ? (y/n): ") or "y")
     if save_option.lower() == 'y':
         pitch_distance = float(input("Enter pitch distance (default 0.0): ") or "0.0")
-        duration_distance = float(input("Enter duration distance (default 0.0): ") or "0.0")
+        duration_factor = float(input("Enter duration factor (default 1.0): ") or "1.0")
         duration_gap = float(input("Enter duration gap (default 0.0): ") or "0.0")
             
         allow_transposition_input = input("Allow transposition? (y/n): ") or "n"
         allow_transposition = allow_transposition_input.lower() == 'y'
 
         alpha = float(input("Enter alpha (default 0.0): ") or "0.0")
-        query = create_query_from_list_of_notes(result, pitch_distance, duration_distance, duration_gap, alpha, allow_transposition)
+        query = create_query_from_list_of_notes(result, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition)
         print(query)
         with open("fuzzy_query.cypher", "w") as file:
             file.write(query)

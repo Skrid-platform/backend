@@ -17,8 +17,16 @@ def find_duration_range_decimal(duration, max_distance):
 
     return actual_min_duration, actual_max_duration
 
+def find_duration_range_multiplicative_factor(duration, factor):
+    if factor < 1:
+        min_duration, max_duration = duration * factor, duration
+    else:
+        min_duration, max_duration = duration, duration * factor
+    
+    return min_duration, max_duration
+
 if __name__ == "__main__":
     # Example usage:
-    duration = 4
-    max_distance = 0.125  # maximum time distance in terms of fraction of whole note (0.5, 0.125, etc)
-    print(find_duration_range_decimal(duration, max_distance))
+    duration = 0.25
+    factor = 0.5
+    print(find_duration_range_multiplicative_factor(duration, factor))
