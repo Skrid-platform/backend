@@ -13,10 +13,45 @@ def min_aggregation(*degrees):
 def average_aggregation(*degrees):
     return sum(degrees) / len(degrees)
 
+def almost_all(degree):
+    high_bound, low_bound = 0.5, 0.8
+    if degree > high_bound:
+        return 1.0
+    elif degree < low_bound:
+        return 0.0
+    else:
+        return (degree - low_bound) / (high_bound - low_bound)
+
+def almost_all_aggregation(*degrees):
+    average = sum(degrees) / len(degrees)
+    return almost_all(average)
+
+
+def almost_all_aggregation_yager(*degrees):
+    # Sort the degrees in ascending order and get distinct values
+    sorted_degrees = sorted(set(degrees))
+
+    # Initialize the result
+    max_min_alpha_degree = 0
+
+    # Iterate over all distinct alpha cuts
+    for alpha in sorted_degrees:
+        # Compute the alpha cut
+        A_alpha = [degree for degree in degrees if degree >= alpha]
+        # Calculate the degree of the alpha cut
+        A_alpha_degree = almost_all(len(A_alpha) / len(sorted_degrees))
+        print(f"alpha = {alpha}, A_alpha = {A_alpha}, degree = {A_alpha_degree} for mean = {len(A_alpha) / len(degrees)}")
+        # Calculate min
+        min_alpha_degree = min(alpha, A_alpha_degree)
+        # Update the maximum of these minimum values
+        max_min_alpha_degree = max(max_min_alpha_degree, min_alpha_degree)
+
+    return max_min_alpha_degree
+
 def get_ordered_results(result, query):
     # Extract the query notes and fuzzy parameters    
     query_notes = extract_notes_from_query(query)
-    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose = extract_fuzzy_parameters(query)
+    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, fixed_notes = extract_fuzzy_parameters(query)
 
     note_sequences = []
     for record in result:
@@ -49,7 +84,7 @@ def get_ordered_results(result, query):
             relevant_note_degrees = [degree for degree, gap in [(pitch_deg, pitch_gap), (duration_deg, duration_factor), (sequencing_deg, sequencing_gap)] if gap > 0]
 
             if len(relevant_note_degrees) > 0:
-                note_deg = aggregate_degrees(average_aggregation, relevant_note_degrees)
+                note_deg = aggregate_degrees(min_aggregation, relevant_note_degrees)
             else :
                 note_deg = 1.0
             note_degrees.append(note_deg)
@@ -70,7 +105,7 @@ def get_ordered_results(result, query):
 def get_ordered_results_with_transpose(result, query):
     # Extract the query notes and fuzzy parameters    
     query_notes = extract_notes_from_query(query)
-    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose = extract_fuzzy_parameters(query)
+    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, fixed_notes = extract_fuzzy_parameters(query)
 
     # Compute the intervals between consecutive notes
     intervals = []
@@ -119,7 +154,7 @@ def get_ordered_results_with_transpose(result, query):
             relevant_note_degrees = [degree for degree, gap in [(pitch_deg, pitch_gap), (duration_deg, duration_factor), (sequencing_deg, sequencing_gap)] if gap > 0]
 
             if len(relevant_note_degrees) > 0:
-                note_deg = aggregate_degrees(average_aggregation, relevant_note_degrees)
+                note_deg = aggregate_degrees(min_aggregation, relevant_note_degrees)
             else :
                 note_deg = 1.0
             note_degrees.append(note_deg)
@@ -138,7 +173,7 @@ def get_ordered_results_with_transpose(result, query):
     return sequence_details
 
 def process_results_to_text(result, query):
-    _, _, _, _, allow_transpose = extract_fuzzy_parameters(query)
+    _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:
         sequence_details = get_ordered_results_with_transpose(result, query)
@@ -158,7 +193,7 @@ def process_results_to_text(result, query):
 
 
 def process_results_to_mp3(result, query, max_files, driver):
-    _, _, _, _, allow_transpose = extract_fuzzy_parameters(query)
+    _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:
         sequence_details = get_ordered_results_with_transpose(result, query)
@@ -180,3 +215,9 @@ def process_results_to_mp3(result, query, max_files, driver):
         notes = get_notes_from_source_and_time_interval(driver, source, start, end)
         file_name = f"{source}_{start}_{end}_{round(sequence_degree, 2)}.mp3"
         generate_mp3(notes, file_name, bpm=60)
+
+if __name__ == "__main__":
+    # Example usage
+    degrees = [0.7, 0.3, 1, 0.3, 0.7, 0.3]
+    result = almost_all_aggregation_yager(*degrees)
+    print(result)
