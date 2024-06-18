@@ -20,8 +20,10 @@ def find_duration_range_decimal(duration, max_distance):
 def find_duration_range_multiplicative_factor(duration, factor):
     if factor < 1:
         min_duration, max_duration = duration * factor, duration
-    else:
+    elif factor > 1:
         min_duration, max_duration = duration, duration * factor
+    else:
+        min_duration, max_duration = duration, duration
     
     return min_duration, max_duration
 

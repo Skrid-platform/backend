@@ -19,12 +19,17 @@ def extract_fuzzy_parameters(query):
     # Check for the ALLOW_TRANSPOSITION keyword
     allow_transposition = bool(re.search(r'ALLOW_TRANSPOSITION', query))
 
-    return pitch_distance, duration_factor, duration_gap, alpha, allow_transposition
+    # Extract fixed notes information
+    note_pattern = r"\{class:'(\w+)',octave:(\d+), dur:(\d+\.\d+|\d+)\}\)( FIXED)?"
+    matches = re.findall(note_pattern, query)
+    fixed_notes = [bool(fixed) for _, _, _, fixed in matches]
+
+    return pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, fixed_notes
 
 
 if __name__ == "__main__":
     # Get the query
-    with open('query.cypher', 'r') as file:
+    with open('fuzzy_query.cypher', 'r') as file:
         augmented_query = file.read()
     
     print(extract_fuzzy_parameters(augmented_query))

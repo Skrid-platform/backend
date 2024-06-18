@@ -6,19 +6,19 @@ from utils import calculate_pitch_interval
 import re
 
 def reformulate_cypher_query(query):
-    _, _, _, _, allow_transposition = extract_fuzzy_parameters(query)
+    _, _, _, _, allow_transposition, _ = extract_fuzzy_parameters(query)
 
     if allow_transposition:
         return reformulate_with_transposition(query)
     else:
         return reformulate_without_transposition(query)
 
-def make_duration_condition(duration_factor, duration, idx):
-    if duration_factor != 1:
+def make_duration_condition(duration_factor, duration, idx, fixed):
+    if duration_factor != 1 and not fixed:
         min_duration, max_duration = find_duration_range_multiplicative_factor(duration, duration_factor)
         res = f"e{idx}.duration >= {min_duration} AND e{idx}.duration <= {max_duration}"
     else:
-        duration = find_duration_range_multiplicative_factor(duration, duration_factor)[0]
+        duration = find_duration_range_multiplicative_factor(duration, 1.0)[0]
         res = f"e{idx}.duration = {duration}"
     return res
 
@@ -29,7 +29,7 @@ def make_sequencing_condition(duration_gap, idx):
 
 def reformulate_without_transposition(query):
     # Extract the parameters from the augmented query
-    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition = extract_fuzzy_parameters(query)
+    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, fixed_notes = extract_fuzzy_parameters(query)
     
     # Extract notes using the new function
     notes = extract_notes_from_query(query)
@@ -51,11 +51,14 @@ def reformulate_without_transposition(query):
     epsilon = 0.01
     for idx, (note, octave, duration) in enumerate(notes):
         # Prepare the frequency conditions
-        min_frequency, max_frequency = find_frequency_bounds(note, octave, pitch_distance)
-        frequency_condition = f"f{idx}.frequency >= {min_frequency - epsilon} AND f{idx}.frequency <= {max_frequency + epsilon}"
+        if not fixed_notes[idx]:
+            min_frequency, max_frequency = find_frequency_bounds(note, octave, pitch_distance)
+        else:
+            min_frequency, max_frequency = find_frequency_bounds(note, octave, 0)
+        frequency_condition = f"f{idx}.frequency >= {round(min_frequency - epsilon, 2)} AND f{idx}.frequency <= {round(max_frequency + epsilon, 2)}"
     
         #Prepare the duration conditions
-        duration_condition = make_duration_condition(duration_factor, duration, idx)
+        duration_condition = make_duration_condition(duration_factor, duration, idx, fixed_notes[idx])
 
         # Adding sequencing conditions
         if idx < len(notes) - 1 and duration_gap > 0:
@@ -89,7 +92,7 @@ def reformulate_without_transposition(query):
 
 def reformulate_with_transposition(query):
     # Extract the parameters from the augmented query
-    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition = extract_fuzzy_parameters(query)
+    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, fixed_notes = extract_fuzzy_parameters(query)
     
     # Extract notes using the new function
     notes = extract_notes_from_query(query)
@@ -129,16 +132,16 @@ def reformulate_with_transposition(query):
     where_clauses = []
     for idx, (note, octave, duration) in enumerate(notes):
         #Prepare the duration conditions
-        duration_condition = make_duration_condition(duration_factor, duration, idx)
+        duration_condition = make_duration_condition(duration_factor, duration, idx, fixed_notes[idx])
         if idx < len(notes) - 1:
             if duration_gap > 0:
-                if pitch_distance > 0:
+                if pitch_distance > 0 and not fixed_notes[idx]:
                     interval_condition = f"totalInterval_{idx} <= {intervals[idx]} + {pitch_distance} AND totalInterval_{idx} >= {intervals[idx]} - {pitch_distance}"
                 else:
                     interval_condition = f"totalInterval_{idx} = {intervals[idx]}"
             else:
                 # Construct interval conditions for direct connections
-                if pitch_distance > 0:
+                if pitch_distance > 0 and not fixed_notes[idx]:
                     interval_condition = f"r{idx}.interval <= {intervals[idx]} + {pitch_distance} AND r{idx}.interval >= {intervals[idx]} - {pitch_distance}"
                 else:
                     interval_condition = f"r{idx}.interval = {intervals[idx]}"
