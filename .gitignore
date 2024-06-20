@@ -2,3 +2,5 @@
 *.mp3
 *.pyc
 *.txt
+
+__pycache__/
