@@ -98,7 +98,7 @@ class Parser:
             # prog='UnfuzzyQuery',
             description='Compiles fuzzy queries to cypher queries',
             # epilog='Examples :\n\tSearchWord word\n\tSearchWord "example of string" -e .py;.txt\n\tSearchWord someword -x .pyc -sn',
-            #TODO: Add examples !
+            epilog='''Examples :\n\tget help on a subcommand  : python3 main_parser.py compile -h\n\tcompile a query from file : python3 main_parser.py compile -F fuzzy_query.cypher -o crisp_query.cypher\n\tsend a query              : python3 main_parser.py send -F crisp_query.cypher -o result.txt\n\tsend a query 2            : python3 main_parser.py -u user -p pwd send -F -f fuzzy_query.cypher -o result.mp3\n\twrite a fuzzy query       : python3 main_parser.py write [('c', 5, 1), ('d', 5, 4)] -a 0.5 -t -o fuzzy_query.cypher\n\tget notes from a song     : python3 main_parser.py get Air_n_83_g.mei 5 -o notes\n\tlist all songs            : python3 main_parser.py l\n\tlist all songs (compact)  : python3 main_parser.py l -c''',
             formatter_class=argparse.RawDescriptionHelpFormatter
         )
 
@@ -284,6 +284,16 @@ class Parser:
 
         #---Add arguments
         self.parser_l.add_argument(
+            '-c', '--compact',
+            action='store_true',
+            help='separate songs with ", " instead of newline'
+        )
+        self.parser_l.add_argument(
+            '-n', '--number-per-line',
+            type=int,
+            help='with `-c`, limit to `number-per-line` entries per line.'
+        )
+        self.parser_l.add_argument(
             '-o', '--output',
             help='the filename where to write the result. If omitted, print it to stdout.'
         )
@@ -388,12 +398,24 @@ class Parser:
 
         self.init_driver(args.URI, args.user, args.password)
 
+        if args.number_per_line != None and args.number_per_line <= 0:
+            raise argparse.ArgumentTypeError('argument `-n` takes a strictly positive value !')
+
         query = "MATCH (s:Score) RETURN DISTINCT s.source AS source"
         result = run_query(self.driver, query)
 
         res = ''
-        for record in result:
-            res += record['source'] + '\n'
+        for i, record in enumerate(result):
+            res += record['source']
+
+            if args.compact:
+                if args.number_per_line != None and i % args.number_per_line == 0:
+                    res += '\n'
+                else:
+                    res += ', '
+
+            else:
+                res += '\n'
 
         if args.output == None:
             print(res)
