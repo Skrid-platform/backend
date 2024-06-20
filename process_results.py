@@ -172,7 +172,7 @@ def get_ordered_results_with_transpose(result, query):
 
     return sequence_details
 
-def process_results_to_text(result, query):
+def process_results_to_text(result, query, fn='results.txt'):
     _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:
@@ -180,7 +180,7 @@ def process_results_to_text(result, query):
     else:
         sequence_details = get_ordered_results(result, query)
 
-    with open("results.txt", "w") as file:  # Open in write mode to clear the file
+    with open(fn, "w") as file:  # Open in write mode to clear the file
         for source, start, end, sequence_degree, note_details in sequence_details:
             file.write(f"Source: {source}, Start: {start}, End: {end}, Overall Degree: {sequence_degree}\n")
             for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg) in enumerate(note_details):

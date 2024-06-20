@@ -2,10 +2,16 @@
 # -*- coding: utf-8 -*-
 
 ##-Imports
+#---General
 import argparse
 from os.path import exists
+from ast import literal_eval # safer than eval
 
+#---Project
 from reformulation_V2 import reformulate_cypher_query
+from neo4j_connection import connect_to_neo4j, run_query
+from process_results import process_results_to_text, process_results_to_mp3
+from utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes
 
 ##-Init
 # version = '1.0'
@@ -45,6 +51,39 @@ def write_to_file(fn, content):
 
     with open(fn, 'w') as f:
         f.write(content)
+
+def check_notes_input_format(notes_input):
+    '''
+    Ensure that `notes_input` is in the correct format : [(char, int, int), ...].
+    If not, raise an argparse.ArgumentTypeError.
+
+    Input :
+        - notes_input : the user input (a string, not passed through literal_eval yet).
+
+    Output :
+        - a list of (char, int, int)  if the format is right ;
+        - argparse.ArgumentTypeError  otherwise.
+    '''
+
+    format_notes = 'Notes format: triples list: [(class, octave, duration), ...]. E.g [(\'c\', 5, 1), (\'d\', 5, 4)]'
+
+    try:
+        notes = literal_eval(notes_input)
+
+        for i, note in enumerate(notes):
+            if type(note[0]) != str or len(note[0]) != 1:
+                raise argparse.ArgumentTypeError(f'error with note {i}: "{note[0]}" is not a class.\n' + format_notes)
+
+            if type(note[1]) != int:
+                raise argparse.ArgumentTypeError(f'error with note {i}: "{note[1]}" is not an int\n' + format_notes)
+
+            if type(note[2]) != int:
+                raise argparse.ArgumentTypeError(f'error with note {i}: "{note[2]}" is not an int\n' + format_notes)
+
+    except Exception:
+        raise argparse.ArgumentTypeError('The input notes are not in the correct format !\n' + format_notes)
+
+    return notes
 
 ##-Parser
 class Parser:
@@ -96,6 +135,17 @@ class Parser:
         self.create_get();
         self.create_list();
 
+    def init_driver(self, uri, user, password):
+        '''
+        Creates self.driver.
+
+        - uri      : the uri of the database ;
+        - user     : the username to access the database ;
+        - password : the password to access the database.
+        '''
+
+        self.driver = connect_to_neo4j(uri, user, password)
+
 
     def create_compile(self):
         '''Creates the compile subparser and add its arguments.'''
@@ -145,6 +195,12 @@ class Parser:
             '-o', '--output',
             help='give a filename where to write result. The extension has to be ".txt" (in which case the result is saved as text) or ".mp3" (in which case the result is saved as mp3). If omitted, the json is printed to stdout.'
         )
+        self.parser_s.add_argument(
+            '-m', '--max-files',
+            type=int,
+            default=1,
+            help='the maximum number of files when storing .mp3. Default : 1.'
+        )
 
     def create_write(self):
         '''Creates the write subparser and add its arguments.'''
@@ -155,7 +211,7 @@ class Parser:
         #---Add arguments
         self.parser_w.add_argument(
             'NOTES',
-            help='notes as triples list : [(class, octave, duration), ...]. E.g [(c, 5, 1), (d, 5, 4)]'
+            help='notes as triples list : [(class, octave, duration), ...]. E.g [(\'c\', 5, 1), (\'d\', 5, 4)]'
         )
 
         self.parser_w.add_argument(
@@ -226,12 +282,19 @@ class Parser:
         #---Init
         self.parser_l = self.subparsers.add_parser('list', aliases=['l'], help='list the available songs')
 
+        #---Add arguments
+        self.parser_l.add_argument(
+            '-o', '--output',
+            help='the filename where to write the result. If omitted, print it to stdout.'
+        )
+
 
     def parse(self):
         '''Parse the args'''
 
         #---Get arguments
         args = self.parser.parse_args()
+        # print(args)
 
         #---Redirect towards the right method
         if args.subparser in ('c', 'compile'):
@@ -268,22 +331,74 @@ class Parser:
     def parse_send(self, args):
         '''Parse the args for the send mode'''
 
-        pass
+        if args.file:
+            query = get_file_content(args.QUERY)
+        else:
+            query = args.QUERY
+
+        if args.fuzzy:
+            query = reformulate_cypher_query(query)
+
+        self.init_driver(args.URI, args.user, args.password)
+        res = run_query(self.driver, query)
+
+        if args.output == None:
+            print(res)
+
+        else:
+            if args.output[-4:] == '.txt':
+                # write_to_file(args.output, res)
+                process_results_to_text(res, query, args.output)
+
+            elif args.output[-4:] == '.mp3':
+                process_results_to_mp3(res, query, args.max_files, self.driver)
 
     def parse_write(self, args):
         '''Parse the args for the write mode'''
 
-        pass
+        if args.file:
+            notes_input = get_file_content(args.NOTES)
+        else:
+            notes_input = args.NOTES
+
+        notes = check_notes_input_format(notes_input)
+        query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition)
+
+        if args.output == None:
+            print(query)
+        else:
+            write_to_file(args.output, query)
 
     def parse_get(self, args):
         '''Parse the args for the get mode'''
 
-        pass
+        self.init_driver(args.URI, args.user, args.password)
+
+        #TODO: check that args.NAME is in the list ...
+
+        res = get_first_k_notes_of_each_score(args.NUMBER, args.NAME, self.driver)
+
+        if args.output == None:
+            print(res)
+        else:
+            write_to_file(args.output, res)
 
     def parse_list(self, args):
         '''Parse the args for the list mode'''
 
-        pass
+        self.init_driver(args.URI, args.user, args.password)
+
+        query = "MATCH (s:Score) RETURN DISTINCT s.source AS source"
+        result = run_query(self.driver, query)
+
+        res = ''
+        for record in result:
+            res += record['source'] + '\n'
+
+        if args.output == None:
+            print(res)
+        else:
+            write_to_file(args.output, res)
 
 
     # class Version(argparse.Action):
