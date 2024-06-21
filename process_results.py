@@ -172,7 +172,7 @@ def get_ordered_results_with_transpose(result, query):
 
     return sequence_details
 
-def process_results_to_text(result, query, fn='results.txt'):
+def process_results_to_text_old(result, query, fn='results.txt'):
     _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:
@@ -190,6 +190,35 @@ def process_results_to_text(result, query, fn='results.txt'):
                 file.write(f"    Sequencing Degree: {sequencing_deg}\n")
                 file.write(f"    Aggregated Note Degree: {note_deg}\n")
             file.write("\n")  # Add a blank line between sequences
+
+def process_results_to_text(result, query):
+    '''
+    Process the results of the query and return a readable string.
+
+    - result : the result of the query (list from `run_query`) ;
+    - query  : the *fuzzy* query (to extract info from it).
+    '''
+    _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
+
+    if allow_transpose:
+        sequence_details = get_ordered_results_with_transpose(result, query)
+    else:
+        sequence_details = get_ordered_results(result, query)
+
+    res = ''
+    for source, start, end, sequence_degree, note_details in sequence_details:
+        res += f"Source: {source}, Start: {start}, End: {end}, Overall Degree: {sequence_degree}\n"
+
+        for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg) in enumerate(note_details):
+            res += f"  Note {idx + 1}: {note}\n"
+            res += f"    Pitch Degree: {pitch_deg}\n"
+            res += f"    Duration Degree: {duration_deg}\n"
+            res += f"    Sequencing Degree: {sequencing_deg}\n"
+            res += f"    Aggregated Note Degree: {note_deg}\n"
+
+        res += "\n" # Add a blank line between sequences
+
+    return res
 
 
 def process_results_to_mp3(result, query, max_files, driver):

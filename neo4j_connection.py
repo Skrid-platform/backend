@@ -9,4 +9,5 @@ def connect_to_neo4j(uri, user, password):
 def run_query(driver, query):
     with driver.session() as session:
         result = session.run(query)
+        # return result.data()
         return list(result)  # Collect all records into a list

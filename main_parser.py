@@ -7,6 +7,9 @@ import argparse
 from os.path import exists
 from ast import literal_eval # safer than eval
 
+# import neo4j.exceptions.CypherSyntaxError
+import neo4j
+
 #---Project
 from reformulation_V2 import reformulate_cypher_query
 from neo4j_connection import connect_to_neo4j, run_query
@@ -210,6 +213,7 @@ class Parser:
         )
         self.parser_s.add_argument(
             '-m', '--mp3',
+            type=int,
             help='save the result as mp3 files. MP3 is the maximum number of files to write.'
         )
 
@@ -358,23 +362,35 @@ class Parser:
 
         if args.fuzzy:
             try:
-                query = reformulate_cypher_query(query)
+                crisp_query = reformulate_cypher_query(query)
             except:
                 print('parse_send: compile query: error: query may not be correctly written')
                 return
 
+        else:
+            crisp_query = query
+
         self.init_driver(args.URI, args.user, args.password)
-        res = run_query(self.driver, query)
+
+        try:
+            res = run_query(self.driver, crisp_query)
+        except neo4j.exceptions.CypherSyntaxError as err:
+            print('parse_send: query syntax error: ' + str(err))
+            return
 
         if args.text_output == None and args.mp3 == None:
-            print(res)
+            # print(res)
+            for k in res:
+                print(k)
 
         else:
             if args.text_output != None:
-                # write_to_file(args.output, res)
-                process_results_to_text(res, query, args.text_output) #TODO: query has to be a fuzzy one for this function !
+                processed_res = process_results_to_text(res, query) #TODO: won't work if query is not fuzzy.
+                write_to_file(args.text_output, processed_res)
+                # process_results_to_text_old(res, query, args.text_output) #TODO: query has to be a fuzzy one for this function !
 
             if args.mp3 != None:
+                # process_results_to_mp3(res, query, args.mp3, self.driver)
                 process_results_to_mp3(res, query, args.mp3, self.driver)
 
         self.close_driver()
