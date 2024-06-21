@@ -1,5 +1,6 @@
 import os
 import shutil
+import json
 
 from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters
 from note import Note
@@ -191,6 +192,56 @@ def process_results_to_text_old(result, query, fn='results.txt'):
                 file.write(f"    Aggregated Note Degree: {note_deg}\n")
             file.write("\n")  # Add a blank line between sequences
 
+def process_results_to_dict(result, query):
+    '''
+    Process the results of the query and return a sorted list of dictionaries.
+    Each dictionary represent a song.
+
+    - result : the result of the query (list from `run_query`) ;
+    - query  : the *fuzzy* query (to extract info from it).
+    '''
+
+    _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
+
+    if allow_transpose:
+        sequence_details = get_ordered_results_with_transpose(result, query)
+    else:
+        sequence_details = get_ordered_results(result, query)
+    
+    res = []
+    for seq_detail in sequence_details:
+        seq_dict = {}
+        seq_dict['source'] = seq_detail[0]
+        seq_dict['start'] = seq_detail[1]
+        seq_dict['end'] = seq_detail[2]
+        seq_dict['overall_degree'] = seq_detail[3]
+
+        seq_dict['notes'] = []
+        for note_details in seq_detail[4]:
+            note_dict = {}
+            note_dict['note'] = note_details[0].__dict__ #TODO: add the unique mei ID here
+            note_dict['pitch_deg'] = note_details[1]
+            note_dict['duration_deg'] = note_details[2]
+            note_dict['sequencing_deg'] = note_details[3]
+            note_dict['note_deg'] = note_details[4]
+
+            seq_dict['notes'].append(note_dict)
+
+        res.append(seq_dict)
+
+    return res
+
+def process_results_to_json(result, query):
+    '''
+    Process the results of the query and return a sorted list of dictionaries.
+    Each dictionary represent a song.
+
+    - result : the result of the query (list from `run_query`) ;
+    - query  : the *fuzzy* query (to extract info from it).
+    '''
+
+    return json.dumps(process_results_to_dict(result, query))
+
 def process_results_to_text(result, query):
     '''
     Process the results of the query and return a readable string.
@@ -198,6 +249,7 @@ def process_results_to_text(result, query):
     - result : the result of the query (list from `run_query`) ;
     - query  : the *fuzzy* query (to extract info from it).
     '''
+
     _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:

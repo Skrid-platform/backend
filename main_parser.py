@@ -13,7 +13,7 @@ import neo4j
 #---Project
 from reformulation_V2 import reformulate_cypher_query
 from neo4j_connection import connect_to_neo4j, run_query
-from process_results import process_results_to_text, process_results_to_mp3
+from process_results import process_results_to_text, process_results_to_mp3, process_results_to_json
 from utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes
 
 ##-Init
@@ -208,6 +208,11 @@ class Parser:
             help='the query is a fuzzy one. Convert it before sending it.'
         )
         self.parser_s.add_argument(
+            '-r', '--raw',
+            action='store_true',
+            help='display the result in "raw" format: a list of dictionaries. Only available with -f.'
+        )
+        self.parser_s.add_argument(
             '-t', '--text-output',
             help='save the result as text in the file TEXT_OUTPUT'
         )
@@ -380,8 +385,15 @@ class Parser:
 
         if args.text_output == None and args.mp3 == None:
             # print(res)
-            for k in res:
-                print(k)
+            if args.fuzzy:
+                if args.raw:
+                    print(process_results_to_json(res, query))
+                else:
+                    print(process_results_to_text(res, query))
+
+            else:
+                for k in res:
+                    print(k)
 
         else:
             if args.text_output != None:
