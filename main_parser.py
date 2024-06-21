@@ -106,7 +106,7 @@ class Parser:
             # prog='UnfuzzyQuery',
             description='Compiles fuzzy queries to cypher queries',
             # epilog='Examples :\n\tSearchWord word\n\tSearchWord "example of string" -e .py;.txt\n\tSearchWord someword -x .pyc -sn',
-            epilog='''Examples :\n\tget help on a subcommand  : python3 main_parser.py compile -h\n\tcompile a query from file : python3 main_parser.py compile -F fuzzy_query.cypher -o crisp_query.cypher\n\tsend a query              : python3 main_parser.py send -F crisp_query.cypher -o result.txt\n\tsend a query 2            : python3 main_parser.py -u user -p pwd send -F -f fuzzy_query.cypher -o result.mp3\n\twrite a fuzzy query       : python3 main_parser.py write [('c', 5, 1), ('d', 5, 4)] -a 0.5 -t -o fuzzy_query.cypher\n\tget notes from a song     : python3 main_parser.py get Air_n_83_g.mei 5 -o notes\n\tlist all songs            : python3 main_parser.py l\n\tlist all songs (compact)  : python3 main_parser.py l -c''',
+            epilog='''Examples :\n\tget help on a subcommand  : python3 main_parser.py compile -h\n\tcompile a query from file : python3 main_parser.py compile -F fuzzy_query.cypher -o crisp_query.cypher\n\tsend a query              : python3 main_parser.py send -F crisp_query.cypher -t result.txt\n\tsend a query 2            : python3 main_parser.py -u user -p pwd send -F -f fuzzy_query.cypher -t result.txt -m 6\n\twrite a fuzzy query       : python3 main_parser.py write [('c', 5, 1), ('d', 5, 4)] -a 0.5 -t -o fuzzy_query.cypher\n\tget notes from a song     : python3 main_parser.py get Air_n_83_g.mei 5 -o notes\n\tlist all songs            : python3 main_parser.py l\n\tlist all songs (compact)  : python3 main_parser.py l -c''',
             formatter_class=argparse.RawDescriptionHelpFormatter
         )
 
@@ -205,14 +205,12 @@ class Parser:
             help='the query is a fuzzy one. Convert it before sending it.'
         )
         self.parser_s.add_argument(
-            '-o', '--output',
-            help='give a filename where to write result. The extension has to be ".txt" (in which case the result is saved as text) or ".mp3" (in which case the result is saved as mp3). If omitted, the json is printed to stdout.'
+            '-t', '--text-output',
+            help='save the result as text in the file TEXT_OUTPUT'
         )
         self.parser_s.add_argument(
-            '-m', '--max-files',
-            type=int,
-            default=1,
-            help='the maximum number of files when storing .mp3. Default : 1.'
+            '-m', '--mp3',
+            help='save the result as mp3 files. MP3 is the maximum number of files to write.'
         )
 
     def create_write(self):
@@ -368,16 +366,16 @@ class Parser:
         self.init_driver(args.URI, args.user, args.password)
         res = run_query(self.driver, query)
 
-        if args.output == None:
+        if args.text_output == None and args.mp3 == None:
             print(res)
 
         else:
-            if args.output[-4:] == '.txt':
+            if args.text_output != None:
                 # write_to_file(args.output, res)
-                process_results_to_text(res, query, args.output)
+                process_results_to_text(res, query, args.text_output) #TODO: query has to be a fuzzy one for this function !
 
-            elif args.output[-4:] == '.mp3':
-                process_results_to_mp3(res, query, args.max_files, self.driver)
+            if args.mp3 != None:
+                process_results_to_mp3(res, query, args.mp3, self.driver)
 
         self.close_driver()
 
