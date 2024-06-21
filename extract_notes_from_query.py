@@ -11,10 +11,16 @@ def extract_notes_from_query(query):
 
 def extract_fuzzy_parameters(query):
     # Extracting the parameters from the augmented query
-    pitch_distance = float(re.search(r'TOLERANT pitch=(\d+\.\d+|\d+)', query).group(1))
-    duration_factor = float(re.search(r'duration=(\d+\.\d+|\d+)', query).group(1))
-    duration_gap = float(re.search(r'gap=(\d+\.\d+|\d+)', query).group(1))
-    alpha = float(re.search(r'ALPHA (\d+\.\d+)', query).group(1))
+
+    pitch_distance_re = re.search(r'TOLERANT pitch=(\d+\.\d+|\d+)', query)
+    duration_factor_re = re.search(r'duration=(\d+\.\d+|\d+)', query)
+    duration_gap_re = re.search(r'gap=(\d+\.\d+|\d+)', query)
+    alpha_re = re.search(r'ALPHA (\d+\.\d+)', query)
+
+    pitch_distance = 0.0 if pitch_distance_re == None else float(pitch_distance_re.group(1))
+    duration_factor = 1.0 if duration_factor_re == None else float(duration_factor_re.group(1))
+    duration_gap = 0.0 if duration_gap_re == None else float(duration_gap_re.group(1))
+    alpha = 0.0 if alpha_re == None else float(alpha_re.group(1))
 
     # Check for the ALLOW_TRANSPOSITION keyword
     allow_transposition = bool(re.search(r'ALLOW_TRANSPOSITION', query))
