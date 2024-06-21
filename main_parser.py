@@ -85,6 +85,14 @@ def check_notes_input_format(notes_input):
 
     return notes
 
+def list_available_songs(driver):
+    '''Return a list of all the available songs.'''
+
+    query = "MATCH (s:Score) RETURN DISTINCT s.source AS source"
+    result = run_query(driver, query)
+
+    return [record["source"] for record in result]
+
 ##-Parser
 class Parser:
     '''Defines an argument parser'''
@@ -284,14 +292,9 @@ class Parser:
 
         #---Add arguments
         self.parser_l.add_argument(
-            '-c', '--compact',
-            action='store_true',
-            help='separate songs with ", " instead of newline'
-        )
-        self.parser_l.add_argument(
             '-n', '--number-per-line',
             type=int,
-            help='with `-c`, limit to `number-per-line` entries per line.'
+            help='Show NUMBER_PER_LINE songs instead of one. With -n 0, display all on the same line.'
         )
         self.parser_l.add_argument(
             '-o', '--output',
@@ -392,7 +395,8 @@ class Parser:
 
         self.init_driver(args.URI, args.user, args.password)
 
-        #TODO: check that args.NAME is in the list ...
+        if args.NAME not in list_available_songs(self.driver):
+            raise argparse.ArgumentTypeError(f'NAME argument ("{args.NAME}") is not valid (check valid songs with `python3 main_parser.py list`)')
 
         res = get_first_k_notes_of_each_score(args.NUMBER, args.NAME, self.driver)
 
@@ -406,24 +410,21 @@ class Parser:
 
         self.init_driver(args.URI, args.user, args.password)
 
-        if args.number_per_line != None and args.number_per_line <= 0:
-            raise argparse.ArgumentTypeError('argument `-n` takes a strictly positive value !')
+        if args.number_per_line != None and args.number_per_line < 0:
+            raise argparse.ArgumentTypeError('argument `-n` takes a positive value !')
 
-        query = "MATCH (s:Score) RETURN DISTINCT s.source AS source"
-        result = run_query(self.driver, query)
+        songs = list_available_songs(self.driver)
 
         res = ''
-        for i, record in enumerate(result):
-            res += record['source']
+        for i, song in enumerate(songs):
+            res += song
 
-            if args.compact:
-                if args.number_per_line != None and i % args.number_per_line == 0:
-                    res += '\n'
-                else:
-                    res += ', '
-
-            else:
+            if args.number_per_line == 0:
+                res += ', '
+            elif args.number_per_line == None or i % args.number_per_line == 0:
                 res += '\n'
+            else:
+                res += ', '
 
         if args.output == None:
             print(res)
