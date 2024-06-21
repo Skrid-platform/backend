@@ -330,7 +330,11 @@ class Parser:
         else:
             query = args.QUERY
 
-        res = reformulate_cypher_query(query)
+        try:
+            res = reformulate_cypher_query(query)
+        except:
+            print('parse_compile: error: query may not be correctly formulated')
+            return
 
         if args.output == None:
             print(res)
@@ -347,7 +351,11 @@ class Parser:
             query = args.QUERY
 
         if args.fuzzy:
-            query = reformulate_cypher_query(query)
+            try:
+                query = reformulate_cypher_query(query)
+            except:
+                print('parse_send: compile query: error: query may not be correctly written')
+                return
 
         self.init_driver(args.URI, args.user, args.password)
         res = run_query(self.driver, query)
