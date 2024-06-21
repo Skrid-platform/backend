@@ -154,6 +154,11 @@ class Parser:
 
         self.driver = connect_to_neo4j(uri, user, password)
 
+    def close_driver(self):
+        '''Closes the driver'''
+
+        self.driver.close()
+
 
     def create_compile(self):
         '''Creates the compile subparser and add its arguments.'''
@@ -374,6 +379,8 @@ class Parser:
             elif args.output[-4:] == '.mp3':
                 process_results_to_mp3(res, query, args.max_files, self.driver)
 
+        self.close_driver()
+
     def parse_write(self, args):
         '''Parse the args for the write mode'''
 
@@ -396,6 +403,7 @@ class Parser:
         self.init_driver(args.URI, args.user, args.password)
 
         if args.NAME not in list_available_songs(self.driver):
+            self.close_driver();
             raise argparse.ArgumentTypeError(f'NAME argument ("{args.NAME}") is not valid (check valid songs with `python3 main_parser.py list`)')
 
         res = get_first_k_notes_of_each_score(args.NUMBER, args.NAME, self.driver)
@@ -405,12 +413,15 @@ class Parser:
         else:
             write_to_file(args.output, res)
 
+        self.close_driver()
+
     def parse_list(self, args):
         '''Parse the args for the list mode'''
 
         self.init_driver(args.URI, args.user, args.password)
 
         if args.number_per_line != None and args.number_per_line < 0:
+            self.close_driver();
             raise argparse.ArgumentTypeError('argument `-n` takes a positive value !')
 
         songs = list_available_songs(self.driver)
@@ -430,6 +441,8 @@ class Parser:
             print(res)
         else:
             write_to_file(args.output, res)
+
+        self.close_driver();
 
 
     # class Version(argparse.Action):
