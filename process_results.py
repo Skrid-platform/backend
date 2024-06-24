@@ -173,24 +173,55 @@ def get_ordered_results_with_transpose(result, query):
 
     return sequence_details
 
-def process_results_to_text_old(result, query, fn='results.txt'):
-    _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
+def process_crisp_results_to_dict(result):
+    '''
+    Processes `result` from a crisp query to a python dict
 
-    if allow_transpose:
-        sequence_details = get_ordered_results_with_transpose(result, query)
-    else:
-        sequence_details = get_ordered_results(result, query)
+    - result : the result of `run_query`.
+    '''
 
-    with open(fn, "w") as file:  # Open in write mode to clear the file
-        for source, start, end, sequence_degree, note_details in sequence_details:
-            file.write(f"Source: {source}, Start: {start}, End: {end}, Overall Degree: {sequence_degree}\n")
-            for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg) in enumerate(note_details):
-                file.write(f"  Note {idx + 1}: {note}\n")
-                file.write(f"    Pitch Degree: {pitch_deg}\n")
-                file.write(f"    Duration Degree: {duration_deg}\n")
-                file.write(f"    Sequencing Degree: {sequencing_deg}\n")
-                file.write(f"    Aggregated Note Degree: {note_deg}\n")
-            file.write("\n")  # Add a blank line between sequences
+    d_lst = [dict(k) for k in result]
+
+    res = []
+    for song in d_lst:
+        seq_dict = {}
+        seq_dict['source'] = song['source']
+        seq_dict['start'] = song['start']
+        seq_dict['end'] = song['end']
+        # seq_dict['overall_degree'] = song[3]
+
+        seq_dict['notes'] = []
+        n = 0
+        while f'pitch_{n}' in song.keys():
+            note_dict = {}
+            note_dict['note'] = {
+                'pitch': song[f'pitch_{n}'],
+                'octave': song[f'octave_{n}'],
+                'duration': song[f'duration_{n}'],
+                'start': song[f'start_{n}'],
+                'end': song[f'end_{n}'],
+            } #TODO: add the unique mei ID here
+
+            # note_dict['pitch_deg'] = note_details[1]
+            # note_dict['duration_deg'] = note_details[2]
+            # note_dict['sequencing_deg'] = note_details[3]
+            # note_dict['note_deg'] = note_details[4]
+
+            seq_dict['notes'].append(note_dict)
+            n += 1
+
+        res.append(seq_dict)
+
+    return res
+
+def process_crisp_results_to_json(result):
+    '''
+    Processes `result` from a crisp query to json.
+
+    - result : the result of `run_query`.
+    '''
+
+    return json.dumps(process_crisp_results_to_dict(result))
 
 def process_results_to_dict(result, query):
     '''
@@ -271,6 +302,25 @@ def process_results_to_text(result, query):
         res += "\n" # Add a blank line between sequences
 
     return res
+
+def process_results_to_text_old(result, query, fn='results.txt'):
+    _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
+
+    if allow_transpose:
+        sequence_details = get_ordered_results_with_transpose(result, query)
+    else:
+        sequence_details = get_ordered_results(result, query)
+
+    with open(fn, "w") as file:  # Open in write mode to clear the file
+        for source, start, end, sequence_degree, note_details in sequence_details:
+            file.write(f"Source: {source}, Start: {start}, End: {end}, Overall Degree: {sequence_degree}\n")
+            for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg) in enumerate(note_details):
+                file.write(f"  Note {idx + 1}: {note}\n")
+                file.write(f"    Pitch Degree: {pitch_deg}\n")
+                file.write(f"    Duration Degree: {duration_deg}\n")
+                file.write(f"    Sequencing Degree: {sequencing_deg}\n")
+                file.write(f"    Aggregated Note Degree: {note_deg}\n")
+            file.write("\n")  # Add a blank line between sequences
 
 
 def process_results_to_mp3(result, query, max_files, driver):
