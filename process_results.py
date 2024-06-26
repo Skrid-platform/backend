@@ -63,7 +63,9 @@ def get_ordered_results(result, query):
             duration = record[f"duration_{idx}"]
             start = record[f"start_{idx}"]
             end = record[f"end_{idx}"]
-            note = Note(pitch, octave, duration, start, end)
+            id_ = record[f"id_{idx}"]
+            note = Note(pitch, octave, duration, start, end, id_)
+            # note = Note(pitch, octave, duration, start, end)
             note_sequence.append(note)
         note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
 
@@ -125,7 +127,9 @@ def get_ordered_results_with_transpose(result, query):
             duration = record[f"duration_{idx}"]
             start = record[f"start_{idx}"]
             end = record[f"end_{idx}"]
-            note = Note(pitch, octave, duration, start, end)
+            id_ = record[f"id_{idx}"]
+            note = Note(pitch, octave, duration, start, end, id_)
+            # note = Note(pitch, octave, duration, start, end)
             if idx == 0:
                 interval = None
             else:
@@ -200,7 +204,8 @@ def process_crisp_results_to_dict(result):
                 'duration': song[f'duration_{n}'],
                 'start': song[f'start_{n}'],
                 'end': song[f'end_{n}'],
-            } #TODO: add the unique mei ID here
+                # 'id': song[f'id_{n}'],
+            } #TODO: add the unique mei ID here (or not because the query does not obviously returns the ID ...)
 
             # note_dict['pitch_deg'] = note_details[1]
             # note_dict['duration_deg'] = note_details[2]
@@ -250,7 +255,7 @@ def process_results_to_dict(result, query):
         seq_dict['notes'] = []
         for note_details in seq_detail[4]:
             note_dict = {}
-            note_dict['note'] = note_details[0].__dict__ #TODO: add the unique mei ID here
+            note_dict['note'] = note_details[0].__dict__
             note_dict['pitch_deg'] = note_details[1]
             note_dict['duration_deg'] = note_details[2]
             note_dict['sequencing_deg'] = note_details[3]

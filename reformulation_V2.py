@@ -81,7 +81,8 @@ def reformulate_without_transposition(query):
             f"f{idx}.octave AS octave_{idx}",
             f"e{idx}.duration AS duration_{idx}",
             f"e{idx}.start AS start_{idx}",
-            f"e{idx}.end AS end_{idx}"
+            f"e{idx}.end AS end_{idx}",
+            f"e{idx}.id AS id_{idx}"
         ])
     # Construct the RETURN clause
     return_clause = 'RETURN' + ', '.join(return_clauses) + f', \ne0.source AS source, e0.start AS start, e{len(notes) - 1}.end AS end'
@@ -169,7 +170,8 @@ def reformulate_with_transposition(query):
             f"f{idx}.octave AS octave_{idx}",
             f"e{idx}.duration AS duration_{idx}",
             f"e{idx}.start AS start_{idx}",
-            f"e{idx}.end AS end_{idx}"
+            f"e{idx}.end AS end_{idx}",
+            f"e{idx}.id AS id_{idx}"
         ])
         if idx < len(notes) - 1:
             if duration_gap > 0:
