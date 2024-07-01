@@ -145,9 +145,16 @@ def reformulate_with_transposition(query):
                     interval_condition = f"r{idx}.interval <= {intervals[idx]} + {pitch_distance} AND r{idx}.interval >= {intervals[idx]} - {pitch_distance}"
                 else:
                     interval_condition = f"r{idx}.interval = {intervals[idx]}"
-            where_clauses.append(duration_condition + " AND " + interval_condition)
-        else:
-            where_clauses.append(duration_condition)
+                    if intervals[idx] > 0:
+                        interval_condition = f"r{idx}.interval > 0"
+                    elif intervals[idx] == 0:
+                        interval_condition = f"r{idx}.interval = 0"
+                    else:
+                        interval_condition = f"r{idx}.interval < 0"
+            # where_clauses.append(duration_condition + " AND " + interval_condition)
+            where_clauses.append(interval_condition)
+        # else:
+            # where_clauses.append(duration_condition)
     where_clause = 'WHERE\n' + ' AND\n'.join(where_clauses)
 
     # Adding the sequencing constraints to the WHERE clause

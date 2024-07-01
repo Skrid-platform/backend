@@ -14,7 +14,7 @@ def average_aggregation(*degrees):
     return sum(degrees) / len(degrees)
 
 def almost_all(degree):
-    high_bound, low_bound = 0.5, 0.8
+    high_bound, low_bound = 1.0, 0.5
     if degree > high_bound:
         return 1.0
     elif degree < low_bound:
@@ -39,8 +39,7 @@ def almost_all_aggregation_yager(*degrees):
         # Compute the alpha cut
         A_alpha = [degree for degree in degrees if degree >= alpha]
         # Calculate the degree of the alpha cut
-        A_alpha_degree = almost_all(len(A_alpha) / len(sorted_degrees))
-        print(f"alpha = {alpha}, A_alpha = {A_alpha}, degree = {A_alpha_degree} for mean = {len(A_alpha) / len(degrees)}")
+        A_alpha_degree = almost_all(sum(A_alpha) / len(degrees))
         # Calculate min
         min_alpha_degree = min(alpha, A_alpha_degree)
         # Update the maximum of these minimum values
@@ -81,7 +80,7 @@ def get_ordered_results(result, query):
                 prev_note = note_sequence[idx - 1]
                 sequencing_deg = sequencing_degree(prev_note.end, note.start, sequencing_gap)
             
-            relevant_note_degrees = [degree for degree, gap in [(pitch_deg, pitch_gap), (duration_deg, duration_factor), (sequencing_deg, sequencing_gap)] if gap > 0]
+            relevant_note_degrees = [degree for degree, gap in [(pitch_deg, pitch_gap), (duration_deg, duration_factor-1), (sequencing_deg, sequencing_gap)] if gap != 0]
 
             if len(relevant_note_degrees) > 0:
                 note_deg = aggregate_degrees(min_aggregation, relevant_note_degrees)
@@ -92,7 +91,7 @@ def get_ordered_results(result, query):
             note_detail = (note, pitch_deg, duration_deg, sequencing_deg, note_deg)
             note_details.append(note_detail)
         
-        sequence_degree = aggregate_degrees(average_aggregation, note_degrees)
+        sequence_degree = aggregate_degrees(almost_all_aggregation_yager, note_degrees)
         
         if sequence_degree >= alpha:  # Apply alpha cut
             sequence_details.append((source, start, end, sequence_degree, note_details))
@@ -151,7 +150,7 @@ def get_ordered_results_with_transpose(result, query):
                 prev_note = note_sequence[idx - 1][0]
                 sequencing_deg = sequencing_degree(prev_note.end, note.start, sequencing_gap)
             
-            relevant_note_degrees = [degree for degree, gap in [(pitch_deg, pitch_gap), (duration_deg, duration_factor), (sequencing_deg, sequencing_gap)] if gap > 0]
+            relevant_note_degrees = [degree for degree, gap in [(pitch_deg, pitch_gap), (duration_deg, duration_factor-1), (sequencing_deg, sequencing_gap)] if gap != 0]
 
             if len(relevant_note_degrees) > 0:
                 note_deg = aggregate_degrees(min_aggregation, relevant_note_degrees)
@@ -162,7 +161,7 @@ def get_ordered_results_with_transpose(result, query):
             note_detail = (note, pitch_deg, duration_deg, sequencing_deg, note_deg)
             note_details.append(note_detail)
         
-        sequence_degree = aggregate_degrees(average_aggregation, note_degrees)
+        sequence_degree = aggregate_degrees(almost_all_aggregation_yager, note_degrees)
         
         if sequence_degree >= alpha:  # Apply alpha cut
             sequence_details.append((source, start, end, sequence_degree, note_details))
@@ -218,6 +217,5 @@ def process_results_to_mp3(result, query, max_files, driver):
 
 if __name__ == "__main__":
     # Example usage
-    degrees = [0.7, 0.3, 1, 0.3, 0.7, 0.3]
-    result = almost_all_aggregation_yager(*degrees)
-    print(result)
+    l = [(almost_all(value/10.0), value/10.0) for value in range(11)]
+    print(l)
