@@ -70,31 +70,40 @@ def check_notes_input_format(notes_input):
 
     format_notes = 'Notes format: triples list: [(class, octave, duration), ...]. E.g [(\'c\', 5, 1), (\'d\', 5, 4)]'
 
-    try:
-        notes = literal_eval(notes_input)
+    # try:
+    notes = literal_eval(notes_input)
 
-        for i, note in enumerate(notes):
-            if type(note[0]) != str or len(note[0]) != 1:
-                raise argparse.ArgumentTypeError(f'error with note {i}: "{note[0]}" is not a class.\n' + format_notes)
+    for i, note in enumerate(notes):
+        if type(note[0]) != str or len(note[0]) != 1:
+            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[0]}" is not a class.\n' + format_notes)
 
-            if type(note[1]) != int:
-                raise argparse.ArgumentTypeError(f'error with note {i}: "{note[1]}" is not an int\n' + format_notes)
+        if type(note[1]) != int:
+            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[1]}" is not an int\n' + format_notes)
 
-            if type(note[2]) != int:
-                raise argparse.ArgumentTypeError(f'error with note {i}: "{note[2]}" is not an int\n' + format_notes)
+        if type(note[2]) != float:
+            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[2]}" is not an int\n' + format_notes)
 
-    except Exception:
-        raise argparse.ArgumentTypeError('The input notes are not in the correct format !\n' + format_notes)
+    # except Exception as err:
+    #     raise argparse.ArgumentTypeError(f'The input notes are not in the correct format !\n{format_notes}\nYour input was: "{notes_input}".\nError: {err}')
 
     return notes
 
-def list_available_songs(driver):
-    '''Return a list of all the available songs.'''
+def list_available_songs(driver, collection=None):
+    '''
+    Return a list of all the available songs.
 
-    query = "MATCH (s:Score) RETURN DISTINCT s.source AS source"
+    - driver     : the neo4j connection driver ;
+    - collection : List only scores for the given collection. If `None`, list for all.
+    '''
+
+    if collection == None:
+        query = 'MATCH (s:Score) RETURN DISTINCT s.source AS source'
+    else:
+        query = f'MATCH (s:Score) WHERE s.collection CONTAINS "{collection}" RETURN DISTINCT s.source AS source'
+
     result = run_query(driver, query)
 
-    return [record["source"] for record in result]
+    return [record['source'] for record in result]
 
 ##-Parser
 class Parser:
@@ -109,7 +118,7 @@ class Parser:
             # prog='UnfuzzyQuery',
             description='Compiles fuzzy queries to cypher queries',
             # epilog='Examples :\n\tSearchWord word\n\tSearchWord "example of string" -e .py;.txt\n\tSearchWord someword -x .pyc -sn',
-            epilog='''Examples :\n\tget help on a subcommand  : python3 main_parser.py compile -h\n\tcompile a query from file : python3 main_parser.py compile -F fuzzy_query.cypher -o crisp_query.cypher\n\tsend a query              : python3 main_parser.py send -F crisp_query.cypher -t result.txt\n\tsend a query 2            : python3 main_parser.py -u user -p pwd send -F -f fuzzy_query.cypher -t result.txt -m 6\n\twrite a fuzzy query       : python3 main_parser.py write [('c', 5, 1), ('d', 5, 4)] -a 0.5 -t -o fuzzy_query.cypher\n\tget notes from a song     : python3 main_parser.py get Air_n_83_g.mei 5 -o notes\n\tlist all songs            : python3 main_parser.py l\n\tlist all songs (compact)  : python3 main_parser.py l -c''',
+            epilog='''Examples :\n\tget help on a subcommand  : python3 main_parser.py compile -h\n\tcompile a query from file : python3 main_parser.py compile -F fuzzy_query.cypher -o crisp_query.cypher\n\tsend a query              : python3 main_parser.py send -F crisp_query.cypher -t result.txt\n\tsend a query 2            : python3 main_parser.py -u user -p pwd send -F -f fuzzy_query.cypher -t result.txt -m 6\n\twrite a fuzzy query       : python3 main_parser.py write [('c', 5, 1), ('d', 5, 4)] -a 0.5 -t -o fuzzy_query.cypher\n\twrite a query from file   : python3 main_parser.py w "$(python3 main_parser.py g "10343_Avant_deux.mei" 9)" -p 2\n\tget notes from a song     : python3 main_parser.py get Air_n_83_g.mei 5 -o notes\n\tlist all songs            : python3 main_parser.py l\n\tlist all songs (compact)  : python3 main_parser.py l -n 0''',
             formatter_class=argparse.RawDescriptionHelpFormatter
         )
 
@@ -304,6 +313,10 @@ class Parser:
 
         #---Add arguments
         self.parser_l.add_argument(
+            '-c', '--collection',
+            help='Filter scores by collection name'
+        )
+        self.parser_l.add_argument(
             '-n', '--number-per-line',
             type=int,
             help='Show NUMBER_PER_LINE songs instead of one. With -n 0, display all on the same line.'
@@ -453,7 +466,7 @@ class Parser:
             self.close_driver();
             raise argparse.ArgumentTypeError('argument `-n` takes a positive value !')
 
-        songs = list_available_songs(self.driver)
+        songs = list_available_songs(self.driver, args.collection)
 
         res = ''
         for i, song in enumerate(songs):
@@ -465,6 +478,8 @@ class Parser:
                 res += '\n'
             else:
                 res += ', '
+
+        res = res.strip('\n')
 
         if args.output == None:
             print(res)
