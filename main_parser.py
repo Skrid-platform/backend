@@ -57,34 +57,30 @@ def write_to_file(fn, content):
 
 def check_notes_input_format(notes_input):
     '''
-    Ensure that `notes_input` is in the correct format : [(char, int, int), ...].
+    Ensure that `notes_input` is in the correct format : [(char|None, int|None, int|None), ...].
     If not, raise an argparse.ArgumentTypeError.
 
     Input :
-        - notes_input : the user input (a string, not passed through literal_eval yet).
+        - notes_input : the user input (a string, not a list).
 
     Output :
         - a list of (char, int, int)  if the format is right ;
         - argparse.ArgumentTypeError  otherwise.
     '''
 
-    format_notes = 'Notes format: triples list: [(class, octave, duration), ...]. E.g [(\'c\', 5, 1), (\'d\', 5, 4)]'
+    format_notes = 'Notes format: triples list: [(class, octave, duration), ...]. E.g [(\'c\', 5, 1), (\'d\', 5, 4), (\'e\', 4, None)].\nIt is possible to use "None" to ignore a criteria.'
 
-    # try:
     notes = literal_eval(notes_input)
 
     for i, note in enumerate(notes):
-        if type(note[0]) != str or len(note[0]) != 1:
+        if note[0] != None and not (type(note[0]) == str and len(note[0]) == 1):
             raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[0]}" is not a class.\n' + format_notes)
 
-        if type(note[1]) != int:
-            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[1]}" is not an int\n' + format_notes)
+        if not isinstance(note[1], (int, type(None))):
+            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[1]}" is not an int (or None)\n' + format_notes)
 
-        if type(note[2]) != float:
-            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[2]}" is not an int\n' + format_notes)
-
-    # except Exception as err:
-    #     raise argparse.ArgumentTypeError(f'The input notes are not in the correct format !\n{format_notes}\nYour input was: "{notes_input}".\nError: {err}')
+        if not isinstance(note[2], (int, float, type(None))):
+            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[2]}" is not a float (or None)\n' + format_notes)
 
     return notes
 
@@ -118,7 +114,7 @@ class Parser:
             # prog='UnfuzzyQuery',
             description='Compiles fuzzy queries to cypher queries',
             # epilog='Examples :\n\tSearchWord word\n\tSearchWord "example of string" -e .py;.txt\n\tSearchWord someword -x .pyc -sn',
-            epilog='''Examples :\n\tget help on a subcommand  : python3 main_parser.py compile -h\n\tcompile a query from file : python3 main_parser.py compile -F fuzzy_query.cypher -o crisp_query.cypher\n\tsend a query              : python3 main_parser.py send -F crisp_query.cypher -t result.txt\n\tsend a query 2            : python3 main_parser.py -u user -p pwd send -F -f fuzzy_query.cypher -t result.txt -m 6\n\twrite a fuzzy query       : python3 main_parser.py write [('c', 5, 1), ('d', 5, 4)] -a 0.5 -t -o fuzzy_query.cypher\n\twrite a query from file   : python3 main_parser.py w "$(python3 main_parser.py g "10343_Avant_deux.mei" 9)" -p 2\n\tget notes from a song     : python3 main_parser.py get Air_n_83_g.mei 5 -o notes\n\tlist all songs            : python3 main_parser.py l\n\tlist all songs (compact)  : python3 main_parser.py l -n 0''',
+            epilog='''Examples :\n\tget help on a subcommand  : python3 main_parser.py compile -h\n\tcompile a query from file : python3 main_parser.py compile -F fuzzy_query.cypher -o crisp_query.cypher\n\tsend a query              : python3 main_parser.py send -F crisp_query.cypher -t result.txt\n\tsend a query 2            : python3 main_parser.py -u user -p pwd send -F -f fuzzy_query.cypher -t result.txt -m 6\n\twrite a fuzzy query       : python3 main_parser.py write "[('c', 5, 1), ('d', 5, None)]" -a 0.5 -t -o fuzzy_query.cypher\n\twrite a query from file   : python3 main_parser.py w "$(python3 main_parser.py g "10343_Avant_deux.mei" 9)" -p 2\n\tget notes from a song     : python3 main_parser.py get Air_n_83_g.mei 5 -o notes\n\tlist all songs            : python3 main_parser.py l\n\tlist all songs (compact)  : python3 main_parser.py l -n 0''',
             formatter_class=argparse.RawDescriptionHelpFormatter
         )
 
@@ -240,6 +236,7 @@ class Parser:
         #---Add arguments
         self.parser_w.add_argument(
             'NOTES',
+            # type=check_notes_input_format,
             help='notes as triples list : [(class, octave, duration), ...]. E.g [(\'c\', 5, 1), (\'d\', 5, 4)]'
         )
 
@@ -275,7 +272,7 @@ class Parser:
             '-a', '--alpha',
             default=0.0,
             type=restricted_float,
-            help='the alpha setting. In range [0 ; 1]. Remove every result that has a score below alpha. Default is 0.0' #TODO: make a better help
+            help='the alpha setting. In range [0 ; 1]. Remove every result that has a score below alpha. Default is 0.0'
         )
         self.parser_w.add_argument(
             '-t', '--allow-transposition',
@@ -397,7 +394,6 @@ class Parser:
             return
 
         if args.text_output == None and args.mp3 == None:
-            # print(res)
             if args.fuzzy:
                 if args.json:
                     print(process_results_to_json(res, query))
@@ -415,10 +411,8 @@ class Parser:
             if args.text_output != None:
                 processed_res = process_results_to_text(res, query) #TODO: won't work if query is not fuzzy.
                 write_to_file(args.text_output, processed_res)
-                # process_results_to_text_old(res, query, args.text_output) #TODO: query has to be a fuzzy one for this function !
 
             if args.mp3 != None:
-                # process_results_to_mp3(res, query, args.mp3, self.driver)
                 process_results_to_mp3(res, query, args.mp3, self.driver)
 
         self.close_driver()

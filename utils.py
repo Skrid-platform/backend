@@ -17,7 +17,7 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
     
     for i, (class_, octave, duration) in enumerate(notes, start=1):
         event = "(e{}:Event)".format(i)
-        fact = "(e{})--(f{}{{class:'{}',octave:{}, dur:{}}})".format(i, i, class_, octave, duration)
+        fact = "(e{})--(f{}{{class:'{}', octave:{}, dur:{}}})".format(i, i, class_, octave, duration)
         events.append(event)
         facts.append(fact)
     

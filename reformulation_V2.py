@@ -23,11 +23,12 @@ def make_duration_condition(duration_factor, duration, idx, fixed):
     return res
 
 def make_sequencing_condition(duration_gap, idx):
-
     sequencing_condition = f"e{idx}.end >= e{idx+1}.start - {duration_gap}"
     return sequencing_condition
 
 def reformulate_without_transposition(query):
+    '''Convert a "fuzzy" query in a cypher one.'''
+
     # Extract the parameters from the augmented query
     pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, fixed_notes = extract_fuzzy_parameters(query)
     
@@ -47,25 +48,52 @@ def reformulate_without_transposition(query):
     # Construct the WHERE clause
     where_clauses = []
     sequencing_conditions = []
-    # Small epsilon value for floating-point imprecision
-    epsilon = 0.01
+    epsilon = 0.01 # Small epsilon value for floating-point imprecision
+
     for idx, (note, octave, duration) in enumerate(notes):
         # Prepare the frequency conditions
-        if not fixed_notes[idx]:
-            min_frequency, max_frequency = find_frequency_bounds(note, octave, pitch_distance)
+        if note == None:
+            frequency_condition = ''
         else:
-            min_frequency, max_frequency = find_frequency_bounds(note, octave, 0)
-        frequency_condition = f"f{idx}.frequency >= {round(min_frequency - epsilon, 2)} AND f{idx}.frequency <= {round(max_frequency + epsilon, 2)}"
+            if octave == None: # then add possible frequencies for all the octaves.
+                frequency_condition = ''
+                octaves = set(k for k in range(1, 8))
+
+                for o in octaves:
+                    if fixed_notes[idx]:
+                        min_frequency, max_frequency = find_frequency_bounds(note, o, 0)
+                    else:
+                        min_frequency, max_frequency = find_frequency_bounds(note, o, pitch_distance)
+
+                    frequency_condition += f"(f{idx}.frequency >= {round(min_frequency - epsilon, 2)} AND f{idx}.frequency <= {round(max_frequency + epsilon, 2)}) OR "
+
+                frequency_condition = frequency_condition[:-4] # Removing trailing ' OR '.
+
+            else:
+                if fixed_notes[idx]:
+                    min_frequency, max_frequency = find_frequency_bounds(note, octave, 0)
+                else:
+                    min_frequency, max_frequency = find_frequency_bounds(note, octave, pitch_distance)
+
+                frequency_condition = f"(f{idx}.frequency >= {round(min_frequency - epsilon, 2)} AND f{idx}.frequency <= {round(max_frequency + epsilon, 2)})"
     
-        #Prepare the duration conditions
-        duration_condition = make_duration_condition(duration_factor, duration, idx, fixed_notes[idx])
+        # Prepare the duration conditions
+        if duration == None:
+            duration_condition = ''
+        else:
+            duration_condition = make_duration_condition(duration_factor, duration, idx, fixed_notes[idx])
 
         # Adding sequencing conditions
         if idx < len(notes) - 1 and duration_gap > 0:
             sequencing_condition = make_sequencing_condition(duration_gap, idx)
             sequencing_conditions.append(sequencing_condition)
 
-        where_clauses.append(f"{frequency_condition} AND {duration_condition}")
+        if frequency_condition == '' or duration_condition == '':
+            where_clause_ = frequency_condition + duration_condition # if only one is '', the concatenation of both is equal to the one which is not ''.
+        else:
+            where_clause_ = frequency_condition + ' AND ' + duration_condition
+
+        where_clauses.append(where_clause_)
     
     # Assemble frequency, duration and sequencing conditions
     where_clause = 'WHERE\n' + ' AND\n'.join(where_clauses)
@@ -91,7 +119,7 @@ def reformulate_without_transposition(query):
     new_query = match_clause + '\n' + where_clause + '\n' + return_clause
     return new_query
 
-def reformulate_with_transposition(query):
+def reformulate_with_transposition(query): #TODO: add modifications for notes that can be None (but understand the goal first)
     # Extract the parameters from the augmented query
     pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, fixed_notes = extract_fuzzy_parameters(query)
     

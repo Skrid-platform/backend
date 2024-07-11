@@ -202,9 +202,8 @@ def process_crisp_results_to_dict(result):
                 'octave': song[f'octave_{n}'],
                 'duration': song[f'duration_{n}'],
                 'start': song[f'start_{n}'],
-                'end': song[f'end_{n}'],
-                # 'id': song[f'id_{n}'],
-            } #TODO: add the unique mei ID here (or not because the query does not obviously returns the ID ...)
+                'end': song[f'end_{n}']
+            }
 
             # note_dict['pitch_deg'] = note_details[1]
             # note_dict['duration_deg'] = note_details[2]
