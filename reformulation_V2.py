@@ -1,4 +1,4 @@
-from find_nearby_pitches import find_frequency_bounds
+from find_nearby_pitches import find_frequency_bounds, find_nearby_pitches
 from find_duration_range import find_duration_range_decimal, find_duration_range_multiplicative_factor
 from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters
 from utils import calculate_pitch_interval
@@ -42,42 +42,58 @@ def reformulate_without_transposition(query):
         event_path = f"-[:NEXT*1..{max_intermediate_nodes + 1}]->".join([f"(e{idx}:Event)" for idx in range(len(notes))]) + ','
     else:
         event_path = f"-[]->".join([f"(e{idx}:Event)" for idx in range(len(notes))]) + ','  
+
     simplified_connections = ','.join([f"\n (e{idx})-[]->(f{idx}:Fact)" for idx in range(len(notes))])
-    match_clause = 'MATCH \n' + event_path + simplified_connections
+    match_clause = 'MATCH \n ' + event_path + simplified_connections
 
     # Construct the WHERE clause
     where_clauses = []
     sequencing_conditions = []
-    epsilon = 0.01 # Small epsilon value for floating-point imprecision
+    # epsilon = 0.01 # Small epsilon value for floating-point imprecision
 
     for idx, (note, octave, duration) in enumerate(notes):
-        # Prepare the frequency conditions
+        # Making note condition (class + octave)
         if note == None:
-            frequency_condition = ''
+            if octave == None:
+                note_condition = ''
+            else:
+                note_condition = f'f{idx}.octave = {octave}'
+
         else:
-            if octave == None: # then add possible frequencies for all the octaves.
-                frequency_condition = ''
-                octaves = set(k for k in range(1, 8))
+            if fixed_notes[idx] or pitch_distance == 0:
+                note_condition = f'f{idx}.class = "{note[0]}"'
 
-                for o in octaves:
-                    if fixed_notes[idx]:
-                        min_frequency, max_frequency = find_frequency_bounds(note, o, 0)
-                    else:
-                        min_frequency, max_frequency = find_frequency_bounds(note, o, pitch_distance)
+                if len(note) > 1 and note[1] in ('#', 's'): # sharp
+                    note_condition += f' AND (f{idx}.accid = "s" OR f{idx}.accid_ges = "s")' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
 
-                    frequency_condition += f"(f{idx}.frequency >= {round(min_frequency - epsilon, 2)} AND f{idx}.frequency <= {round(max_frequency + epsilon, 2)}) OR "
+                elif len(note) > 1 and note[1] in ('b', 'f'): # flat
+                    note_condition += f' AND (f{idx}.accid = "f" OR f{idx}.accid_ges = "f")' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
 
-                frequency_condition = frequency_condition[:-4] # Removing trailing ' OR '.
+                if octave != None:
+                    note_condition += f' AND f{idx}.octave = {octave}'
 
             else:
-                if fixed_notes[idx]:
-                    min_frequency, max_frequency = find_frequency_bounds(note, octave, 0)
-                else:
-                    min_frequency, max_frequency = find_frequency_bounds(note, octave, pitch_distance)
+                o = 4 if octave is None else octave # If octave is None, use 4 to get near notes classes
+                near_notes = find_nearby_pitches(note, o, pitch_distance)
 
-                frequency_condition = f"(f{idx}.frequency >= {round(min_frequency - epsilon, 2)} AND f{idx}.frequency <= {round(max_frequency + epsilon, 2)})"
-    
-        # Prepare the duration conditions
+                note_condition = '('
+                for n, o_ in near_notes:
+                    base_condition = f'f{idx}.class = "{n[0]}"'
+
+                    if len(n) > 1 and n[1] in ('#', 's'): # sharp
+                        base_condition += f' AND (f{idx}.accid = "s" OR f{idx}.accid_ges = "s")' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
+
+                    elif len(n) > 1 and n[1] in ('b', 'f'): # flat
+                        base_condition += f' AND (f{idx}.accid = "f" OR f{idx}.accid_ges = "f")' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
+
+                    if octave == None:
+                        note_condition += f'\n  ({base_condition}) OR '
+                    else:
+                        note_condition += f'\n  ({base_condition} AND f{idx}.octave = {o_}) OR '
+
+                note_condition = note_condition[:-len(' OR ')] + '\n )' # Remove trailing ' AND '
+
+        # Making the duration condition
         if duration == None:
             duration_condition = ''
         else:
@@ -88,24 +104,24 @@ def reformulate_without_transposition(query):
             sequencing_condition = make_sequencing_condition(duration_gap, idx)
             sequencing_conditions.append(sequencing_condition)
 
-        if frequency_condition == '' or duration_condition == '':
-            where_clause_ = frequency_condition + duration_condition # if only one is '', the concatenation of both is equal to the one which is not ''.
+        if note_condition == '' or duration_condition == '':
+            where_clause_i = note_condition + duration_condition # if only one is '', the concatenation of both is equal to the one which is not ''.
         else:
-            where_clause_ = frequency_condition + ' AND ' + duration_condition
+            where_clause_i = note_condition + ' AND ' + duration_condition
 
-        where_clauses.append(where_clause_)
+        where_clauses.append(' ' + where_clause_i)
     
     # Assemble frequency, duration and sequencing conditions
     where_clause = 'WHERE\n' + ' AND\n'.join(where_clauses)
     if sequencing_conditions:
         sequencing_conditions = ' AND '.join(sequencing_conditions)
-        where_clause = where_clause + ' AND \n' + sequencing_conditions
+        where_clause = where_clause + ' AND \n ' + sequencing_conditions
 
     return_clauses = []
     for idx in range(len(notes)):
         # Prepare return clauses with specified names
         return_clauses.extend([
-            f"\nf{idx}.class AS pitch_{idx}",
+            f"\n f{idx}.class AS pitch_{idx}",
             f"f{idx}.octave AS octave_{idx}",
             f"e{idx}.duration AS duration_{idx}",
             f"e{idx}.start AS start_{idx}",
@@ -113,7 +129,7 @@ def reformulate_without_transposition(query):
             f"e{idx}.id AS id_{idx}"
         ])
     # Construct the RETURN clause
-    return_clause = 'RETURN' + ', '.join(return_clauses) + f', \ne0.source AS source, e0.start AS start, e{len(notes) - 1}.end AS end'
+    return_clause = 'RETURN' + ', '.join(return_clauses) + f', \n e0.source AS source, e0.start AS start, e{len(notes) - 1}.end AS end'
     
     # Construct the final query
     new_query = match_clause + '\n' + where_clause + '\n' + return_clause

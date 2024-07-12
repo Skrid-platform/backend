@@ -68,13 +68,14 @@ def check_notes_input_format(notes_input):
         - argparse.ArgumentTypeError  otherwise.
     '''
 
-    format_notes = 'Notes format: triples list: [(class, octave, duration), ...]. E.g [(\'c\', 5, 1), (\'d\', 5, 4), (\'e\', 4, None)].\nIt is possible to use "None" to ignore a criteria.'
+    format_notes = 'Notes format: triples list: [(class, octave, duration), ...]. E.g [(\'c\', 5, 1), (\'ds\', 5, 4), (\'e\', 4, None)].\nIt is possible to use "None" to ignore a criteria.'
 
     notes = literal_eval(notes_input)
 
     for i, note in enumerate(notes):
-        if note[0] != None and not (type(note[0]) == str and len(note[0]) == 1):
-            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[0]}" is not a class.\n' + format_notes)
+        if note[0] != None and not (type(note[0]) == str and len(note[0]) in (1, 2)):
+            if note[0] != None and (note[0][0] not in 'abcdefg' or (len(note[0]) == 2 and note[0][1] not in '#sbf')):
+                raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[0]}" is not a class.\n' + format_notes)
 
         if not isinstance(note[1], (int, type(None))):
             raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[1]}" is not an int (or None)\n' + format_notes)

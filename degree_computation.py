@@ -1,10 +1,42 @@
 def note_distance_in_tones(note1, octave1, note2, octave2):
-    # Define the semitone distance from C for each note
+    '''Calculate the distance (in tones) between two notes.'''
+
+    if note1 == None or note2 == None: # If one note is None, it means that the note is unspecified, so only check for octave distance
+        if octave1 == None or octave2 == None:
+            return 0
+
+        else:
+            return 12 * abs(octave2 - octave1) / 2
+
+    #---Define the semitone distance from C for each note
     semitones_from_c = {
         'c': 0, 'c#': 1, 'd': 2, 'd#': 3, 'e': 4, 'f': 5, 'f#': 6, 
         'g': 7, 'g#': 8, 'a': 9, 'a#': 10, 'b': 11
     }
+
+    #---Replace 's' with '#' and convert flat to sharp
+    notes = 'abcdefg' # Used to convert flat to sharp
+
+    note1 = note1.replace('s', '#')
+    if len(note1) == 2 and note1[1] in ('f', 'b'):
+        note1 = notes[(notes.index(note1[0]) - 1) % len(notes)] + '#' # Convert flat to sharp
+
+    note2 = note2.replace('s', '#')
+    if len(note2) == 2 and note2[1] in ('f', 'b'):
+        note2 = notes[(notes.index(note2[0]) - 1) % len(notes)] + '#' # Convert flat to sharp
+
+    #---Manages when octave is None
+    if octave1 == None and octave2 == None: # In this case, return the distance between notes as if it was in the same octave.
+        octave1 = 4
+        octave2 = 4
+
+    # If one octave in None, set it to the other (so that the distance will be )
+    elif octave1 == None:
+        octave1 = octave2
+    elif octave2 == None:
+        octave2 = octave1
     
+    #---Calculate the distances
     # Calculate the semitone position for each note
     semitone1 = semitones_from_c[note1] + (octave1 * 12)
     semitone2 = semitones_from_c[note2] + (octave2 * 12)

@@ -1,10 +1,16 @@
 def find_nearby_pitches(pitch, octave, max_distance):
-    # Define pitches and their relative semitone positions from C
-    notes = ['c', 'd', 'e', 'f', 'g', 'a', 'b']
-    semitones_from_c = [0, 2, 4, 5, 7, 9, 11]  # C to B, cumulative semitone distance
+    pitch = pitch.replace('s', '#')
 
-    # notes = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b']
-    # semitones_from_c = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    if len(pitch) == 2 and pitch[1] in ('f', 'b'):
+        notes = 'abcdefg'
+        pitch = notes[(notes.index(pitch[0]) - 1) % len(notes)] + '#' # Convert flat to sharp
+
+    # Define pitches and their relative semitone positions from C
+    # notes = ['c', 'd', 'e', 'f', 'g', 'a', 'b']
+    # semitones_from_c = [0, 2, 4, 5, 7, 9, 11]  # C to B, cumulative semitone distance
+
+    notes = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b']
+    semitones_from_c = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     
     # Create a mapping from note to its index and semitone offset
     note_to_index = {note: idx for idx, note in enumerate(notes)}
@@ -26,7 +32,7 @@ def find_nearby_pitches(pitch, octave, max_distance):
             distance_high = abs(target_semitone_high - base_semitone)
 
             if distance_high <= max_distance:
-                result.append([note, octave + oct_shift])
+                result.append((note, octave + oct_shift))
                 keep_searching = True  # Continue searching (search space is symmetric)
 
             # Check lower octaves (only if oct_shift is not zero to avoid double counting the base octave)
@@ -35,7 +41,7 @@ def find_nearby_pitches(pitch, octave, max_distance):
                 distance_low = abs(target_semitone_low - base_semitone)
                 
                 if distance_low <= max_distance:
-                    result.append([note, octave - oct_shift])
+                    result.append((note, octave - oct_shift))
                     keep_searching = True  # Continue searching (search space is symmetric)
 
         oct_shift += 1  # Increase the octave shift for the next loop iteration

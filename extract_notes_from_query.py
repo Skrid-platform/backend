@@ -4,7 +4,7 @@ def extract_notes_from_query(query):
     '''Extract the notes from a given query.'''
 
     # Regex to find note details within the query
-    note_pattern = re.compile(r"\{class:'(\w|None)', octave:(\d+|None), dur:(\d+\.\d+|\d+|None)\}\)")
+    note_pattern = re.compile(r"\{class:'(\w+|None)', octave:(\d+|None), dur:(\d+\.\d+|\d+|None)\}\)")
 
     # Extract all matches
     matches = note_pattern.findall(query)
@@ -48,7 +48,7 @@ def extract_fuzzy_parameters(query):
     allow_transposition = bool(re.search(r'ALLOW_TRANSPOSITION', query))
 
     # Extract fixed notes information
-    note_pattern = r"\{class:'(\w|None)', octave:(\d+|None), dur:(\d+\.\d+|\d+|None)\}\)( FIXED)?"
+    note_pattern = r"\{class:'(\w+|None)', octave:(\d+|None), dur:(\d+\.\d+|\d+|None)\}\)( FIXED)?"
     matches = re.findall(note_pattern, query)
     fixed_notes = [bool(fixed) for _, _, _, fixed in matches]
 
