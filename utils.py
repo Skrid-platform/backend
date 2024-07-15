@@ -117,18 +117,31 @@ def get_notes_from_source_and_time_interval(driver, source, start_time, end_time
     return notes
 
 def calculate_base_stone(pitch, octave, accid=None):
+    # Convert flat to sharp
+    pitch = pitch.replace('s', '#')
+
+    if len(pitch) == 2 and pitch[1] in ('f', 'b'):
+        notes = 'abcdefg'
+        pitch = notes[(notes.index(pitch[0]) - 1) % len(notes)] + '#' # Convert flat to sharp
+
     # Define pitches and their relative semitone positions from A
-    notes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
-    semitones_from_a = [0, 2, 3, 5, 7, 8, 10]  # A to G, cumulative semitone distance
+    notes = ['a', 'a#', 'b', 'c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#']
+    semitones_from_a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+
+    # # Define pitches and their relative semitone positions from A
+    # notes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+    # semitones_from_a = [0, 2, 3, 5, 7, 8, 10]  # A to G, cumulative semitone distance
     
     # Create a mapping from note to its index and semitone offset
     note_to_semitone = {note: semitones for note, semitones in zip(notes, semitones_from_a)}
     
     # Find the base semitone position for the given pitch and octave
-    if pitch == 'a' or pitch == 'b' :
-        base_semitone = note_to_semitone[pitch] + (octave * 12) + 21
-    else :
-        base_semitone = note_to_semitone[pitch] + ((octave - 1) * 12) + 21
+    # if pitch == 'a' or pitch == 'b' :
+    #     base_semitone = note_to_semitone[pitch] + (octave * 12) + 21
+    # else :
+    #     base_semitone = note_to_semitone[pitch] + ((octave - 1) * 12) + 21
+
+    base_semitone = note_to_semitone[pitch] + (octave * 12) + 21 #TODO: I don't understand the above things that I commented. Why doing something different with a and b ?
     
     return base_semitone / 2.0
 

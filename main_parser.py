@@ -11,7 +11,7 @@ from ast import literal_eval # safer than eval
 import neo4j
 
 #---Project
-from reformulation_V2 import reformulate_cypher_query
+from reformulation_V2 import reformulate_fuzzy_query
 from neo4j_connection import connect_to_neo4j, run_query
 from process_results import process_results_to_text, process_results_to_mp3, process_results_to_json, process_crisp_results_to_json
 from utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes
@@ -371,7 +371,7 @@ class Parser:
             query = args.QUERY
 
         try:
-            res = reformulate_cypher_query(query)
+            res = reformulate_fuzzy_query(query)
         except:
             print('parse_compile: error: query may not be correctly formulated')
             return
@@ -392,7 +392,7 @@ class Parser:
 
         if args.fuzzy:
             try:
-                crisp_query = reformulate_cypher_query(query)
+                crisp_query = reformulate_fuzzy_query(query)
             except:
                 print('parse_send: compile query: error: query may not be correctly written')
                 return

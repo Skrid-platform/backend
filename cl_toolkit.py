@@ -2,7 +2,7 @@ import sys
 import os
 
 from neo4j_connection import connect_to_neo4j, run_query
-from reformulation_V2 import reformulate_cypher_query
+from reformulation_V2 import reformulate_fuzzy_query
 from process_results import process_results_to_text, process_results_to_mp3
 from utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes
 
@@ -43,7 +43,7 @@ def compile_fuzzy_query():
     print("Compiling")
     print(query)
     print("Compiled query:")
-    compiled_query = reformulate_cypher_query(query)
+    compiled_query = reformulate_fuzzy_query(query)
     print(compiled_query)
     save_option = (input("Do you want to save the compiled query to crisp_query.cypher? (y/n): ") or "y")
     if save_option.lower() == 'y':
@@ -54,7 +54,7 @@ def compile_fuzzy_query():
 def get_query_result(driver):
     with open("fuzzy_query.cypher", "r") as file:
             fuzzy_query = file.read()
-    crisp_query = reformulate_cypher_query(fuzzy_query)
+    crisp_query = reformulate_fuzzy_query(fuzzy_query)
     print("Query to be executed:")
     print(crisp_query)
     confirm = (input("Do you want to proceed? (y/n): ") or "y")
