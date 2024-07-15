@@ -62,7 +62,6 @@ def extract_fuzzy_parameters(query):
     if filter_collections:
         # collections = [s.strip('"') for s in re.compile(r'".+"').findall(collections_line_lst[0])]
         collections = []
-        print(collections_line_lst[0].split('"'))
         for col in collections_line_lst[0].split('"'):
             if col not in ('', ' ', 'COLLECTIONS ', '\n'):
                 collections.append(f'{col}')
