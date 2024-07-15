@@ -73,15 +73,25 @@ def check_notes_input_format(notes_input):
     notes = literal_eval(notes_input)
 
     for i, note in enumerate(notes):
-        if note[0] != None and not (type(note[0]) == str and len(note[0]) in (1, 2)):
-            if note[0] != None and (note[0][0] not in 'abcdefg' or (len(note[0]) == 2 and note[0][1] not in '#sbf')):
-                raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[0]}" is not a class.\n' + format_notes)
+        if not (
+            note[0] == None
+            or (
+                type(note[0] == str)
+                and (
+                    len(note[0]) == 1 or
+                    (len(note[0]) == 2 and note[0][1] in '#sbf')
+                )
+                and
+                note[0][0] in 'abcdefgr'
+            )
+        ):
+            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[0]}" is not a note class.\n' + format_notes)
 
         if not isinstance(note[1], (int, type(None))):
-            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[1]}" is not an int (or None)\n' + format_notes)
+            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[1]}" (octave) is not an int (or None)\n' + format_notes)
 
         if not isinstance(note[2], (int, float, type(None))):
-            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[2]}" is not a float (or None)\n' + format_notes)
+            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[2]}" (duration) is not a float (or None)\n' + format_notes)
 
     return notes
 
