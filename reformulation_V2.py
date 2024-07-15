@@ -118,7 +118,7 @@ def reformulate_without_transposition(query):
         where_clause = where_clause + ' AND \n ' + sequencing_conditions
 
     #------Construct the collection filter
-    if collections == None:
+    if collections == None or len(collections) == 0:
         col_clause = ''
     else:
         col_clause = '\nWITH'

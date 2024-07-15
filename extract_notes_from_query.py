@@ -57,10 +57,15 @@ def extract_fuzzy_parameters(query):
     allow_transposition = bool(re.search(r'ALLOW_TRANSPOSITION', query))
 
     # Check for collections filter
-    filter_collections = len(re.compile(r'COLLECTIONS .*\n').findall(query)) > 0
+    collections_line_lst = re.compile(r'COLLECTIONS .*\n').findall(query)
+    filter_collections = len(collections_line_lst) > 0
     if filter_collections:
-        collection_line = re.compile(r'COLLECTIONS .*\n').findall(query)[0]
-        collections = [s.strip('"') for s in re.compile(r'"\w+"').findall(collection_line)]
+        # collections = [s.strip('"') for s in re.compile(r'".+"').findall(collections_line_lst[0])]
+        collections = []
+        print(collections_line_lst[0].split('"'))
+        for col in collections_line_lst[0].split('"'):
+            if col not in ('', ' ', 'COLLECTIONS ', '\n'):
+                collections.append(f'{col}')
     else:
         collections = None
 
