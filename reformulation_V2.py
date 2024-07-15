@@ -6,7 +6,7 @@ from utils import calculate_pitch_interval
 import re
 
 def reformulate_cypher_query(query):
-    _, _, _, _, allow_transposition, _ = extract_fuzzy_parameters(query)
+    _, _, _, _, allow_transposition, _, _ = extract_fuzzy_parameters(query)
 
     if allow_transposition:
         return reformulate_with_transposition(query)
@@ -29,13 +29,14 @@ def make_sequencing_condition(duration_gap, idx):
 def reformulate_without_transposition(query):
     '''Convert a "fuzzy" query in a cypher one.'''
 
-    # Extract the parameters from the augmented query
-    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, fixed_notes = extract_fuzzy_parameters(query)
+    #------Extracting data from fuzzy query
+    #---Extract the parameters from the augmented query
+    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, fixed_notes, collections = extract_fuzzy_parameters(query) #TODO: use collections
     
-    # Extract notes using the new function
+    #---Extract notes using the new function
     notes = extract_notes_from_query(query)
 
-    # Construct the MATCH clause
+    #------Construct the MATCH clause
     if duration_gap > 0:
         # To give a higher bound to the number of intermediate notes, we suppose the shortest possible note has a duration of 0.125
         max_intermediate_nodes = max(int(duration_gap / 0.125), 1)
@@ -46,13 +47,12 @@ def reformulate_without_transposition(query):
     simplified_connections = ','.join([f"\n (e{idx})-[]->(f{idx}:Fact)" for idx in range(len(notes))])
     match_clause = 'MATCH \n ' + event_path + simplified_connections
 
-    # Construct the WHERE clause
+    #------Construct the WHERE clause
     where_clauses = []
     sequencing_conditions = []
-    # epsilon = 0.01 # Small epsilon value for floating-point imprecision
 
     for idx, (note, octave, duration) in enumerate(notes):
-        # Making note condition (class + octave)
+        #---Making note condition (class + octave)
         if note == None:
             if octave == None:
                 note_condition = ''
@@ -93,7 +93,7 @@ def reformulate_without_transposition(query):
 
                 note_condition = note_condition[:-len(' OR ')] + '\n )' # Remove trailing ' AND '
 
-        # Making the duration condition
+        #---Making the duration condition
         if duration == None:
             duration_condition = ''
         else:
@@ -111,12 +111,35 @@ def reformulate_without_transposition(query):
 
         where_clauses.append(' ' + where_clause_i)
     
-    # Assemble frequency, duration and sequencing conditions
+    #---Assemble frequency, duration and sequencing conditions
     where_clause = 'WHERE\n' + ' AND\n'.join(where_clauses)
     if sequencing_conditions:
         sequencing_conditions = ' AND '.join(sequencing_conditions)
         where_clause = where_clause + ' AND \n ' + sequencing_conditions
 
+    #------Construct the collection filter
+    if collections == None:
+        col_clause = ''
+    else:
+        col_clause = '\nWITH'
+
+        as_col_clause = ''
+        for k in range(len(notes)):
+            as_col_clause += f'e{k} as e{k}, f{k} as f{k}, '
+
+        as_col_clause = as_col_clause[:-2] # Remove trailing ', '
+
+        col_clause += '\n ' + as_col_clause
+        col_clause += '\nCALL {\n WITH e1\n MATCH (e1)<-[:timeSeries|VOICE|NEXT*]-(s:Score)\n RETURN s\n LIMIT 1\n}'
+        col_clause += '\nWITH\n s as s, ' + as_col_clause
+
+        col_clause += '\nWHERE'
+        for col in collections:
+            col_clause += f'\n s.collection CONTAINS "{col}" OR'
+
+        col_clause = col_clause[:-3] # Remove trailing ' OR'.
+
+    #------Construct the return clause
     return_clauses = []
     for idx in range(len(notes)):
         # Prepare return clauses with specified names
@@ -128,16 +151,16 @@ def reformulate_without_transposition(query):
             f"e{idx}.end AS end_{idx}",
             f"e{idx}.id AS id_{idx}"
         ])
-    # Construct the RETURN clause
+
     return_clause = 'RETURN' + ', '.join(return_clauses) + f', \n e0.source AS source, e0.start AS start, e{len(notes) - 1}.end AS end'
     
-    # Construct the final query
-    new_query = match_clause + '\n' + where_clause + '\n' + return_clause
+    #------Construct the final query
+    new_query = match_clause + '\n' + where_clause + col_clause + '\n' + return_clause
     return new_query
 
 def reformulate_with_transposition(query): #TODO: add modifications for notes that can be None (but understand the goal first)
     # Extract the parameters from the augmented query
-    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, fixed_notes = extract_fuzzy_parameters(query)
+    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, fixed_notes, collections = extract_fuzzy_parameters(query) #TODO: use collections
     
     # Extract notes using the new function
     notes = extract_notes_from_query(query)

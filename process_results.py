@@ -51,7 +51,7 @@ def almost_all_aggregation_yager(*degrees):
 def get_ordered_results(result, query):
     # Extract the query notes and fuzzy parameters    
     query_notes = extract_notes_from_query(query)
-    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, fixed_notes = extract_fuzzy_parameters(query)
+    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, fixed_notes, _ = extract_fuzzy_parameters(query)
 
     note_sequences = []
     for record in result:
@@ -107,7 +107,7 @@ def get_ordered_results(result, query):
 def get_ordered_results_with_transpose(result, query):
     # Extract the query notes and fuzzy parameters    
     query_notes = extract_notes_from_query(query)
-    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, fixed_notes = extract_fuzzy_parameters(query)
+    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, fixed_notes, _ = extract_fuzzy_parameters(query)
 
     # Compute the intervals between consecutive notes
     intervals = []
@@ -235,7 +235,7 @@ def process_results_to_dict(result, query):
     - query  : the *fuzzy* query (to extract info from it).
     '''
 
-    _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
+    _, _, _, _, allow_transpose, _, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:
         sequence_details = get_ordered_results_with_transpose(result, query)
@@ -284,7 +284,7 @@ def process_results_to_text(result, query):
     - query  : the *fuzzy* query (to extract info from it).
     '''
 
-    _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
+    _, _, _, _, allow_transpose, _, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:
         sequence_details = get_ordered_results_with_transpose(result, query)
@@ -307,7 +307,7 @@ def process_results_to_text(result, query):
     return res
 
 def process_results_to_text_old(result, query, fn='results.txt'):
-    _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
+    _, _, _, _, allow_transpose, _, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:
         sequence_details = get_ordered_results_with_transpose(result, query)
@@ -327,7 +327,7 @@ def process_results_to_text_old(result, query, fn='results.txt'):
 
 
 def process_results_to_mp3(result, query, max_files, driver):
-    _, _, _, _, allow_transpose, _ = extract_fuzzy_parameters(query)
+    _, _, _, _, allow_transpose, _, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:
         sequence_details = get_ordered_results_with_transpose(result, query)

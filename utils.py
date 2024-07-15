@@ -2,15 +2,33 @@ from neo4j_connection import connect_to_neo4j, run_query
 from generate_audio import generate_mp3
 from note import Note
 
-def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition):
-    # In : a list of notes (as class, octave, duration triples), gaps and alpha parameters
-    # Out : a fuzzy query searching for the notes with the parameters
+def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, collections=None):
+    '''
+    Create a fuzzy query.
+
+    In :
+        - notes ([(str|None, float|None, float|None), ...]) : the note array (class, octave, duration) ;
+        - pitch_distance (float)                            : the pitch distance (fuzzy param) ;
+        - duration_factor (float)                           : the duration factor (fuzzy param) ;
+        - duration_gap (float)                              : the duration gap (fuzzy param) ;
+        - alpha (float)                                     : the alpha param ;
+        - allow_transposition (bool)                        : the allow_transposition param ;
+        - collections (str[] | None)                        : the collection filter.
+
+    Out :
+        a fuzzy query searching for the notes given in parameters.
+    '''
+
     if allow_transposition:
         match_clause = "MATCH\n ALLOW_TRANSPOSITION\n TOLERANT pitch={}, duration={}, gap={}\n ALPHA {}\n".format(
             pitch_distance, duration_factor, duration_gap, alpha)
     else:
         match_clause = "MATCH\n TOLERANT pitch={}, duration={}, gap={}\n ALPHA {}\n".format(
             pitch_distance, duration_factor, duration_gap, alpha)
+
+    if collections != None:
+        match_clause += ' COLLECTIONS '
+        match_clause += '"' + '" "'.join(collections) + '"\n'
 
     events = []
     facts = []

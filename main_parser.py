@@ -290,6 +290,10 @@ class Parser:
             action='store_true',
             help='Allow transposition' #TODO: make a better help
         )
+        self.parser_w.add_argument(
+            '-c', '--collections',
+            help='filter by collections. Separate values with commas, without space, e.g: -c "col 1","col 2","col 3"'
+        )
 
     def create_get(self):
         '''Creates the get subparser and add its arguments.'''
@@ -436,8 +440,13 @@ class Parser:
         else:
             notes_input = args.NOTES
 
+        if args.collections == None:
+            collections = None
+        else:
+            collections = args.collections.split(',')
+
         notes = check_notes_input_format(notes_input)
-        query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition)
+        query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition, collections)
 
         if args.output == None:
             print(query)
