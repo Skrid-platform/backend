@@ -227,13 +227,14 @@ def create_where_clause_with_transposition(notes, fixed_notes, pitch_distance, d
 
     return where_clause
 
-def create_collection_clause(collections, nb_notes, allow_transposition=False):
+def create_collection_clause(collections, nb_notes, duration_gap=0.0, allow_transposition=False):
     '''
     Create the clause that will filter the given collections.
 
     - collections          : the array of collection strings ;
     - nb_notes             : the number of notes ;
-    -  allow_transposition : indicate if the clause will allow transpositions. In this case, adding `r{idx} as r{idx}`.
+    - duration_gap         : the duration gap fuzzy parameter (used to know if adding `r{idx} as r{idx}`) ;
+    - allow_transposition  : indicate if the clause will allow transpositions. In this case, adding `r{idx} as r{idx}`.
     '''
 
     if collections == None or len(collections) == 0:
@@ -247,7 +248,10 @@ def create_collection_clause(collections, nb_notes, allow_transposition=False):
             as_col_clause += f'e{k} as e{k}, f{k} as f{k}, '
 
             if allow_transposition and k < nb_notes - 1:
-                as_col_clause += f'r{k} as r{k}, '
+                if duration_gap > 0:
+                    as_col_clause += f'totalInterval_{k} as totalInterval_{k}, '
+                else:
+                    as_col_clause += f'r{k} as r{k}, '
 
         as_col_clause = as_col_clause[:-2] # Remove trailing ', '
 
@@ -325,7 +329,7 @@ def reformulate_fuzzy_query(query):
         where_clause = create_where_clause_without_transposition(notes, fixed_notes, pitch_distance, duration_factor, duration_gap)
 
     #------Construct the collection filter
-    col_clause = create_collection_clause(collections, len(notes), allow_transposition)
+    col_clause = create_collection_clause(collections, len(notes), duration_gap, allow_transposition)
 
     #------Construct the return clause
     return_clause = create_return_clause(len(notes), duration_gap, allow_transposition)
