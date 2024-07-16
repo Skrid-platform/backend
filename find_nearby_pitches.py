@@ -1,9 +1,7 @@
-def find_nearby_pitches(pitch, octave, max_distance):
-    pitch = pitch.replace('s', '#')
+from degree_computation import convert_note_to_sharp
 
-    if len(pitch) == 2 and pitch[1] in ('f', 'b'):
-        notes = 'abcdefg'
-        pitch = notes[(notes.index(pitch[0]) - 1) % len(notes)] + '#' # Convert flat to sharp
+def find_nearby_pitches(pitch, octave, max_distance):
+    pitch = convert_note_to_sharp(pitch)
 
     # Define pitches and their relative semitone positions from C
     # notes = ['c', 'd', 'e', 'f', 'g', 'a', 'b']

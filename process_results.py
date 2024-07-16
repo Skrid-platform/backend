@@ -114,7 +114,12 @@ def get_ordered_results_with_transpose(result, query):
     for i in range(len(query_notes) - 1):
         note1, octave1, _ = query_notes[i]
         note2, octave2, _ = query_notes[i + 1]
-        interval = calculate_pitch_interval(note1, octave1, note2, octave2)
+
+        if None in (note1, octave1, note2, octave2):
+            interval = None
+        else:
+            interval = calculate_pitch_interval(note1, octave1, note2, octave2)
+
         intervals.append(interval)
 
     note_sequences = []
@@ -148,6 +153,7 @@ def get_ordered_results_with_transpose(result, query):
                 pitch_deg = 1.0
             else:
                 pitch_deg = pitch_degree_with_intervals(intervals[idx - 1], interval, pitch_gap)
+
             duration_deg = duration_degree_with_multiplicative_factor(query_note[2], note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             

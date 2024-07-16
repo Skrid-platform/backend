@@ -1,3 +1,23 @@
+def convert_note_to_sharp(note):
+    '''
+    Convert a note to its equivalent in sharp (if it is a flat).
+    If the note has no accidental, it is not modified.
+
+    - note : a string of length 1 or 2 representing a musical note class (no octave).
+             Sharp can be represented either with 's' or '#'.
+             Flat can be represented either with 'f' of 'b'.
+
+    Output: `note` with sharp represented as '#', or `note` unchanged if there was no accidental.
+    '''
+
+    notes = 'abcdefg'
+
+    note = note.replace('s', '#')
+    if len(note) == 2 and note[1] in ('f', 'b'):
+        note = notes[(notes.index(note[0]) - 1) % len(notes)] + '#' # Convert flat to sharp
+
+    return note
+
 def note_distance_in_tones(note1, octave1, note2, octave2):
     '''Calculate the distance (in tones) between two notes.'''
 
@@ -15,15 +35,8 @@ def note_distance_in_tones(note1, octave1, note2, octave2):
     }
 
     #---Replace 's' with '#' and convert flat to sharp
-    notes = 'abcdefg' # Used to convert flat to sharp
-
-    note1 = note1.replace('s', '#')
-    if len(note1) == 2 and note1[1] in ('f', 'b'):
-        note1 = notes[(notes.index(note1[0]) - 1) % len(notes)] + '#' # Convert flat to sharp
-
-    note2 = note2.replace('s', '#')
-    if len(note2) == 2 and note2[1] in ('f', 'b'):
-        note2 = notes[(notes.index(note2[0]) - 1) % len(notes)] + '#' # Convert flat to sharp
+    note1 = convert_note_to_sharp(note1)
+    note2 = convert_note_to_sharp(note2)
 
     #---Manages when octave is None
     if octave1 == None and octave2 == None: # In this case, return the distance between notes as if it was in the same octave.
@@ -52,12 +65,16 @@ def note_distance_in_tones(note1, octave1, note2, octave2):
 def pitch_degree(note1, octave1, note2, octave2, pitch_gap):
     if pitch_gap == 0:
         return 1.0
-    return max(1 - (note_distance_in_tones(note1, octave1, note2, octave2)/(pitch_gap + pitch_gap*0.1)), 0)
+
+    d = 1 - (note_distance_in_tones(note1, octave1, note2, octave2) / (pitch_gap + pitch_gap*0.1)) #TODO: Why not just `pitch_gap` but ` + pitch_gap / 10` ?
+    return max(d, 0)
 
 def pitch_degree_with_intervals(interval1, interval2, pitch_gap):
     if pitch_gap == 0:
         return 1.0
-    return max(1 - (abs(interval1 - interval2)/(pitch_gap + pitch_gap*0.1)), 0)
+
+    d = 1 - (abs(interval1 - interval2) / (pitch_gap + pitch_gap*0.1))
+    return max(d, 0)
   
 
 def duration_degree(duration1, duration2, max_duration_distance):

@@ -5,16 +5,13 @@ from utils import calculate_pitch_interval
 
 import re
 
-def reformulate_cypher_query(query):
-    return reformulate_fuzzy_query(query) #TODO: remove one of the two functions.
-
 def make_duration_condition(duration_factor, duration, idx, fixed):
     if duration == None:
         return ''
 
     if duration_factor != 1 and not fixed:
         min_duration, max_duration = find_duration_range_multiplicative_factor(duration, duration_factor)
-        res = f"e{idx}.duration >= {min_duration} AND e{idx}.duration <= {max_duration}"
+        res = f"{min_duration} <= e{idx}.duration AND e{idx}.duration <= {max_duration}"
     else:
         duration = find_duration_range_multiplicative_factor(duration, 1.0)[0]
         res = f"e{idx}.duration = {duration}"
@@ -230,12 +227,13 @@ def create_where_clause_with_transposition(notes, fixed_notes, pitch_distance, d
 
     return where_clause
 
-def create_collection_clause(collections, nb_notes):
+def create_collection_clause(collections, nb_notes, allow_transposition=False):
     '''
     Create the clause that will filter the given collections.
 
-    - collections : the array of collection strings ;
-    - nb_notes    : the number of notes.
+    - collections          : the array of collection strings ;
+    - nb_notes             : the number of notes ;
+    -  allow_transposition : indicate if the clause will allow transpositions. In this case, adding `r{idx} as r{idx}`.
     '''
 
     if collections == None or len(collections) == 0:
@@ -247,6 +245,9 @@ def create_collection_clause(collections, nb_notes):
         as_col_clause = ''
         for k in range(nb_notes):
             as_col_clause += f'e{k} as e{k}, f{k} as f{k}, '
+
+            if allow_transposition and k < nb_notes - 1:
+                as_col_clause += f'r{k} as r{k}, '
 
         as_col_clause = as_col_clause[:-2] # Remove trailing ', '
 
@@ -324,14 +325,14 @@ def reformulate_fuzzy_query(query):
         where_clause = create_where_clause_without_transposition(notes, fixed_notes, pitch_distance, duration_factor, duration_gap)
 
     #------Construct the collection filter
-    col_clause = create_collection_clause(collections, len(notes))
+    col_clause = create_collection_clause(collections, len(notes), allow_transposition)
 
     #------Construct the return clause
     return_clause = create_return_clause(len(notes), duration_gap, allow_transposition)
     
     #------Construct the final query
     new_query = match_clause + '\n' + with_clause + where_clause + col_clause + '\n' + return_clause
-    return new_query
+    return new_query.strip('\n')
 
 
 if __name__ == "__main__":

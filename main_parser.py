@@ -20,16 +20,45 @@ from utils import get_first_k_notes_of_each_score, create_query_from_list_of_not
 # version = '1.0'
 
 ##-Util
-def restricted_float(x, mn=0, mx=1):
-    '''Defines a new type to restrict a float to the interval [mn ; mx].'''
+def restricted_float(x, mn=None, mx=None):
+    '''
+    Defines a new type to restrict a float to the interval [mn ; mx].
+
+    If mn is None, it acts the same as -inf.
+    If mx is None, it acts the same as +inf.
+    '''
 
     try:
         x = float(x)
     except ValueError:
         raise argparse.ArgumentTypeError(f'"{x}" is not a float')
 
-    if x < mn or x > mx:
-        raise argparse.ArgumentTypeError(f'"{x}" is not in range [{mn} ; {mx}]')
+    if mn != None and x < mn:
+        if mx == None:
+            mx = '+inf'
+
+        raise argparse.ArgumentTypeError(f'"{x}" is not in range [{mn} ; {mx}] (x < {mn})')
+
+    elif mx != None and x > mx:
+        if mn == None:
+            mn = '-inf'
+
+        raise argparse.ArgumentTypeError(f'"{x}" is not in range [{mn} ; {mx}] (x > {mx})')
+
+    return x
+
+def semi_int(x):
+    r'''Defines a new type : \N / 2 (int or half an int).'''
+
+    try:
+        x = float(x)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'"{x}" is not a float')
+
+    is_int = lambda x : int(x) == x
+
+    if not (is_int(x) or is_int(2 * x)):
+        raise argparse.ArgumentTypeError(f'"{x}" is not an integer or half an integer')
 
     return x
 
@@ -264,31 +293,31 @@ class Parser:
         self.parser_w.add_argument(
             '-p', '--pitch-distance',
             default=0.0,
-            type=float, #TODO: make a better type as restricted_float
-            help='the pitch distance. Default is 0.0' #TODO: make a better help
+            type=semi_int,
+            help='the pitch distance fuzzy parameter (in tones). Default is 0.0 (exact match). A pitch distance of `d` means that it is possible to match a note distant of `d` tones from the search note.'
         )
         self.parser_w.add_argument(
             '-f', '--duration-factor',
             default=1.0,
-            type=float, #TODO: make a better type as restricted_float
-            help='the duration factor. Default is 1.0' #TODO: make a better help
+            type=lambda x: restricted_float(x, 0, None),
+            help='the duration factor fuzzy parameter (multiplicative factor). Default is 1.0. A duration factor of `f` means that it is possible to match notes with a duration between `d` and `f * d` (if `d` is the duration of the searched note).'
         )
         self.parser_w.add_argument(
             '-g', '--duration-gap',
             default=0.0,
-            type=float, #TODO: make a better type as restricted_float
-            help='the duration gap. Default is 0.0' #TODO: make a better help
+            type=lambda x: restricted_float(x, 0, None),
+            help='the duration gap fuzzy parameter (in proportion of a whole note, e.g 0.25 for a quarter note). Default is 0.0. A duration gap of `g` means that it is possible to match the pattern by adding notes of duration `g` between the searched notes.'
         )
         self.parser_w.add_argument(
             '-a', '--alpha',
             default=0.0,
-            type=restricted_float,
+            type=lambda x: restricted_float(x, 0, 1),
             help='the alpha setting. In range [0 ; 1]. Remove every result that has a score below alpha. Default is 0.0'
         )
         self.parser_w.add_argument(
             '-t', '--allow-transposition',
             action='store_true',
-            help='Allow transposition' #TODO: make a better help
+            help='Allow pitch transposition: match on note interval instead of pitch'
         )
         self.parser_w.add_argument(
             '-c', '--collections',
@@ -424,7 +453,11 @@ class Parser:
 
         else:
             if args.text_output != None:
-                processed_res = process_results_to_text(res, query) #TODO: won't work if query is not fuzzy.
+                if not args.fuzzy:
+                    print(res)
+                    raise TypeError('Can only process result to text if the query is fuzzy !\nThe result has been printed above.')
+
+                processed_res = process_results_to_text(res, query)
                 write_to_file(args.text_output, processed_res)
 
             if args.mp3 != None:

@@ -1,5 +1,6 @@
 from neo4j_connection import connect_to_neo4j, run_query
 from generate_audio import generate_mp3
+from degree_computation import convert_note_to_sharp
 from note import Note
 
 def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, collections=None):
@@ -118,22 +119,21 @@ def get_notes_from_source_and_time_interval(driver, source, start_time, end_time
 
 def calculate_base_stone(pitch, octave, accid=None):
     # Convert flat to sharp
-    pitch = pitch.replace('s', '#')
+    pitch = convert_note_to_sharp(pitch)
 
-    if len(pitch) == 2 and pitch[1] in ('f', 'b'):
-        notes = 'abcdefg'
-        pitch = notes[(notes.index(pitch[0]) - 1) % len(notes)] + '#' # Convert flat to sharp
-
-    # Define pitches and their relative semitone positions from A
-    notes = ['a', 'a#', 'b', 'c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#']
-    semitones_from_a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    # Define pitches and their relative semitone positions from C (piano changes octave on C)
+    # notes_from_a = ['a', 'a#', 'b', 'c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#']
+    notes_from_c = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b']
+    # semitones_from_a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    semitones_from_c = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
     # # Define pitches and their relative semitone positions from A
     # notes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
     # semitones_from_a = [0, 2, 3, 5, 7, 8, 10]  # A to G, cumulative semitone distance
     
     # Create a mapping from note to its index and semitone offset
-    note_to_semitone = {note: semitones for note, semitones in zip(notes, semitones_from_a)}
+    # note_to_semitone = {note: semitones for note, semitones in zip(notes, semitones_from_a)}
+    note_to_semitone = {note: semitones for note, semitones in zip(notes_from_c, semitones_from_c)}
     
     # Find the base semitone position for the given pitch and octave
     # if pitch == 'a' or pitch == 'b' :
