@@ -136,12 +136,12 @@ def calculate_base_stone(pitch, octave, accid=None):
     note_to_semitone = {note: semitones for note, semitones in zip(notes_from_c, semitones_from_c)}
     
     # Find the base semitone position for the given pitch and octave
-    # if pitch == 'a' or pitch == 'b' :
+    # if pitch == 'a' or pitch == 'b' : # this is not needed as we do from c now (and not from a)
     #     base_semitone = note_to_semitone[pitch] + (octave * 12) + 21
     # else :
     #     base_semitone = note_to_semitone[pitch] + ((octave - 1) * 12) + 21
 
-    base_semitone = note_to_semitone[pitch] + (octave * 12) + 21 #TODO: I don't understand the above things that I commented. Why doing something different with a and b ?
+    base_semitone = note_to_semitone[pitch] + (octave * 12) + 21
     
     return base_semitone / 2.0
 

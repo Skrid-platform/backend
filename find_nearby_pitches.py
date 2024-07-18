@@ -1,6 +1,6 @@
 from degree_computation import convert_note_to_sharp
 
-def find_nearby_pitches(pitch, octave, max_distance):
+def find_nearby_pitches_old(pitch, octave, max_distance):
     pitch = convert_note_to_sharp(pitch)
 
     # Define pitches and their relative semitone positions from C
@@ -45,6 +45,36 @@ def find_nearby_pitches(pitch, octave, max_distance):
         oct_shift += 1  # Increase the octave shift for the next loop iteration
 
     return result
+
+def find_nearby_pitches(pitch, octave, pitch_distance):
+    '''
+    Return a list of all the notes in the range `pitch_distance` of the center note (`pitch` / `octave`).
+
+    The distance function is the interval (number of semitones) between notes.
+
+    - pitch          : the base pitch. Format example: 'c', 'cs', 'c#' ;
+    - octave         : the octave of the note ;
+    - pitch_distance : the maximum distance allowed, in tones.
+
+    Out: a list of all near notes, in the format: `[(pitch, octave), ...]`.
+    '''
+
+    # Notes semitone by semitone from c
+    notes = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b']
+
+    pitch = convert_note_to_sharp(pitch)
+    i = notes.index(pitch) # The relative semitone of the center note
+    max_semitone_dist = int(2 * pitch_distance)
+
+    res = []
+
+    for semitone in range(i - max_semitone_dist, i + max_semitone_dist + 1):
+        p = notes[semitone % len(notes)]
+        o = octave + (semitone // len(notes))
+
+        res.append((p, o))
+
+    return res
 
 def find_frequency_bounds(pitch, octave, max_distance):
     # Define pitches and their relative semitone positions from A
