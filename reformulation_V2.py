@@ -1,7 +1,7 @@
 from find_nearby_pitches import find_frequency_bounds, find_nearby_pitches
 from find_duration_range import find_duration_range_decimal, find_duration_range_multiplicative_factor
 from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters
-from utils import calculate_pitch_interval
+from utils import calculate_pitch_interval, calculate_intervals
 
 import re
 
@@ -21,27 +21,68 @@ def make_sequencing_condition(duration_gap, idx):
     sequencing_condition = f"e{idx}.end >= e{idx+1}.start - {duration_gap}"
     return sequencing_condition
 
+def make_interval_condition(interval: int, transposition: bool, duration_gap: float, pitch_distance: float, is_fixed: bool, idx: int) -> str:
+    '''
+    Create the interval condition (for the WHERE clause with transposition or contour).
 
-def create_match_clause(nb_notes, duration_gap, transpose=False):
+    - interval (int)         : the interval from the given melody ;
+    - transposition (bool)   : if true, create condition for query with transposition. Otherwise, create for query with contour ;
+    - duration_gap (float)   : the duration gap fuzzy parameter ;
+    - pitch_distance (float) : the pitch distance fuzzy parameter ;
+    - is_fixed (bool)        : a boolean indicating if the note is fixed or not ;
+    - idx (int)              : the current index.
+    '''
+
+    if transposition:
+        if duration_gap > 0:
+            if pitch_distance > 0 and not is_fixed:
+                interval_condition = f'{interval - pitch_distance} <= totalInterval_{idx} AND totalInterval_{idx} <= {interval + pitch_distance}'
+            else:
+                interval_condition = f'totalInterval_{idx} = {interval}'
+
+        else:
+            # Construct interval conditions for direct connections
+            if pitch_distance > 0 and not is_fixed:
+                interval_condition = f'{interval - pitch_distance} <= r{idx}.interval AND r{idx}.interval <= {interval + pitch_distance}'
+            else:
+                interval_condition = f'r{idx}.interval = {interval}'
+
+    else:
+        if duration_gap > 0:
+            interval_keyword = f'totalInterval_{idx}'
+        else:
+            interval_keyword = f'r{idx}.interval'
+
+        if interval == 0:
+            interval_condition = f'{interval_keyword} = 0'
+        elif interval > 0:
+            interval_condition = f'{interval_keyword} > 0'
+        else:
+            interval_condition = f'{interval_keyword} < 0'
+    
+    return interval_condition
+
+
+def create_match_clause(nb_notes, duration_gap, intervals=False):
     '''
     Create the MATCH clause for the compilated query.
 
     - nb_notes     : the number of notes ;
     - duration_gap : the duration gap ;
-    - transpose    : indicate if transposition is allowed.
+    - intervals    : indicate if transposition is allowed or if match contour (to use intervals).
     '''
 
     if duration_gap > 0:
         # To give a higher bound to the number of intermediate notes, we suppose the shortest possible note has a duration of 0.125
         max_intermediate_nodes = max(int(duration_gap / 0.125), 1)
 
-        if transpose:
+        if intervals:
             event_path = ',\n '.join([f"p{idx} = (e{idx}:Event)-[:NEXT*1..{max_intermediate_nodes + 1}]->(e{idx+1}:Event)" for idx in range(nb_notes - 1)]) + ','
         else:
             event_path = f"-[:NEXT*1..{max_intermediate_nodes + 1}]->".join([f"(e{idx}:Event)" for idx in range(nb_notes)]) + ','
 
     else:
-        if transpose:
+        if intervals:
             event_path = "".join([f"(e{idx}:Event)-[r{idx}:NEXT]->" for idx in range(nb_notes - 1)]) + f"(e{nb_notes - 1}:Event)"+ ','
         else:
             event_path = f"-[]->".join([f"(e{idx}:Event)" for idx in range(nb_notes)]) + ','  
@@ -51,9 +92,9 @@ def create_match_clause(nb_notes, duration_gap, transpose=False):
 
     return match_clause
 
-def create_with_clause_allow_transposition(nb_notes, duration_gap):
+def create_with_clause_interval(nb_notes, duration_gap):
     '''
-    Create the WITH clause for the compilated query (only with allow_transposition).
+    Create the WITH clause for the compilated query that need intervals (so with `allow_transposition` or `contour`).
 
     - nb_notes     : the number of notes ;
     - duration_gap : the duration gap.
@@ -69,12 +110,12 @@ def create_with_clause_allow_transposition(nb_notes, duration_gap):
             interval_conditions.append(interval_condition)
 
         # Adding the interval clauses if duration_gap is specified
-        variables = ', '.join([f"e{idx}" for idx in range(nb_notes)]) + ',\n' + ', '.join([f"f{idx}" for idx in range(nb_notes)])
-        with_clause = 'WITH\n' + variables + ',\n' + ',\n'.join(interval_conditions) + ' '
+        variables = ' ' + ', '.join([f"e{idx}" for idx in range(nb_notes)]) + ',\n ' + ', '.join([f"f{idx}" for idx in range(nb_notes)])
+        with_clause = 'WITH\n' + variables + ',\n ' + ',\n '.join(interval_conditions) + ' '
 
     return with_clause + '\n'
 
-def create_where_clause_without_transposition(notes, fixed_notes, pitch_distance, duration_factor, duration_gap):
+def create_where_clause_simple(notes, fixed_notes, pitch_distance, duration_factor, duration_gap):
     '''
     Create the WHERE clause to match `notes`.
     Does not allow transposition.
@@ -154,31 +195,22 @@ def create_where_clause_without_transposition(notes, fixed_notes, pitch_distance
 
     return where_clause
 
-def create_where_clause_with_transposition(notes, fixed_notes, pitch_distance, duration_factor, duration_gap):
+def create_where_clause_intervals(notes, allow_transposition, fixed_notes, pitch_distance, duration_factor, duration_gap):
     '''
     Create the WHERE clause to match `notes`.
-    Allows transposition.
+    Allows transposition (by using intervals).
 
-    - notes           : the array of notes triples (pitch, octave, duration) ;
-    - fixed_notes     : the array indicating if notes are fixed ;
-    - pitch_distance  : the pitch distance ;
-    - duration_factor : the duration factor ;
-    - duration_gap    : the duration gap.
+    Example: for the notes c5 b4 b4 g4 b4 a4, the intervals (in tones) are -0.5, 0, -2, 2, -1.
+
+    - notes               : the array of notes triples (pitch, octave, duration) ;
+    - allow_transposition : indicate if make query for transposition (True) or for contour (False) ;
+    - fixed_notes         : the array indicating if notes are fixed ;
+    - pitch_distance      : the pitch distance ;
+    - duration_factor     : the duration factor ;
+    - duration_gap        : the duration gap.
     '''
 
-    #---Compute the intervals between consecutive notes
-    intervals = []
-    for i in range(len(notes) - 1):
-        note1, octave1, _ = notes[i]
-        note2, octave2, _ = notes[i + 1]
-
-        if None in (note1, octave1, note2, octave2):
-            interval = None
-        else:
-            interval = calculate_pitch_interval(note1, octave1, note2, octave2)
-
-        intervals.append(interval)
-
+    intervals = calculate_intervals(notes)
     where_clauses = []
 
     for idx, (note, octave, duration) in enumerate(notes):
@@ -186,32 +218,15 @@ def create_where_clause_with_transposition(notes, fixed_notes, pitch_distance, d
 
         if idx == len(notes) - 1 or intervals[idx] == None: # only duration condition for the last step or if no interval given
             if duration_condition != '':
-                where_clauses.append(duration_condition)
+                where_clauses.append(' ' + duration_condition)
 
         else: # duration condition + interval condition
-            if duration_gap > 0:
-                if pitch_distance > 0 and not fixed_notes[idx]:
-                    interval_condition = f"{intervals[idx] - pitch_distance} <= totalInterval_{idx} AND totalInterval_{idx} <= {intervals[idx] + pitch_distance}"
-                else:
-                    interval_condition = f"totalInterval_{idx} = {intervals[idx]}"
-
-            else:
-                # Construct interval conditions for direct connections
-                if pitch_distance > 0 and not fixed_notes[idx]:
-                    interval_condition = f"{intervals[idx] - pitch_distance} <= r{idx}.interval AND r{idx}.interval <= {intervals[idx] + pitch_distance}"
-                else:
-                    interval_condition = f"r{idx}.interval = {intervals[idx]}"
-                    # if intervals[idx] > 0:
-                    #     interval_condition = f"r{idx}.interval > 0"
-                    # elif intervals[idx] == 0:
-                    #     interval_condition = f"r{idx}.interval = 0"
-                    # else:
-                    #     interval_condition = f"r{idx}.interval < 0"
+            interval_condition = make_interval_condition(intervals[idx], allow_transposition, duration_gap, pitch_distance, fixed_notes[idx], idx)
 
             if duration_condition != '':
-                where_clauses.append(duration_condition + " AND " + interval_condition)
-            else:
-                where_clauses.append(interval_condition)
+                where_clauses.append(' ' + duration_condition + ' AND ' + interval_condition)
+            elif interval_condition != '':
+                where_clauses.append(' ' + interval_condition)
 
     where_clause = 'WHERE\n' + ' AND\n'.join(where_clauses)
 
@@ -223,18 +238,18 @@ def create_where_clause_with_transposition(notes, fixed_notes, pitch_distance, d
             if sequencing_condition:
                 sequencing_conditions.append(sequencing_condition)
         sequencing_conditions = ' AND '.join(sequencing_conditions)
-        where_clause = where_clause + ' AND \n' + sequencing_conditions
+        where_clause = where_clause + ' AND \n ' + sequencing_conditions
 
     return where_clause
 
-def create_collection_clause(collections, nb_notes, duration_gap=0.0, allow_transposition=False):
+def create_collection_clause(collections, nb_notes, duration_gap=0.0, intervals=False):
     '''
     Create the clause that will filter the given collections.
 
-    - collections          : the array of collection strings ;
-    - nb_notes             : the number of notes ;
-    - duration_gap         : the duration gap fuzzy parameter (used to know if adding `r{idx} as r{idx}`) ;
-    - allow_transposition  : indicate if the clause will allow transpositions. In this case, adding `r{idx} as r{idx}`.
+    - collections  : the array of collection strings ;
+    - nb_notes     : the number of notes ;
+    - duration_gap : the duration gap fuzzy parameter (used to know if adding `r{idx} as r{idx}`) ;
+    - intervals    : indicate if the clause will allow transpositions or match contour (and so use intervals). In this case, adding `r{idx} as r{idx}`.
     '''
 
     if collections == None or len(collections) == 0:
@@ -247,7 +262,7 @@ def create_collection_clause(collections, nb_notes, duration_gap=0.0, allow_tran
         for k in range(nb_notes):
             as_col_clause += f'e{k} as e{k}, f{k} as f{k}, '
 
-            if allow_transposition and k < nb_notes - 1:
+            if intervals and k < nb_notes - 1:
                 if duration_gap > 0:
                     as_col_clause += f'totalInterval_{k} as totalInterval_{k}, '
                 else:
@@ -267,13 +282,13 @@ def create_collection_clause(collections, nb_notes, duration_gap=0.0, allow_tran
 
     return col_clause
 
-def create_return_clause(nb_notes, duration_gap=0., transpose=False):
+def create_return_clause(nb_notes, duration_gap=0., intervals=False):
     '''
     Create the return clause.
 
     - nb_notes     : the number of notes in the search melody ;
-    - duration_gap : the duration gap. Used only when transpose is True ;
-    - transpose    : indicate if the return clause is for a query that allows transposition or not. If so, it will also add `interval_{idx}` to the clause.
+    - duration_gap : the duration gap. Used only when `intervals` is True ;
+    - intervals    : indicate if the return clause is for a query that allows transposition, or contour match, or not. If so, it will also add `interval_{idx}` to the clause.
     '''
 
     return_clauses = []
@@ -288,7 +303,7 @@ def create_return_clause(nb_notes, duration_gap=0., transpose=False):
             f"e{idx}.id AS id_{idx}"
         ])
 
-        if transpose and idx < nb_notes - 1:
+        if intervals and idx < nb_notes - 1:
             if duration_gap > 0:
                 return_clauses.append(f"totalInterval_{idx} AS interval_{idx}")
             else:
@@ -308,31 +323,31 @@ def reformulate_fuzzy_query(query):
 
     #------Init
     #---Extract the parameters from the augmented query
-    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, fixed_notes, collections = extract_fuzzy_parameters(query)
+    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, fixed_notes, collections = extract_fuzzy_parameters(query)
 
     #---Extract notes using the new function
     notes = extract_notes_from_query(query)
     
     #------Construct the MATCH clause
-    match_clause = create_match_clause(len(notes), duration_gap, allow_transposition)
+    match_clause = create_match_clause(len(notes), duration_gap, allow_transposition or contour_match)
 
     #------Construct WITH clause
-    if allow_transposition:
-        with_clause = create_with_clause_allow_transposition(len(notes), duration_gap)
+    if allow_transposition or contour_match:
+        with_clause = create_with_clause_interval(len(notes), duration_gap)
     else:
         with_clause = ''
 
     #------Construct the WHERE clause
-    if allow_transposition:
-        where_clause = create_where_clause_with_transposition(notes, fixed_notes, pitch_distance, duration_factor, duration_gap)
+    if allow_transposition or contour_match:
+        where_clause = create_where_clause_intervals(notes, allow_transposition, fixed_notes, pitch_distance, duration_factor, duration_gap)
     else:
-        where_clause = create_where_clause_without_transposition(notes, fixed_notes, pitch_distance, duration_factor, duration_gap)
+        where_clause = create_where_clause_simple(notes, fixed_notes, pitch_distance, duration_factor, duration_gap)
 
     #------Construct the collection filter
-    col_clause = create_collection_clause(collections, len(notes), duration_gap, allow_transposition)
+    col_clause = create_collection_clause(collections, len(notes), duration_gap, allow_transposition or contour_match)
 
     #------Construct the return clause
-    return_clause = create_return_clause(len(notes), duration_gap, allow_transposition)
+    return_clause = create_return_clause(len(notes), duration_gap, allow_transposition or contour_match)
     
     #------Construct the final query
     new_query = match_clause + '\n' + with_clause + where_clause + col_clause + '\n' + return_clause

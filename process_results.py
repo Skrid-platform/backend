@@ -6,7 +6,7 @@ from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_par
 from note import Note
 from degree_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees, aggregate_degrees, pitch_degree_with_intervals, duration_degree_with_multiplicative_factor
 from generate_audio import generate_mp3
-from utils import get_notes_from_source_and_time_interval, calculate_pitch_interval
+from utils import get_notes_from_source_and_time_interval, calculate_pitch_interval, calculate_intervals
 
 def min_aggregation(*degrees):
     return min(degrees)
@@ -51,7 +51,7 @@ def almost_all_aggregation_yager(*degrees):
 def get_ordered_results(result, query):
     # Extract the query notes and fuzzy parameters    
     query_notes = extract_notes_from_query(query)
-    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, fixed_notes, _ = extract_fuzzy_parameters(query)
+    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, contour, fixed_notes, _ = extract_fuzzy_parameters(query)
 
     note_sequences = []
     for record in result:
@@ -107,20 +107,10 @@ def get_ordered_results(result, query):
 def get_ordered_results_with_transpose(result, query):
     # Extract the query notes and fuzzy parameters    
     query_notes = extract_notes_from_query(query)
-    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, fixed_notes, _ = extract_fuzzy_parameters(query)
+    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, contour, fixed_notes, _ = extract_fuzzy_parameters(query)
 
     # Compute the intervals between consecutive notes
-    intervals = []
-    for i in range(len(query_notes) - 1):
-        note1, octave1, _ = query_notes[i]
-        note2, octave2, _ = query_notes[i + 1]
-
-        if None in (note1, octave1, note2, octave2):
-            interval = None
-        else:
-            interval = calculate_pitch_interval(note1, octave1, note2, octave2)
-
-        intervals.append(interval)
+    intervals = calculate_intervals(query_notes)
 
     note_sequences = []
     for record in result:
@@ -241,7 +231,7 @@ def process_results_to_dict(result, query):
     - query  : the *fuzzy* query (to extract info from it).
     '''
 
-    _, _, _, _, allow_transpose, _, _ = extract_fuzzy_parameters(query)
+    _, _, _, _, allow_transpose, contour, _, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:
         sequence_details = get_ordered_results_with_transpose(result, query)
@@ -290,7 +280,7 @@ def process_results_to_text(result, query):
     - query  : the *fuzzy* query (to extract info from it).
     '''
 
-    _, _, _, _, allow_transpose, _, _ = extract_fuzzy_parameters(query)
+    _, _, _, _, allow_transpose, contour, _, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:
         sequence_details = get_ordered_results_with_transpose(result, query)
@@ -313,7 +303,7 @@ def process_results_to_text(result, query):
     return res
 
 def process_results_to_text_old(result, query, fn='results.txt'):
-    _, _, _, _, allow_transpose, _, _ = extract_fuzzy_parameters(query)
+    _, _, _, _, allow_transpose, contour, _, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:
         sequence_details = get_ordered_results_with_transpose(result, query)
@@ -333,7 +323,7 @@ def process_results_to_text_old(result, query, fn='results.txt'):
 
 
 def process_results_to_mp3(result, query, max_files, driver):
-    _, _, _, _, allow_transpose, _, _ = extract_fuzzy_parameters(query)
+    _, _, _, _, allow_transpose, contour, _, _ = extract_fuzzy_parameters(query)
 
     if allow_transpose:
         sequence_details = get_ordered_results_with_transpose(result, query)

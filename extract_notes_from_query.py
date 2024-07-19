@@ -39,7 +39,7 @@ def extract_fuzzy_parameters(query):
         - query : the *fuzzy* query ;
 
     Out :
-        pitch_distance(float), duration_factor(float), duration_gap(float), alpha(float), allow_transposition(bool), fixed_notes(bool[]), collections(str[] | None)
+        pitch_distance(float), duration_factor(float), duration_gap(float), alpha(float), allow_transposition(bool), contour(bool), fixed_notes(bool[]), collections(str[] | None)
     '''
 
     # Extracting the parameters from the augmented query
@@ -55,6 +55,7 @@ def extract_fuzzy_parameters(query):
 
     # Check for the ALLOW_TRANSPOSITION keyword
     allow_transposition = bool(re.search(r'ALLOW_TRANSPOSITION', query))
+    contour = bool(re.search(r'CONTOUR', query))
 
     # Check for collections filter
     collections_line_lst = re.compile(r'COLLECTIONS .*\n').findall(query)
@@ -73,7 +74,7 @@ def extract_fuzzy_parameters(query):
     matches = re.findall(note_pattern, query)
     fixed_notes = [bool(fixed) for _, _, _, fixed in matches]
 
-    return pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, fixed_notes, collections
+    return pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour, fixed_notes, collections
 
 
 if __name__ == "__main__":

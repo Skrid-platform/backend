@@ -29,7 +29,7 @@ def write_fuzzy_pattern_query():
     
     alpha = float(input("Enter alpha (default 0.0): ") or "0.0")
     
-    query = create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition)
+    query = create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, False)
     print(query)
     save_option = input("Do you want to save the query to fuzzy_query.cypher? (y/n, default y): ") or "y"
     if save_option.lower() == 'y':
@@ -90,7 +90,7 @@ def get_first_k_notes_of_song(driver):
         allow_transposition = allow_transposition_input.lower() == 'y'
 
         alpha = float(input("Enter alpha (default 0.0): ") or "0.0")
-        query = create_query_from_list_of_notes(result, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition)
+        query = create_query_from_list_of_notes(result, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, False)
         print(query)
         with open("fuzzy_query.cypher", "w") as file:
             file.write(query)

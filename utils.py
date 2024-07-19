@@ -3,29 +3,31 @@ from generate_audio import generate_mp3
 from degree_computation import convert_note_to_sharp
 from note import Note
 
-def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, collections=None):
+def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, collections=None):
     '''
     Create a fuzzy query.
 
     In :
-        - notes ([(str|None, float|None, float|None), ...]) : the note array (class, octave, duration) ;
-        - pitch_distance (float)                            : the pitch distance (fuzzy param) ;
-        - duration_factor (float)                           : the duration factor (fuzzy param) ;
-        - duration_gap (float)                              : the duration gap (fuzzy param) ;
-        - alpha (float)                                     : the alpha param ;
-        - allow_transposition (bool)                        : the allow_transposition param ;
+        - notes ([(str|None, float|None, float|None), ...]) : the note array (note format: `(class, octave, duration)`) ;
+        - pitch_distance (float)                            : the `pitch distance` (fuzzy param) ;
+        - duration_factor (float)                           : the `duration factor` (fuzzy param) ;
+        - duration_gap (float)                              : the `duration gap` (fuzzy param) ;
+        - alpha (float)                                     : the `alpha` param ;
+        - allow_transposition (bool)                        : the `allow_transposition` param ;
+        - contour_match (bool)                              : the `contour_match` param ;
         - collections (str[] | None)                        : the collection filter.
 
     Out :
         a fuzzy query searching for the notes given in parameters.
     '''
 
+    match_clause = 'MATCH\n'
     if allow_transposition:
-        match_clause = "MATCH\n ALLOW_TRANSPOSITION\n TOLERANT pitch={}, duration={}, gap={}\n ALPHA {}\n".format(
-            pitch_distance, duration_factor, duration_gap, alpha)
-    else:
-        match_clause = "MATCH\n TOLERANT pitch={}, duration={}, gap={}\n ALPHA {}\n".format(
-            pitch_distance, duration_factor, duration_gap, alpha)
+        match_clause += ' ALLOW_TRANSPOSITION\n'
+    if contour_match:
+        match_clause += ' CONTOUR\n'
+
+    match_clause += f' TOLERANT pitch={pitch_distance}, duration={duration_factor}, gap={duration_gap}\n ALPHA {alpha}\n'
 
     if collections != None:
         match_clause += ' COLLECTIONS '
@@ -147,6 +149,29 @@ def calculate_base_stone(pitch, octave, accid=None):
 
 def calculate_pitch_interval(note1, octave1, note2, octave2):
     return calculate_base_stone(note2, octave2) - calculate_base_stone(note1, octave1)
+
+def calculate_intervals(notes):
+    '''
+    Compute the list of intervals between consecutive notes.
+
+    - notes : the array of notes triples (pitch, octave, duration) ;
+
+    Out: a list of float (the intervals).
+    '''
+
+    intervals = []
+    for i in range(len(notes) - 1):
+        note1, octave1, _ = notes[i]
+        note2, octave2, _ = notes[i + 1]
+
+        if None in (note1, octave1, note2, octave2):
+            interval = None
+        else:
+            interval = calculate_pitch_interval(note1, octave1, note2, octave2)
+
+        intervals.append(interval)
+
+    return intervals
 
 if __name__ == "__main__":
     # Set up the driver

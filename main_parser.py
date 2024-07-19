@@ -62,14 +62,20 @@ def semi_int(x):
 
     return x
 
-def get_file_content(fn):
-    '''Try to read the file `fn`. Raise an argparse error if not found.'''
+def get_file_content(fn, parser=None):
+    '''
+    Try to read the file `fn`.
+    If not found and `parser` != None, raise an error with `parser.error`. If `parser` is None, raise an `ArgumentTypeError`.
+    '''
     try:
         with open(fn, 'r') as f:
             content = f.read()
 
     except FileNotFoundError:
-        raise argparse.ArgumentTypeError(f'The file {fn} has not been found')
+        if parser != None:
+            parser.error(f'The file {fn} has not been found')
+        else:
+            raise argparse.ArgumentTypeError(f'The file {fn} has not been found')
 
     return content
 
@@ -315,13 +321,18 @@ class Parser:
             help='the alpha setting. In range [0 ; 1]. Remove every result that has a score below alpha. Default is 0.0'
         )
         self.parser_w.add_argument(
+            '-c', '--collections',
+            help='filter by collections. Separate values with commas, without space, e.g: -c "col 1","col 2","col 3"'
+        )
+        self.parser_w.add_argument(
             '-t', '--allow-transposition',
             action='store_true',
             help='Allow pitch transposition: match on note interval instead of pitch'
         )
         self.parser_w.add_argument(
-            '-c', '--collections',
-            help='filter by collections. Separate values with commas, without space, e.g: -c "col 1","col 2","col 3"'
+            '-C', '--contour-match',
+            action='store_true',
+            help='Match only the contour of the melody, i.e the sign of the intervals between notes (e.g for c5 b4 b4 g4 b4 a4, the contour is down, equal, down, up, down.)'
         )
 
     def create_get(self):
@@ -395,7 +406,7 @@ class Parser:
         '''Parse the args for the compile mode'''
 
         if args.file:
-            query = get_file_content(args.QUERY)
+            query = get_file_content(args.QUERY, self.parser_c)
         else:
             query = args.QUERY
 
@@ -415,7 +426,7 @@ class Parser:
         '''Parse the args for the send mode'''
 
         if args.file:
-            query = get_file_content(args.QUERY)
+            query = get_file_content(args.QUERY, self.parser_s)
         else:
             query = args.QUERY
 
@@ -455,7 +466,7 @@ class Parser:
             if args.text_output != None:
                 if not args.fuzzy:
                     print(res)
-                    raise TypeError('Can only process result to text if the query is fuzzy !\nThe result has been printed above.')
+                    self.parser_s.error('Can only process result to text if the query is fuzzy !\nThe result has been printed above.')
 
                 processed_res = process_results_to_text(res, query)
                 write_to_file(args.text_output, processed_res)
@@ -468,8 +479,11 @@ class Parser:
     def parse_write(self, args):
         '''Parse the args for the write mode'''
 
+        if args.allow_transposition and args.contour_match:
+            self.parser_w.error('not possible to use `-t` and `-C` at the same time')
+
         if args.file:
-            notes_input = get_file_content(args.NOTES)
+            notes_input = get_file_content(args.NOTES, self.parser_w)
         else:
             notes_input = args.NOTES
 
@@ -479,7 +493,7 @@ class Parser:
             collections = args.collections.split(',')
 
         notes = check_notes_input_format(notes_input)
-        query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition, collections)
+        query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition, args.contour_match, collections)
 
         if args.output == None:
             print(query)
@@ -493,7 +507,7 @@ class Parser:
 
         if args.NAME not in list_available_songs(self.driver):
             self.close_driver();
-            raise argparse.ArgumentTypeError(f'NAME argument ("{args.NAME}") is not valid (check valid songs with `python3 main_parser.py list`)')
+            self.parser_g.error(f'NAME argument ("{args.NAME}") is not valid (check valid songs with `python3 main_parser.py list`)')
 
         res = get_first_k_notes_of_each_score(args.NUMBER, args.NAME, self.driver)
 
@@ -511,7 +525,7 @@ class Parser:
 
         if args.number_per_line != None and args.number_per_line < 0:
             self.close_driver();
-            raise argparse.ArgumentTypeError('argument `-n` takes a positive value !')
+            self.parser_l.error('argument `-n` takes a positive value !')
 
         songs = list_available_songs(self.driver, args.collection)
 

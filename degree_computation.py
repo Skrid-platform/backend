@@ -66,7 +66,9 @@ def pitch_degree(note1, octave1, note2, octave2, pitch_gap):
     if pitch_gap == 0:
         return 1.0
 
-    d = 1 - (note_distance_in_tones(note1, octave1, note2, octave2) / (pitch_gap + pitch_gap*0.1)) #TODO: Why not just `pitch_gap` but ` + pitch_gap / 10` ?
+    #TODO: Why not just `pitch_gap` but ` + pitch_gap / 10` ?
+    # Maybe this is to avoid to have 0% for a match at the edge ?
+    d = 1 - (note_distance_in_tones(note1, octave1, note2, octave2) / (pitch_gap + pitch_gap*0.1))
     return max(d, 0)
 
 def pitch_degree_with_intervals(interval1, interval2, pitch_gap):
