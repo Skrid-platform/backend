@@ -72,7 +72,7 @@ def pitch_degree(note1, octave1, note2, octave2, pitch_gap):
     return max(d, 0)
 
 def pitch_degree_with_intervals(interval1, interval2, pitch_gap):
-    if pitch_gap == 0:
+    if pitch_gap == 0 or interval1 == None or interval2 == None:
         return 1.0
 
     d = 1 - (abs(interval1 - interval2) / (pitch_gap + pitch_gap*0.1))
@@ -91,8 +91,9 @@ def duration_degree(duration1, duration2, max_duration_distance):
     return degree
 
 def duration_degree_with_multiplicative_factor(expected_duration, duration, factor):
-    if factor == 1.0:
+    if factor == 1.0 or expected_duration == None:
         return 1.0
+
     # Calculate the absolute difference between the two durations
     duration_difference = abs(duration - expected_duration)
 
