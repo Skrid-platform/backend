@@ -233,7 +233,7 @@ def process_results_to_dict(result, query):
 
     _, _, _, _, allow_transpose, contour, _, _ = extract_fuzzy_parameters(query)
 
-    if allow_transpose:
+    if allow_transpose or contour:
         sequence_details = get_ordered_results_with_transpose(result, query)
     else:
         sequence_details = get_ordered_results(result, query)
