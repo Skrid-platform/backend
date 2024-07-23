@@ -17,11 +17,22 @@ def find_duration_range_decimal(duration, max_distance):
 
     return actual_min_duration, actual_max_duration
 
-def find_duration_range_multiplicative_factor(duration, factor):
+def find_duration_range_multiplicative_factor_asym(duration, factor):
     if factor < 1:
         min_duration, max_duration = duration * factor, duration
     elif factor > 1:
         min_duration, max_duration = duration, duration * factor
+    else:
+        min_duration, max_duration = duration, duration
+    
+    return min_duration, max_duration
+
+def find_duration_range_multiplicative_factor_sym(duration, factor):
+    if factor < 1:
+        min_duration, max_duration = duration * factor, duration * (1 / factor)
+
+    elif factor > 1:
+        min_duration, max_duration = duration * (1 / factor), duration * factor
     else:
         min_duration, max_duration = duration, duration
     

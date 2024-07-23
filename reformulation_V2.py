@@ -1,5 +1,5 @@
 from find_nearby_pitches import find_frequency_bounds, find_nearby_pitches
-from find_duration_range import find_duration_range_decimal, find_duration_range_multiplicative_factor
+from find_duration_range import find_duration_range_decimal, find_duration_range_multiplicative_factor_asym, find_duration_range_multiplicative_factor_sym
 from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters
 from utils import calculate_pitch_interval, calculate_intervals
 
@@ -10,10 +10,12 @@ def make_duration_condition(duration_factor, duration, idx, fixed):
         return ''
 
     if duration_factor != 1 and not fixed:
-        min_duration, max_duration = find_duration_range_multiplicative_factor(duration, duration_factor)
+        # min_duration, max_duration = find_duration_range_multiplicative_factor_asym(duration, duration_factor)
+        min_duration, max_duration = find_duration_range_multiplicative_factor_sym(duration, duration_factor)
         res = f"{min_duration} <= e{idx}.duration AND e{idx}.duration <= {max_duration}"
     else:
-        duration = find_duration_range_multiplicative_factor(duration, 1.0)[0]
+        # duration = find_duration_range_multiplicative_factor_asym(duration, 1.0)[0]
+        duration = find_duration_range_multiplicative_factor_sym(duration, 1.0)[0]
         res = f"e{idx}.duration = {duration}"
     return res
 
