@@ -2,6 +2,7 @@ from find_nearby_pitches import find_frequency_bounds, find_nearby_pitches
 from find_duration_range import find_duration_range_decimal, find_duration_range_multiplicative_factor_asym, find_duration_range_multiplicative_factor_sym
 from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters
 from utils import calculate_pitch_interval, calculate_intervals
+from degree_computation import convert_note_to_sharp
 
 import re
 
@@ -63,6 +64,41 @@ def make_interval_condition(interval: int, transposition: bool, duration_gap: fl
             interval_condition = f'{interval_keyword} < 0'
     
     return interval_condition
+
+def make_note_condition(note: str, idx: int) -> str:
+    '''
+    Creates the condition to match the note `note` (only class).
+    If there is an accidental (sharp or flat), then it adds two conditions (because the note can be encoded in two ways)
+
+    - note : the class of the note to match, e.g 'c', 'cs', 'c#', 'cf', 'cb'. Its length should be 1 or 2 ;
+    - idx  : the current index.
+    '''
+
+    note = convert_note_to_sharp(note)
+
+    #---No accidental
+    if len(note) == 1:
+        return f'f{idx}.class = "{note[0]}"'
+
+    #---Accidental
+    if note[1] in ('#', 's'): # sharp
+        note_condition = f'((f{idx}.class = "{note[0]}"'
+        note_condition += f' AND (f{idx}.accid = "s" OR f{idx}.accid_ges = "s"))' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
+
+        notes = 'abcdefg'
+        note_flat = notes[(notes.index(note[0]) + 1) % len(notes)]
+
+        note_condition += f' OR (f{idx}.class = "{note_flat}"'
+        note_condition += f' AND (f{idx}.accid = "f" OR f{idx}.accid_ges = "f")))'
+
+    # elif note[1] in ('b', 'f'): # flat
+    #     note_condition = f'(f{idx}.class = "{note[0]}"'
+    #     note_condition += f' AND (f{idx}.accid = "f" OR f{idx}.accid_ges = "f")'
+
+    else:
+        raise ValueError(f'reformulation: make_note_condition: `note` not correctly formatted (found "{note}").')
+
+    return note_condition
 
 
 def create_match_clause(nb_notes, duration_gap, intervals=False):
@@ -142,13 +178,7 @@ def create_where_clause_simple(notes, fixed_notes, pitch_distance, duration_fact
 
         else:
             if fixed_notes[idx] or pitch_distance == 0:
-                note_condition = f'f{idx}.class = "{note[0]}"'
-
-                if len(note) > 1 and note[1] in ('#', 's'): # sharp
-                    note_condition += f' AND (f{idx}.accid = "s" OR f{idx}.accid_ges = "s")' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
-
-                elif len(note) > 1 and note[1] in ('b', 'f'): # flat
-                    note_condition += f' AND (f{idx}.accid = "f" OR f{idx}.accid_ges = "f")' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
+                note_condition = make_note_condition(note, idx)
 
                 if octave != None:
                     note_condition += f' AND f{idx}.octave = {octave}'
@@ -159,13 +189,7 @@ def create_where_clause_simple(notes, fixed_notes, pitch_distance, duration_fact
 
                 note_condition = '('
                 for n, o_ in near_notes:
-                    base_condition = f'f{idx}.class = "{n[0]}"'
-
-                    if len(n) > 1 and n[1] in ('#', 's'): # sharp
-                        base_condition += f' AND (f{idx}.accid = "s" OR f{idx}.accid_ges = "s")' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
-
-                    elif len(n) > 1 and n[1] in ('b', 'f'): # flat
-                        base_condition += f' AND (f{idx}.accid = "f" OR f{idx}.accid_ges = "f")' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
+                    base_condition = make_note_condition(n, idx)
 
                     if octave == None:
                         note_condition += f'\n  ({base_condition}) OR '

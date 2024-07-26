@@ -1,4 +1,4 @@
-def convert_note_to_sharp(note):
+def convert_note_to_sharp(note: str) -> str:
     '''
     Convert a note to its equivalent in sharp (if it is a flat).
     If the note has no accidental, it is not modified.
