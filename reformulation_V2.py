@@ -76,6 +76,10 @@ def make_note_condition(note: str, idx: int) -> str:
 
     note = convert_note_to_sharp(note)
 
+    #---Rest
+    if note[0] == 'r':
+        return f'f{idx}.type = "rest"'
+
     #---No accidental
     if len(note) == 1:
         return f'f{idx}.class = "{note[0]}"'
@@ -177,10 +181,10 @@ def create_where_clause_simple(notes, fixed_notes, pitch_distance, duration_fact
                 note_condition = f'f{idx}.octave = {octave}'
 
         else:
-            if fixed_notes[idx] or pitch_distance == 0:
+            if fixed_notes[idx] or pitch_distance == 0 or note[0] == 'r':
                 note_condition = make_note_condition(note, idx)
 
-                if octave != None:
+                if octave != None and note[0] != 'r':
                     note_condition += f' AND f{idx}.octave = {octave}'
 
             else:
