@@ -80,8 +80,8 @@ def get_ordered_results(result, query):
         note_details = []  # Buffer to store note details before writing
         for idx, note in enumerate(note_sequence):
             query_note = query_notes[idx]
-            pitch_deg = pitch_degree(query_note[0], query_note[1], note.pitch, note.octave, pitch_gap)
-            duration_deg = duration_degree_with_multiplicative_factor(query_note[2], note.duration, duration_factor)
+            pitch_deg = pitch_degree(query_note[0][0], query_note[0][1], note.pitch, note.octave, pitch_gap)
+            duration_deg = duration_degree_with_multiplicative_factor(query_note[1], note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             
             if idx > 0:  # Compute sequencing degree for the second and third notes
@@ -156,7 +156,7 @@ def get_ordered_results_with_transpose(result, query):
             else:
                 pitch_deg = pitch_degree_with_intervals(intervals[idx - 1], interval, pitch_gap)
 
-            duration_deg = duration_degree_with_multiplicative_factor(query_note[2], note.duration, duration_factor)
+            duration_deg = duration_degree_with_multiplicative_factor(query_note[1], note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             
             if idx > 0:  # Compute sequencing degree for the second and third notes
