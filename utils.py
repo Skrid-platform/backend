@@ -8,17 +8,26 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
     Create a fuzzy query.
 
     In :
-        - notes ([(str|None, float|None, float|None), ...]) : the note array (note format: `(class, octave, duration)`) ;
-        - pitch_distance (float)                            : the `pitch distance` (fuzzy param) ;
-        - duration_factor (float)                           : the `duration factor` (fuzzy param) ;
-        - duration_gap (float)                              : the `duration gap` (fuzzy param) ;
-        - alpha (float)                                     : the `alpha` param ;
-        - allow_transposition (bool)                        : the `allow_transposition` param ;
-        - contour_match (bool)                              : the `contour_match` param ;
-        - collections (str[] | None)                        : the collection filter.
+        - notes                      : the note array (see below for the format) ;
+        - pitch_distance (float)     : the `pitch distance` (fuzzy param) ;
+        - duration_factor (float)    : the `duration factor` (fuzzy param) ;
+        - duration_gap (float)       : the `duration gap` (fuzzy param) ;
+        - alpha (float)              : the `alpha` param ;
+        - allow_transposition (bool) : the `allow_transposition` param ;
+        - contour_match (bool)       : the `contour_match` param ;
+        - collections (str[] | None) : the collection filter.
 
     Out :
         a fuzzy query searching for the notes given in parameters.
+
+    Description for the format of `notes` :
+        `notes` should be a list of `note`s.
+        A `note` is a list of the following format : `[(class_1, octave_1), ..., (class_n, octave_n), duration]`
+
+        For example : `[[('c', 5), 4], [('b', 4), 8], [('b', 4), 8], [('a', 4), ('d', 5), 16]]`.
+
+        duration is in the following format: 1 for whole, 2 for half, ...
+        float is allowed for dotted notes (e.g dotted half is 1/(1/2 + 1/4) = 4 / 3).
     '''
 
     match_clause = 'MATCH\n'
@@ -35,15 +44,24 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
 
     events = []
     facts = []
-    
-    for i, (class_, octave, duration) in enumerate(notes, start=1):
-        event = "(e{}:Event)".format(i)
-        fact = "(e{})--(f{}{{class:'{}', octave:{}, dur:{}}})".format(i, i, class_, octave, duration)
+    fact_nb = 0
+    for i, note_or_chord in enumerate(notes):
+        duration = note_or_chord[-1]
+
+        # event = '(e{}:Event{{dur:{}}})'.format(i, duration)
+        event = '(e{}:Event)'.format(i)
+
+        for note in note_or_chord[:-1]:
+            class_, octave = note
+            fact = "(e{})--(f{}{{class:'{}', octave:{}, dur:{}}})".format(i, fact_nb, class_, octave, duration)
+
+            facts.append(fact)
+            fact_nb += 1
+
         events.append(event)
-        facts.append(fact)
     
     match_clause += " " + "-[:NEXT]->".join(events) + ",\n " + ",\n ".join(facts)
-    return_clause = "\nRETURN e1.source AS source, e1.start AS start"
+    return_clause = "\nRETURN e0.source AS source, e0.start AS start"
     
     query = match_clause + return_clause
     return query
@@ -150,19 +168,19 @@ def calculate_base_stone(pitch, octave, accid=None):
 def calculate_pitch_interval(note1, octave1, note2, octave2):
     return calculate_base_stone(note2, octave2) - calculate_base_stone(note1, octave1)
 
-def calculate_intervals(notes):
+def calculate_intervals(notes: list[list[tuple[str|None, int|None] | int|float|None]]) -> list[float]:
     '''
     Compute the list of intervals between consecutive notes.
 
-    - notes : the array of notes triples (pitch, octave, duration) ;
+    - notes : the array of notes, following the format given in `extract_notes_from_query` ;
 
-    Out: a list of float (the intervals).
+    Out: a list of intervals.
     '''
 
     intervals = []
-    for i in range(len(notes) - 1):
-        note1, octave1, _ = notes[i]
-        note2, octave2, _ = notes[i + 1]
+    for i, event in enumerate(notes[:-1]):
+        note1, octave1 = notes[i][0] # Taking only the first note for a chord.
+        note2, octave2 = notes[i + 1][0]
 
         if None in (note1, octave1, note2, octave2):
             interval = None

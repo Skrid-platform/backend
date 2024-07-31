@@ -56,16 +56,21 @@ def get_ordered_results(result, query):
     note_sequences = []
     for record in result:
         note_sequence = []
-        for idx in range(len(query_notes)):
-            pitch = record[f"pitch_{idx}"]
-            octave = record[f"octave_{idx}"]
-            duration = record[f"duration_{idx}"]
-            start = record[f"start_{idx}"]
-            end = record[f"end_{idx}"]
-            id_ = record[f"id_{idx}"]
+
+        fact_nb = 0 # will correspond to the index of the first fact corresponding to the current event
+        for event_nb, event in enumerate(query_notes):
+            pitch = record[f"pitch_{fact_nb}"]
+            octave = record[f"octave_{fact_nb}"]
+            duration = record[f"duration_{event_nb}"]
+            start = record[f"start_{event_nb}"]
+            end = record[f"end_{event_nb}"]
+            id_ = record[f"id_{event_nb}"]
+
             note = Note(pitch, octave, duration, start, end, id_)
-            # note = Note(pitch, octave, duration, start, end)
             note_sequence.append(note)
+
+            fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
+
         note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
 
     sequence_details = []
@@ -115,20 +120,27 @@ def get_ordered_results_with_transpose(result, query):
     note_sequences = []
     for record in result:
         note_sequence = []
-        for idx in range(len(query_notes)):
-            pitch = record[f"pitch_{idx}"]
-            octave = record[f"octave_{idx}"]
-            duration = record[f"duration_{idx}"]
-            start = record[f"start_{idx}"]
-            end = record[f"end_{idx}"]
-            id_ = record[f"id_{idx}"]
+
+        fact_nb = 0 # will correspond to the index of the first fact corresponding to the current event
+        for event_nb, event in enumerate(query_notes):
+            pitch = record[f"pitch_{fact_nb}"]
+            octave = record[f"octave_{fact_nb}"]
+            duration = record[f"duration_{event_nb}"]
+            start = record[f"start_{event_nb}"]
+            end = record[f"end_{event_nb}"]
+            id_ = record[f"id_{event_nb}"]
+
             note = Note(pitch, octave, duration, start, end, id_)
             # note = Note(pitch, octave, duration, start, end)
-            if idx == 0:
+
+            if event_nb == 0:
                 interval = None
             else:
-                interval = record[f"interval_{idx - 1}"]
+                interval = record[f"interval_{event_nb - 1}"]
+
             note_sequence.append((note, interval))
+            fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
+
         note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
 
     sequence_details = []

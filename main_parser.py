@@ -90,9 +90,10 @@ def write_to_file(fn, content):
     with open(fn, 'w') as f:
         f.write(content)
 
-def check_notes_input_format(notes_input):
+# def check_notes_input_format(notes_input: str) -> list[tuple[str, int, int|float] | list[tuple[str, int] | int|float]]:
+def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|None] | int|float|None]]:
     '''
-    Ensure that `notes_input` is in the correct format : [(char|None, int|None, int|None), ...].
+    Ensure that `notes_input` is in the correct format (see below for a description of the format).
     If not, raise an argparse.ArgumentTypeError.
 
     Input :
@@ -101,32 +102,82 @@ def check_notes_input_format(notes_input):
     Output :
         - a list of (char, int, int)  if the format is right ;
         - argparse.ArgumentTypeError  otherwise.
+
+    Description for the format of `notes` :
+        `notes` should be a list of `note`s.
+        A `note` is a list of the following format : `[(class_1, octave_1), ..., (class_n, octave_n), duration]`
+
+        For example : `[[('c', 5), 4], [('b', 4), 8], [('b', 4), 8], [('a', 4), ('d', 5), 16]]`.
+
+        duration is in the following format: 1 for whole, 2 for half, ...
+        float is allowed for dotted notes (e.g dotted half is 1/(1/2 + 1/4) = 4 / 3).
     '''
 
-    format_notes = 'Notes format: triples list: [(class, octave, duration), ...]. E.g [(\'c\', 5, 1), (\'ds\', 5, 4), (\'e\', 4, None)].\nIt is possible to use "None" to ignore a criteria.'
+    #---Init (functions to test each part)
+    def check_class(class_: str|None) -> bool:
+        '''Return True iff `class_` is in correct format.'''
 
-    notes = literal_eval(notes_input)
-
-    for i, note in enumerate(notes):
-        if not (
-            note[0] == None
+        return (
+            class_ == None
             or (
-                type(note[0] == str)
+                type(class_ == str)
                 and (
-                    len(note[0]) == 1 or
-                    (len(note[0]) == 2 and note[0][1] in '#sbf')
+                    len(class_) == 1 or
+                    (len(class_) == 2 and class_[1] in '#sbf')
                 )
                 and
-                note[0][0] in 'abcdefgr'
+                class_[0] in 'abcdefgr'
             )
-        ):
-            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[0]}" is not a note class.\n' + format_notes)
+        )
 
-        if not isinstance(note[1], (int, type(None))):
-            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[1]}" (octave) is not an int (or None)\n' + format_notes)
+    def check_octave(octave: int|None) -> bool:
+        '''Return True iff `octave` is in correct format.'''
 
-        if not isinstance(note[2], (int, float, type(None))):
-            raise argparse.ArgumentTypeError(f'error with note {i}: "{note}": "{note[2]}" (duration) is not a float (or None)\n' + format_notes)
+        return isinstance(octave, (int, type(None)))
+
+    def check_duration(duration: int|float|None) -> bool:
+        '''Return True iff `duration` is in correct format.'''
+
+        return isinstance(duration, (int, float, type(None)))
+
+    format_notes = 'Notes format: list of [(class, octave), duration]: [[(class, octave), ..., duration], ...]. E.g `[[(\'c\', 5), 4], [(\'b\', 4), 8], [(\'b\', 4), 8], [(\'a\', 4), (\'d\', 5), 16]]`.\nIt is possible to use "None" to ignore a criteria.'
+
+    #---Convert string to list
+    notes = literal_eval(notes_input)
+
+    #---Check
+    for i, note_or_chord in enumerate(notes):
+        #-Check type of the current note/chord (e.g [('c', 5), 8])
+        if type(note_or_chord) != list:
+            raise argparse.ArgumentTypeError(f'error with note {i}: should be a a list, but "{note_or_chord}", of type {type(note_or_chord)} found !\n' + format_notes)
+
+        #-Check the length of the current note/chord (e.g [('c', 5), 8])
+        if len(note_or_chord) < 2:
+            raise argparse.ArgumentTypeError(f'error with note {i}: there should be at least two elements in the list, for example `[(\'c\', 5), 4]`, but "{note_or_chord}", with length {len(note_or_chord)} found !\n' + format_notes)
+
+        #-Check the duration
+        duration = note_or_chord[-1]
+        if not check_duration(duration):
+            raise argparse.ArgumentTypeError(f'error with note {i}: "{note_or_chord}": "{note_or_chord[2]}" (duration) is not a float (or None)\n' + format_notes)
+
+        #-Check each note
+        for j, note in enumerate(note_or_chord[:-1]):
+            #-Check type of note tuple
+            if type(note) != tuple:
+                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: should be a tuple (e.g `(\'c\', 5)`), but "{note}", of type {type(note)} found !\n' + format_notes)
+
+            #-Check length of note tuple
+            if len(note) != 2:
+                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: note tuple should have 2 elements (class, octave), but {len(note_or_chord)} found !\n' + format_notes)
+
+            #-Check note class
+            if not check_class(note[0]):
+                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: "{note}": "{note[0]}" is not a note class.\n' + format_notes)
+
+            #-Check note octave
+            if not check_octave(note[1]):
+                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: "{note}": "{note[1]}" (octave) is not an int, or a float, or None.\n' + format_notes)
+
 
     return notes
 
