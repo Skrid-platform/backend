@@ -301,7 +301,7 @@ def create_collection_clause(collections, nb_notes, duration_gap=0.0, intervals=
         as_col_clause = as_col_clause[:-2] # Remove trailing ', '
 
         col_clause += '\n ' + as_col_clause
-        col_clause += '\nCALL {\n WITH e1\n MATCH (e1)<-[:timeSeries|VOICE|NEXT*]-(s:Score)\n RETURN s\n LIMIT 1\n}'
+        col_clause += '\nCALL {\n WITH e0\n MATCH (e0)<-[:timeSeries|VOICE|NEXT*]-(s:Score)\n RETURN s\n LIMIT 1\n}'
         col_clause += '\nWITH\n s as s, ' + as_col_clause
 
         col_clause += '\nWHERE'
