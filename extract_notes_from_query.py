@@ -1,33 +1,69 @@
 import re
 
-def extract_notes_from_query(query):
-    '''Extract the notes from a given query.'''
+def extract_notes_from_query(query: str) -> list[list[tuple[str|None, int|None] | int|float|None]]:
+    '''
+    Extract the notes from a given query.
 
-    # Regex to find note details within the query
-    note_pattern = re.compile(r"\{class:'(\w+|None)', octave:(\d+|None), dur:(\d+\.\d+|\d+|None)\}\)")
+    Input :
+        - query : the fuzzy query.
+
+    Ouput :
+        notes in the following format :
+        `[[(class_1, octave_1), ..., (class_n, octave_n), duration], ...]`
+
+        For example : `[[('c', 5), 4], [('b', 4), 8], [('b', 4), 8], [('a', 4), ('d', 5), 16]]`.
+
+        duration is in the following format: 1 for whole, 2 for half, ...
+        float is allowed for dotted notes (e.g dotted half is 1/(1/2 + 1/4) = 4 / 3).
+    '''
+
+    #---Regex to find note details within the query
+    # note_pattern = re.compile(r"\{class:'(\w+|None)', octave:(\d+|None), dur:(\d+\.\d+|\d+|None)\}\)")
+    note_pattern = re.compile(r"\(e(\d+)\)--\(f(\d+)\{class:'(\w+|None)', octave:(\d+|None), dur:(\d+\.\d+|\d+|None)\}\)")
 
     # Extract all matches
     matches = note_pattern.findall(query)
 
-    # Convert extracted values into a list of tuples (class, octave, duration)
+    #---Convert extracted values into a list of [(class, octave), ..., (class, octave), duration] (for each note / chord)
     notes = []
+    current_event_nb = -1 # Will also correspond to len(notes) - 1
+    last_duration = None
+
     for match in matches:
-        if match[0] == 'None':
+        event_nb, fact_nb, class_, octave, duration = match
+
+        event_nb = int(event_nb)
+        fact_nb = int(fact_nb)
+
+        if current_event_nb < event_nb:
+            current_event_nb = event_nb
+            notes.append([])
+
+            if event_nb > 0: # Adding duration for previous event (note / chord)
+                notes[event_nb - 1].append(last_duration)
+
+        if class_ == 'None':
             class_ = None
         else:
-            class_ = match[0].lower()
+            class_ = class_.lower()
 
-        if match[1] == 'None':
+        if octave == 'None':
             octave = None
         else:
-            octave = int(match[1])
+            octave = int(octave)
 
-        if match[2] == 'None':
+        if duration == 'None':
             duration = None
         else:
-            duration = 1 / float(match[2])
+            duration = 1 / float(duration)
 
-        notes.append((class_, octave, duration))
+        note = (class_, octave)
+        notes[event_nb].append(note)
+        last_duration = duration
+
+    # Adding last duration
+    if len(notes) > 0:
+        notes[-1].append(last_duration)
 
     return notes
 

@@ -2,6 +2,7 @@ from find_nearby_pitches import find_frequency_bounds, find_nearby_pitches
 from find_duration_range import find_duration_range_decimal, find_duration_range_multiplicative_factor_asym, find_duration_range_multiplicative_factor_sym
 from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters
 from utils import calculate_pitch_interval, calculate_intervals
+from degree_computation import convert_note_to_sharp
 
 import re
 
@@ -23,16 +24,16 @@ def make_sequencing_condition(duration_gap, idx):
     sequencing_condition = f"e{idx}.end >= e{idx+1}.start - {duration_gap}"
     return sequencing_condition
 
-def make_interval_condition(interval: int, transposition: bool, duration_gap: float, pitch_distance: float, is_fixed: bool, idx: int) -> str:
+def make_interval_condition(interval: float, transposition: bool, duration_gap: float, pitch_distance: float, is_fixed: bool, idx: int) -> str:
     '''
     Create the interval condition (for the WHERE clause with transposition or contour).
 
-    - interval (int)         : the interval from the given melody ;
-    - transposition (bool)   : if true, create condition for query with transposition. Otherwise, create for query with contour ;
-    - duration_gap (float)   : the duration gap fuzzy parameter ;
-    - pitch_distance (float) : the pitch distance fuzzy parameter ;
-    - is_fixed (bool)        : a boolean indicating if the note is fixed or not ;
-    - idx (int)              : the current index.
+    - interval       : the interval from the given melody ;
+    - transposition  : if true, create condition for query with transposition. Otherwise, create for query with contour ;
+    - duration_gap   : the duration gap fuzzy parameter ;
+    - pitch_distance : the pitch distance fuzzy parameter ;
+    - is_fixed       : a boolean indicating if the note is fixed or not ;
+    - idx            : the current index.
     '''
 
     if transposition:
@@ -64,41 +65,97 @@ def make_interval_condition(interval: int, transposition: bool, duration_gap: fl
     
     return interval_condition
 
+def make_note_condition(note: str, idx: int) -> str:
+    '''
+    Creates the condition to match the note `note` (only class).
+    If there is an accidental (sharp or flat), then it adds two conditions (because the note can be encoded in two ways)
 
-def create_match_clause(nb_notes, duration_gap, intervals=False):
+    - note : the class of the note to match, e.g 'c', 'cs', 'c#', 'cf', 'cb'. Its length should be 1 or 2 ;
+    - idx  : the current index.
+    '''
+
+    note = convert_note_to_sharp(note)
+
+    #---Rest
+    if note[0] == 'r':
+        return f'f{idx}.type = "rest"'
+
+    #---No accidental
+    if len(note) == 1:
+        return f'f{idx}.class = "{note[0]}"'
+
+    #---Accidental
+    if note[1] in ('#', 's'): # sharp
+        note_condition = f'((f{idx}.class = "{note[0]}"'
+        note_condition += f' AND (f{idx}.accid = "s" OR f{idx}.accid_ges = "s"))' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
+
+        notes = 'abcdefg'
+        note_flat = notes[(notes.index(note[0]) + 1) % len(notes)]
+
+        note_condition += f' OR (f{idx}.class = "{note_flat}"'
+        note_condition += f' AND (f{idx}.accid = "f" OR f{idx}.accid_ges = "f")))'
+
+    # elif note[1] in ('b', 'f'): # flat
+    #     note_condition = f'(f{idx}.class = "{note[0]}"'
+    #     note_condition += f' AND (f{idx}.accid = "f" OR f{idx}.accid_ges = "f")'
+
+    else:
+        raise ValueError(f'reformulation: make_note_condition: `note` not correctly formatted (found "{note}").')
+
+    return note_condition
+
+
+def create_match_clause(notes, duration_gap, intervals=False):
     '''
     Create the MATCH clause for the compilated query.
 
-    - nb_notes     : the number of notes ;
+    - notes        : the notes (for the format, check the documentation of `extract_notes_from_query`) ;
     - duration_gap : the duration gap ;
-    - intervals    : indicate if transposition is allowed or if match contour (to use intervals).
+    - intervals    : indicate if transposition is allowed or if match contour (to use intervals, i.e to name the links between Events).
     '''
 
+    #---Init
+    nb_events = len(notes)
+
+    #---Create the Event path
     if duration_gap > 0:
         # To give a higher bound to the number of intermediate notes, we suppose the shortest possible note has a duration of 0.125
         max_intermediate_nodes = max(int(duration_gap / 0.125), 1)
 
         if intervals:
-            event_path = ',\n '.join([f"p{idx} = (e{idx}:Event)-[:NEXT*1..{max_intermediate_nodes + 1}]->(e{idx+1}:Event)" for idx in range(nb_notes - 1)]) + ','
+            event_path = ',\n '.join([
+                f'p{idx} = (e{idx}:Event)-[:NEXT*1..{max_intermediate_nodes + 1}]->(e{idx + 1}:Event)'
+                for idx in range(nb_events - 1)
+            ]) + ','
         else:
-            event_path = f"-[:NEXT*1..{max_intermediate_nodes + 1}]->".join([f"(e{idx}:Event)" for idx in range(nb_notes)]) + ','
+            event_path = f'-[:NEXT*1..{max_intermediate_nodes + 1}]->'.join([f'(e{idx}:Event)' for idx in range(nb_events)]) + ','
 
     else:
         if intervals:
-            event_path = "".join([f"(e{idx}:Event)-[r{idx}:NEXT]->" for idx in range(nb_notes - 1)]) + f"(e{nb_notes - 1}:Event)"+ ','
+            event_path = ''.join([f'(e{idx}:Event)-[r{idx}:NEXT]->' for idx in range(nb_events - 1)]) + f'(e{nb_events - 1}:Event)'+ ','
         else:
-            event_path = f"-[]->".join([f"(e{idx}:Event)" for idx in range(nb_notes)]) + ','  
+            event_path = f'-[]->'.join([f'(e{idx}:Event)' for idx in range(nb_events)]) + ','  
 
-    simplified_connections = ','.join([f"\n (e{idx})-[]->(f{idx}:Fact)" for idx in range(nb_notes)])
-    match_clause = 'MATCH \n ' + event_path + simplified_connections
+    #---Create the path from Events to theirs Facts
+    fact_nb = 0
+    simplified_connections = ''
+    for event_nb, event in enumerate(notes):
+        for note in event[:-1]:
+            simplified_connections += f'\n (e{event_nb})-[]->(f{fact_nb}:Fact),'
+            fact_nb += 1
+
+    simplified_connections = simplified_connections[:-1] # Removing trailing comma.
+
+    #---Create match clause
+    match_clause = 'MATCH\n ' + event_path + simplified_connections
 
     return match_clause
 
-def create_with_clause_interval(nb_notes, duration_gap):
+def create_with_clause_interval(nb_events, duration_gap):
     '''
     Create the WITH clause for the compilated query that need intervals (so with `allow_transposition` or `contour`).
 
-    - nb_notes     : the number of notes ;
+    - nb_events    : the number of Events ;
     - duration_gap : the duration gap.
     '''
 
@@ -107,12 +164,12 @@ def create_with_clause_interval(nb_notes, duration_gap):
         # Construct interval conditions for paths with intermediate nodes
         interval_conditions = []
 
-        for idx in range(nb_notes - 1): # nb of intervals
+        for idx in range(nb_events - 1): # nb of intervals
             interval_condition = f"reduce(totalInterval = 0, rel IN relationships(p{idx}) | totalInterval + rel.interval) AS totalInterval_{idx}"
             interval_conditions.append(interval_condition)
 
         # Adding the interval clauses if duration_gap is specified
-        variables = ' ' + ', '.join([f"e{idx}" for idx in range(nb_notes)]) + ',\n ' + ', '.join([f"f{idx}" for idx in range(nb_notes)])
+        variables = ' ' + ', '.join([f"e{idx}" for idx in range(nb_events)]) + ',\n ' + ', '.join([f"f{idx}" for idx in range(nb_events)])
         with_clause = 'WITH\n' + variables + ',\n ' + ',\n '.join(interval_conditions) + ' '
 
     return with_clause + '\n'
@@ -131,63 +188,56 @@ def create_where_clause_simple(notes, fixed_notes, pitch_distance, duration_fact
 
     where_clauses = []
     sequencing_conditions = []
+    fact_nb = 0 # the current fact number
 
-    for idx, (note, octave, duration) in enumerate(notes):
-        #---Making note condition (class + octave)
-        if note == None:
-            if octave == None:
-                note_condition = ''
-            else:
-                note_condition = f'f{idx}.octave = {octave}'
-
-        else:
-            if fixed_notes[idx] or pitch_distance == 0:
-                note_condition = f'f{idx}.class = "{note[0]}"'
-
-                if len(note) > 1 and note[1] in ('#', 's'): # sharp
-                    note_condition += f' AND (f{idx}.accid = "s" OR f{idx}.accid_ges = "s")' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
-
-                elif len(note) > 1 and note[1] in ('b', 'f'): # flat
-                    note_condition += f' AND (f{idx}.accid = "f" OR f{idx}.accid_ges = "f")' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
-
-                if octave != None:
-                    note_condition += f' AND f{idx}.octave = {octave}'
-
-            else:
-                o = 4 if octave is None else octave # If octave is None, use 4 to get near notes classes
-                near_notes = find_nearby_pitches(note, o, pitch_distance)
-
-                note_condition = '('
-                for n, o_ in near_notes:
-                    base_condition = f'f{idx}.class = "{n[0]}"'
-
-                    if len(n) > 1 and n[1] in ('#', 's'): # sharp
-                        base_condition += f' AND (f{idx}.accid = "s" OR f{idx}.accid_ges = "s")' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
-
-                    elif len(n) > 1 and n[1] in ('b', 'f'): # flat
-                        base_condition += f' AND (f{idx}.accid = "f" OR f{idx}.accid_ges = "f")' # f.accid : accidental on the note. f.accid_ges : accidental on the clef.
-
-                    if octave == None:
-                        note_condition += f'\n  ({base_condition}) OR '
-                    else:
-                        note_condition += f'\n  ({base_condition} AND f{idx}.octave = {o_}) OR '
-
-                note_condition = note_condition[:-len(' OR ')] + '\n )' # Remove trailing ' AND '
+    for event_nb, event in enumerate(notes):
+        duration = event[-1]
 
         #---Making the duration condition
-        duration_condition = make_duration_condition(duration_factor, duration, idx, fixed_notes[idx])
+        duration_condition = make_duration_condition(duration_factor, duration, event_nb, fixed_notes[event_nb])
 
-        # Adding sequencing conditions
-        if idx < len(notes) - 1 and duration_gap > 0:
-            sequencing_condition = make_sequencing_condition(duration_gap, idx)
+        if duration_condition != '':
+            where_clauses.append(' ' + duration_condition)
+
+        #---Adding sequencing conditions
+        if event_nb < len(notes) - 1 and duration_gap > 0:
+            sequencing_condition = make_sequencing_condition(duration_gap, event_nb)
             sequencing_conditions.append(sequencing_condition)
 
-        if note_condition == '' or duration_condition == '':
-            where_clause_i = note_condition + duration_condition # if only one is '', the concatenation of both is equal to the one which is not ''.
-        else:
-            where_clause_i = note_condition + ' AND ' + duration_condition
+        #---Making the class + octave conditions for each note in the event (multiple if there is a chord)
+        for (note, octave) in event[:-1]:
+            if note == None:
+                if octave == None:
+                    note_condition = ''
+                else:
+                    note_condition = f'f{fact_nb}.octave = {octave}'
 
-        where_clauses.append(' ' + where_clause_i)
+            else:
+                if fixed_notes[event_nb] or pitch_distance == 0 or note[0] == 'r':
+                    note_condition = make_note_condition(note, fact_nb)
+
+                    if octave != None and note[0] != 'r':
+                        note_condition += f' AND f{fact_nb}.octave = {octave}'
+
+                else:
+                    o = 4 if octave is None else octave # If octave is None, use 4 to get near notes classes
+                    near_notes = find_nearby_pitches(note, o, pitch_distance)
+
+                    note_condition = '('
+                    for n, o_ in near_notes:
+                        base_condition = make_note_condition(n, fact_nb)
+
+                        if octave == None:
+                            note_condition += f'\n  ({base_condition}) OR '
+                        else:
+                            note_condition += f'\n  ({base_condition} AND f{fact_nb}.octave = {o_}) OR '
+
+                    note_condition = note_condition[:-len(' OR ')] + '\n )' # Remove trailing ' AND '
+
+            if note_condition != '':
+                where_clauses.append(' ' + note_condition)
+
+            fact_nb += 1
     
     #---Assemble frequency, duration and sequencing conditions
     where_clause = 'WHERE\n' + ' AND\n'.join(where_clauses)
@@ -215,7 +265,8 @@ def create_where_clause_intervals(notes, allow_transposition, fixed_notes, pitch
     intervals = calculate_intervals(notes)
     where_clauses = []
 
-    for idx, (note, octave, duration) in enumerate(notes):
+    for idx, event in enumerate(notes):
+        duration = event[-1]
         duration_condition = make_duration_condition(duration_factor, duration, idx, fixed_notes[idx])
 
         if idx == len(notes) - 1 or intervals[idx] == None: # only duration condition for the last step or if no interval given
@@ -244,12 +295,13 @@ def create_where_clause_intervals(notes, allow_transposition, fixed_notes, pitch
 
     return where_clause
 
-def create_collection_clause(collections, nb_notes, duration_gap=0.0, intervals=False):
+def create_collection_clause(collections, nb_events, nb_facts, duration_gap=0.0, intervals=False):
     '''
     Create the clause that will filter the given collections.
 
     - collections  : the array of collection strings ;
-    - nb_notes     : the number of notes ;
+    - nb_events    : the number of Events ;
+    - nb_facts     : the number of Facts ;
     - duration_gap : the duration gap fuzzy parameter (used to know if adding `r{idx} as r{idx}`) ;
     - intervals    : indicate if the clause will allow transpositions or match contour (and so use intervals). In this case, adding `r{idx} as r{idx}`.
     '''
@@ -261,19 +313,22 @@ def create_collection_clause(collections, nb_notes, duration_gap=0.0, intervals=
         col_clause = '\nWITH'
 
         as_col_clause = ''
-        for k in range(nb_notes):
-            as_col_clause += f'e{k} as e{k}, f{k} as f{k}, '
+        for k in range(nb_events):
+            as_col_clause += f'e{k} as e{k}, '
 
-            if intervals and k < nb_notes - 1:
+            if intervals and k < nb_events - 1:
                 if duration_gap > 0:
                     as_col_clause += f'totalInterval_{k} as totalInterval_{k}, '
                 else:
                     as_col_clause += f'r{k} as r{k}, '
 
+        for k in range(nb_facts):
+            as_col_clause += f'f{k} as f{k}, '
+
         as_col_clause = as_col_clause[:-2] # Remove trailing ', '
 
         col_clause += '\n ' + as_col_clause
-        col_clause += '\nCALL {\n WITH e1\n MATCH (e1)<-[:timeSeries|VOICE|NEXT*]-(s:Score)\n RETURN s\n LIMIT 1\n}'
+        col_clause += '\nCALL {\n WITH e0\n MATCH (e0)<-[:timeSeries|VOICE|NEXT*]-(s:Score)\n RETURN s\n LIMIT 1\n}'
         col_clause += '\nWITH\n s as s, ' + as_col_clause
 
         col_clause += '\nWHERE'
@@ -284,34 +339,37 @@ def create_collection_clause(collections, nb_notes, duration_gap=0.0, intervals=
 
     return col_clause
 
-def create_return_clause(nb_notes, duration_gap=0., intervals=False):
+def create_return_clause(notes, duration_gap=0., intervals=False):
     '''
     Create the return clause.
 
-    - nb_notes     : the number of notes in the search melody ;
+    - notes        : the notes in the search melody ;
     - duration_gap : the duration gap. Used only when `intervals` is True ;
     - intervals    : indicate if the return clause is for a query that allows transposition, or contour match, or not. If so, it will also add `interval_{idx}` to the clause.
     '''
 
+    fact_nb = 0 # will correspond to the index of the first fact corresponding to the current event
     return_clauses = []
-    for idx in range(nb_notes):
+    for event_nb, event in enumerate(notes):
         # Prepare return clauses with specified names
-        return_clauses.extend([
-            f"\n f{idx}.class AS pitch_{idx}",
-            f"f{idx}.octave AS octave_{idx}",
-            f"e{idx}.duration AS duration_{idx}",
-            f"e{idx}.start AS start_{idx}",
-            f"e{idx}.end AS end_{idx}",
-            f"e{idx}.id AS id_{idx}"
+        return_clauses.extend([ #TODO: for a chord, only one note will be returned (the first one)
+            f"\n f{fact_nb}.class AS pitch_{fact_nb}",
+            f"f{fact_nb}.octave AS octave_{fact_nb}",
+            f"e{event_nb}.duration AS duration_{event_nb}",
+            f"e{event_nb}.start AS start_{event_nb}",
+            f"e{event_nb}.end AS end_{event_nb}",
+            f"e{event_nb}.id AS id_{event_nb}"
         ])
 
-        if intervals and idx < nb_notes - 1:
+        if intervals and event_nb < len(notes) - 1:
             if duration_gap > 0:
-                return_clauses.append(f"totalInterval_{idx} AS interval_{idx}")
+                return_clauses.append(f"totalInterval_{event_nb} AS interval_{event_nb}")
             else:
-                return_clauses.append(f"r{idx}.interval AS interval_{idx}")
+                return_clauses.append(f"r{event_nb}.interval AS interval_{event_nb}")
+        
+        fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
 
-    return_clause = 'RETURN' + ', '.join(return_clauses) + f', \n e0.source AS source, e0.start AS start, e{nb_notes - 1}.end AS end'
+    return_clause = 'RETURN' + ', '.join(return_clauses) + f', \n e0.source AS source, e0.start AS start, e{len(notes) - 1}.end AS end'
 
     return return_clause
 
@@ -329,13 +387,16 @@ def reformulate_fuzzy_query(query):
 
     #---Extract notes using the new function
     notes = extract_notes_from_query(query)
+
+    nb_events = len(notes)
+    nb_facts = sum(len(event) - 1 for event in notes)
     
     #------Construct the MATCH clause
-    match_clause = create_match_clause(len(notes), duration_gap, allow_transposition or contour_match)
+    match_clause = create_match_clause(notes, duration_gap, allow_transposition or contour_match)
 
     #------Construct WITH clause
     if allow_transposition or contour_match:
-        with_clause = create_with_clause_interval(len(notes), duration_gap)
+        with_clause = create_with_clause_interval(nb_events, duration_gap)
     else:
         with_clause = ''
 
@@ -346,17 +407,17 @@ def reformulate_fuzzy_query(query):
         where_clause = create_where_clause_simple(notes, fixed_notes, pitch_distance, duration_factor, duration_gap)
 
     #------Construct the collection filter
-    col_clause = create_collection_clause(collections, len(notes), duration_gap, allow_transposition or contour_match)
+    col_clause = create_collection_clause(collections, nb_events, nb_facts, duration_gap, allow_transposition or contour_match)
 
     #------Construct the return clause
-    return_clause = create_return_clause(len(notes), duration_gap, allow_transposition or contour_match)
+    return_clause = create_return_clause(notes, duration_gap, allow_transposition or contour_match)
     
     #------Construct the final query
     new_query = match_clause + '\n' + with_clause + where_clause + col_clause + '\n' + return_clause
     return new_query.strip('\n')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     with open('query.cypher', 'r') as file:
         augmented_query = file.read()
     print(reformulate_fuzzy_query(augmented_query))

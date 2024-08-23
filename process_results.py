@@ -56,16 +56,21 @@ def get_ordered_results(result, query):
     note_sequences = []
     for record in result:
         note_sequence = []
-        for idx in range(len(query_notes)):
-            pitch = record[f"pitch_{idx}"]
-            octave = record[f"octave_{idx}"]
-            duration = record[f"duration_{idx}"]
-            start = record[f"start_{idx}"]
-            end = record[f"end_{idx}"]
-            id_ = record[f"id_{idx}"]
+
+        fact_nb = 0 # will correspond to the index of the first fact corresponding to the current event
+        for event_nb, event in enumerate(query_notes):
+            pitch = record[f"pitch_{fact_nb}"]
+            octave = record[f"octave_{fact_nb}"]
+            duration = record[f"duration_{event_nb}"]
+            start = record[f"start_{event_nb}"]
+            end = record[f"end_{event_nb}"]
+            id_ = record[f"id_{event_nb}"]
+
             note = Note(pitch, octave, duration, start, end, id_)
-            # note = Note(pitch, octave, duration, start, end)
             note_sequence.append(note)
+
+            fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
+
         note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
 
     sequence_details = []
@@ -75,8 +80,8 @@ def get_ordered_results(result, query):
         note_details = []  # Buffer to store note details before writing
         for idx, note in enumerate(note_sequence):
             query_note = query_notes[idx]
-            pitch_deg = pitch_degree(query_note[0], query_note[1], note.pitch, note.octave, pitch_gap)
-            duration_deg = duration_degree_with_multiplicative_factor(query_note[2], note.duration, duration_factor)
+            pitch_deg = pitch_degree(query_note[0][0], query_note[0][1], note.pitch, note.octave, pitch_gap)
+            duration_deg = duration_degree_with_multiplicative_factor(query_note[-1], note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             
             if idx > 0:  # Compute sequencing degree for the second and third notes
@@ -115,20 +120,27 @@ def get_ordered_results_with_transpose(result, query):
     note_sequences = []
     for record in result:
         note_sequence = []
-        for idx in range(len(query_notes)):
-            pitch = record[f"pitch_{idx}"]
-            octave = record[f"octave_{idx}"]
-            duration = record[f"duration_{idx}"]
-            start = record[f"start_{idx}"]
-            end = record[f"end_{idx}"]
-            id_ = record[f"id_{idx}"]
+
+        fact_nb = 0 # will correspond to the index of the first fact corresponding to the current event
+        for event_nb, event in enumerate(query_notes):
+            pitch = record[f"pitch_{fact_nb}"]
+            octave = record[f"octave_{fact_nb}"]
+            duration = record[f"duration_{event_nb}"]
+            start = record[f"start_{event_nb}"]
+            end = record[f"end_{event_nb}"]
+            id_ = record[f"id_{event_nb}"]
+
             note = Note(pitch, octave, duration, start, end, id_)
             # note = Note(pitch, octave, duration, start, end)
-            if idx == 0:
+
+            if event_nb == 0:
                 interval = None
             else:
-                interval = record[f"interval_{idx - 1}"]
+                interval = record[f"interval_{event_nb - 1}"]
+
             note_sequence.append((note, interval))
+            fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
+
         note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
 
     sequence_details = []
@@ -144,7 +156,7 @@ def get_ordered_results_with_transpose(result, query):
             else:
                 pitch_deg = pitch_degree_with_intervals(intervals[idx - 1], interval, pitch_gap)
 
-            duration_deg = duration_degree_with_multiplicative_factor(query_note[2], note.duration, duration_factor)
+            duration_deg = duration_degree_with_multiplicative_factor(query_note[-1], note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             
             if idx > 0:  # Compute sequencing degree for the second and third notes
