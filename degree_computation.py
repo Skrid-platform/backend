@@ -91,17 +91,22 @@ def duration_degree(duration1, duration2, max_duration_distance):
     return degree
 
 def duration_degree_with_multiplicative_factor(expected_duration, duration, factor):
-    if factor == 1.0 or expected_duration == None:
+    if factor == 1.0 or expected_duration is None:
         return 1.0
 
-    # Calculate the absolute difference between the two durations
-    duration_difference = abs(duration - expected_duration)
+    lower_bound = expected_duration / factor
+    upper_bound = expected_duration * factor
 
-    max_duration_distance = abs(expected_duration - expected_duration*factor)
+    # If the duration is outside the acceptable range, return 0
+    if duration < lower_bound or duration > upper_bound:
+        return 0.0
 
-    # Calculate the degree based on the duration gap
-    degree = max(1 - (duration_difference / (max_duration_distance + max_duration_distance*0.1)), 0)
-    return degree
+    # Linear interpolation when duration is less than or equal to expected_duration
+    if duration <= expected_duration:
+        return (duration - lower_bound) / (expected_duration - lower_bound)
+
+    # Linear interpolation when duration is greater than expected_duration
+    return (upper_bound - duration) / (upper_bound - expected_duration)
 
 def sequencing_degree(end_time1, start_time2, max_gap):
     if max_gap == 0:
