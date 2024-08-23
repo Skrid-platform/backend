@@ -16,10 +16,18 @@ def convert_duration_to_seconds(note_duration, bpm=60):
 
 def generate_note_audio(note, bpm=60):
     pitch, octave, dur = note.pitch, note.octave, note.duration
-    frequency = note_frequencies[pitch.lower()] * (2 ** (octave - 4))
-    duration_in_seconds = convert_duration_to_seconds(dur, bpm)
-    sine_wave = Sine(frequency).to_audio_segment(duration=duration_in_seconds * 1000)  # duration in milliseconds
-    return sine_wave
+    
+    if pitch is None or octave is None:
+        # Generate silence for the duration of the rest
+        duration_in_seconds = convert_duration_to_seconds(dur, bpm)
+        silence = AudioSegment.silent(duration=duration_in_seconds * 1000)  # duration in milliseconds
+        return silence
+    else:
+        # Generate the sine wave for the note
+        frequency = note_frequencies[pitch.lower()] * (2 ** (octave - 4))
+        duration_in_seconds = convert_duration_to_seconds(dur, bpm)
+        sine_wave = Sine(frequency).to_audio_segment(duration=duration_in_seconds * 1000)  # duration in milliseconds
+        return sine_wave
 
 # Function to generate MP3 file from note sequence
 def generate_mp3(notes, file_name, bpm=60):
