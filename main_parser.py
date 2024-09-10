@@ -212,7 +212,7 @@ class Parser:
             # prog='UnfuzzyQuery',
             description='Compiles fuzzy queries to cypher queries',
             # epilog='Examples :\n\tSearchWord word\n\tSearchWord "example of string" -e .py;.txt\n\tSearchWord someword -x .pyc -sn',
-            epilog='''Examples :\n\tget help on a subcommand  : python3 main_parser.py compile -h\n\tcompile a query from file : python3 main_parser.py compile -F fuzzy_query.cypher -o crisp_query.cypher\n\tsend a query              : python3 main_parser.py send -F crisp_query.cypher -t result.txt\n\tsend a query 2            : python3 main_parser.py -u user -p pwd send -F -f fuzzy_query.cypher -t result.txt -m 6\n\twrite a fuzzy query       : python3 main_parser.py write "[('c', 5, 1), ('d', 5, None)]" -a 0.5 -t -o fuzzy_query.cypher\n\twrite a query from file   : python3 main_parser.py w "$(python3 main_parser.py g "10343_Avant_deux.mei" 9)" -p 2\n\tget notes from a song     : python3 main_parser.py get Air_n_83_g.mei 5 -o notes\n\tlist all songs            : python3 main_parser.py l\n\tlist all songs (compact)  : python3 main_parser.py l -n 0''',
+            epilog='''Examples :\n\tget help on a subcommand  : python3 main_parser.py compile -h\n\tcompile a query from file : python3 main_parser.py compile -F fuzzy_query.cypher -o crisp_query.cypher\n\tsend a query              : python3 main_parser.py send -F crisp_query.cypher -t result.txt\n\tsend a query 2            : python3 main_parser.py -u user -p pwd send -F -f fuzzy_query.cypher -t result.txt -m 6\n\twrite a fuzzy query       : python3 main_parser.py write "[[('c', 5), 1], [('d', 5), None]]" -a 0.5 -t -o fuzzy_query.cypher\n\twrite a query from file   : python3 main_parser.py w "$(python3 main_parser.py g "10343_Avant_deux.mei" 9)" -p 2\n\tget notes from a song     : python3 main_parser.py get Air_n_83_g.mei 5 -o notes\n\tlist all songs            : python3 main_parser.py l\n\tlist all songs (compact)  : python3 main_parser.py l -n 0''',
             formatter_class=argparse.RawDescriptionHelpFormatter
         )
 
@@ -335,7 +335,7 @@ class Parser:
         self.parser_w.add_argument(
             'NOTES',
             # type=check_notes_input_format,
-            help='notes as triples list : [(class, octave, duration), ...]. E.g [(\'c\', 5, 1), (\'d\', 5, 4)]'
+            help='notes as triples list : [(class, octave, duration), ...]. E.g [[(\'c\', 5), 1], [(\'d\', 5), 4]]'
         )
 
         self.parser_w.add_argument(
