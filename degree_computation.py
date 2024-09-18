@@ -94,8 +94,8 @@ def duration_degree_with_multiplicative_factor(expected_duration, duration, fact
     if factor == 1.0 or expected_duration is None:
         return 1.0
 
-    lower_bound = expected_duration / factor
-    upper_bound = expected_duration * factor
+    lower_bound = expected_duration / factor*0.9
+    upper_bound = expected_duration * factor*1.1
 
     # If the duration is outside the acceptable range, return 0
     if duration < lower_bound or duration > upper_bound:
