@@ -143,6 +143,7 @@ def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|
     format_notes = 'Notes format: list of [(class, octave), duration]: [[(class, octave), ..., duration], ...]. E.g `[[(\'c\', 5), 4], [(\'b\', 4), 8], [(\'b\', 4), 8], [(\'a\', 4), (\'d\', 5), 16]]`.\nIt is possible to use "None" to ignore a criteria.'
 
     #---Convert string to list
+    notes_input = notes_input.replace("\\", "")
     notes = literal_eval(notes_input)
 
     #---Check
