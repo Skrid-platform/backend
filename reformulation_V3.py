@@ -4,6 +4,7 @@ from extract_notes_from_query import extract_notes_from_query_dict, extract_fuzz
 from find_duration_range import find_duration_range_decimal, find_duration_range_multiplicative_factor_asym, find_duration_range_multiplicative_factor_sym
 from utils import calculate_intervals_dict
 from degree_computation import convert_note_to_sharp
+from refactor import move_attribute_values_to_where_clause, refactor_variable_names
 
 def make_duration_condition(duration_factor, duration, node_name):
     if duration == None:
@@ -41,13 +42,14 @@ def split_note_accidental(note):
     Returns:
         tuple: A tuple containing the base note and accidental.
     """
-    match = re.match(r'^([a-gA-G])([#b]?)$', note)
+    match = re.match(r'^([a-gA-G])([s#]?)$', note)
     if match:
         base_note = match.group(1).lower()
         accidental = match.group(2)
         if accidental == '':
             accidental = None
         else:
+            # Sharps are notated with s here (can be # or s in find_nearby_pitches)
             accidental = 's'
         return base_note, accidental
     else:
@@ -90,6 +92,7 @@ def make_pitch_condition(pitch_distance, pitch, octave, name):
         else:
             o = 4 if octave is None else octave  # Default octave if not specified
             near_pitches = find_nearby_pitches(pitch, o, pitch_distance)
+            print(near_pitches)
 
             pitch_condition = '('
             for n, o_ in near_pitches:
@@ -143,7 +146,7 @@ def create_match_clause(query):
             event_path = ',\n '.join(event_paths) + ','
         else:
             # Create a simplified path without intervals
-            event_path = f'-[:NEXT*1..{max_intermediate_nodes + 1}]->'.join([f'({node})' for node in event_nodes]) + ','
+            event_path = f'-[:NEXT*1..{max_intermediate_nodes + 1}]->'.join([f'({node}:Event)' for node in event_nodes]) + ','
 
         #---Extract the rest of the MATCH clause (non-event chain patterns) from the input query
         original_match_clause = extract_match_clause(query)
@@ -474,22 +477,8 @@ def reformulate_fuzzy_query(query):
     return new_query.strip('\n')
 
 if __name__ == '__main__':
-    query = """DEFINETRAP stepUp AS (1.0, 1.5, 2.0, 2.5)
-DEFINETRAP repeat AS (-0.5, -0.0, 0.0, 0.5)
-DEFINETRAP stepDown AS (-1.5, -1.0, -0.5, -0.0)
-MATCH
-  (e0:Event)-[n0:NEXT]->(e1:Event)-[n1:NEXT]->(e2:Event)-[n2:NEXT]->(e3:Event)-[n3:NEXT]->(e4:Event)-[n4:NEXT]->(e5:Event),
-  (e0)--(f0:Fact),
-  (e1)--(f1:Fact),
-  (e2)--(f2:Fact),
-  (e3)--(f3:Fact),
-  (e4)--(f4:Fact)
-WHERE
-  n0.interval IS leapUp AND
-  n1.interval IS repeat AND
-  n2.interval IS repeat AND
-  n3.interval IS leapUp AND
-  n4.interval IS stepDown
-RETURN e0.source AS source, e0.start AS start
-"""
-    print(reformulate_fuzzy_query(query))
+    with open('fuzzy_query.cypher', 'r') as file:
+        fuzzy_query = file.read()
+    fuzzy_query = move_attribute_values_to_where_clause(fuzzy_query)
+    fuzzy_query = refactor_variable_names(fuzzy_query)
+    print(reformulate_fuzzy_query(fuzzy_query))

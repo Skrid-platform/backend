@@ -69,7 +69,8 @@ def move_attribute_values_to_where_clause(query):
                     pass
             else:
                 # Variable is untyped but has been seen before; acceptable
-                element_type = variables[variable]
+                # element_type = variables[variable]
+                pass
         else:
             # First occurrence of the variable
             if element_type is None:
@@ -316,21 +317,9 @@ def validate_fuzzy_query(query):
     return True
 
 if __name__ == "__main__":
-    # Original query
-    query = """DEFINEASC leapUp AS (1.0,1.5)
-MATCH
-ALLOW_TRANSPOSITION
-TOLERANT pitch=0.0, duration=1.0, gap=0.5
-ALPHA 0.5
-(abc:Event)-[other_name:NEXT]->(e1:Event)-[t1:NEXT{interval:2}]->(e10:Event),
-(abc)--(f0:Fact{class:'c', octave:5, dur:1}),
-(e1)--(f1:Fact{class:'d', octave:5, dur:1}),
-(e10)--(f2:Fact{class:'e', octave:5, dur:2})
-WHERE
-other_name.interval is leapUp
-RETURN abc.source AS source, abc.start AS start"""
-
-    query = refactor_variable_names(query)
-    query = move_attribute_values_to_where_clause(query)
-    print(query)
+    with open('fuzzy_query.cypher', 'r') as file:
+        fuzzy_query = file.read()
+    fuzzy_query = move_attribute_values_to_where_clause(fuzzy_query)
+    fuzzy_query = refactor_variable_names(fuzzy_query)
+    print(fuzzy_query)
 
