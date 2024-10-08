@@ -92,7 +92,6 @@ def make_pitch_condition(pitch_distance, pitch, octave, name):
         else:
             o = 4 if octave is None else octave  # Default octave if not specified
             near_pitches = find_nearby_pitches(pitch, o, pitch_distance)
-            print(near_pitches)
 
             pitch_condition = '('
             for n, o_ in near_pitches:
@@ -195,7 +194,8 @@ def create_match_clause(query):
 
         return match_clause
     else:
-        # duration_gap <= 0, so we just extract the MATCH clause from the query
+        # duration_gap <= 0
+        # Extract the MATCH clause from the query
         match_clause = extract_match_clause(query)
 
         # Remove fuzzy parameters definitions (everything between MATCH and the first '(')
@@ -204,8 +204,30 @@ def create_match_clause(query):
         first_paren = match_clause.find('(', match_start)
         if first_paren == -1:
             raise ValueError('No node patterns found in MATCH clause')
+
         # Extract the cleaned MATCH clause
-        match_clause = 'MATCH\n' + match_clause[first_paren:].lstrip()
+        match_clause_body = match_clause[first_paren:].strip()
+
+        # Additional step: when allow_transposition is True, ensure all [:NEXT] relationships are named
+        if allow_transposition:
+            # Initialize a relationship index
+            rel_index = 0
+
+            # Function to replace unnamed [:NEXT] relationships with named ones
+            def replace_unnamed_next(match):
+                nonlocal rel_index
+                replacement = f'[n{rel_index}:NEXT]'
+                rel_index += 1
+                return replacement
+
+            # Regular expression to find unnamed relationships of the form [:NEXT]
+            pattern = r'\[\s*:NEXT\s*\]'
+
+            # Replace unnamed [:NEXT] relationships with named ones
+            match_clause_body = re.sub(pattern, replace_unnamed_next, match_clause_body)
+
+        # Reconstruct the match_clause
+        match_clause = 'MATCH\n' + match_clause_body
 
         return match_clause
 
@@ -312,6 +334,7 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
 
     # Step 3: Extract notes and make conditions for each note
     notes_dict = extract_notes_from_query_dict(query)
+    
     where_clauses = []
     if allow_transposition:
         intervals = calculate_intervals_dict(notes_dict)
@@ -442,6 +465,8 @@ def reformulate_fuzzy_query(query):
 
     - query : the fuzzy query.
     '''
+
+    query = move_attribute_values_to_where_clause(query)
 
     #------Init
     #---Extract the parameters from the augmented query
