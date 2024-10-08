@@ -110,26 +110,26 @@ def create_query_from_contour(contour):
             membership_definitions.append(membership_functions[symbol])
         elif symbol == 'U':
             # Define leapUp based on stepUp
-            membership_functions[symbol] = f'DEFINETRAP stepUp AS ({b}, {b_plus}, {b_plus + strong_support_length}, {b_plus + strong_support_length + asc_length})'
+            membership_functions[symbol] = f'DEFINETRAP leapUp AS ({b}, {b_plus}, {b_plus + strong_support_length}, {b_plus + strong_support_length + asc_length})'
             membership_definitions.append(membership_functions[symbol])
         elif symbol == '*U':
             # Define extremelyUp based on leapUp
             membership_functions[symbol] = f'DEFINEASC extremelyUp AS ({b_plus + strong_support_length}, {b_plus + strong_support_length + asc_length})'
             membership_definitions.append(membership_functions[symbol])
         elif symbol == 'R':
-            # Define repeat based on stepUp and stepDown
+            # Define repeat based on stepUp
             membership_functions[symbol] = f'DEFINETRAP repeat AS ({-asc_length}, {-a_minus}, {a_minus}, {asc_length})'
             membership_definitions.append(membership_functions[symbol])
         elif symbol == 'd':
-            # Define stepDown as the negative of stepUp
+            # Define stepDown based on stepUp
             membership_functions[symbol] = f'DEFINETRAP stepDown AS ({-b_plus}, {-b}, {-a}, {-a_minus})'
             membership_definitions.append(membership_functions[symbol])
         elif symbol == 'D':
-            # Define leapDown based on stepDown
+            # Define leapDown based on stepUp
             membership_functions[symbol] = f'DEFINETRAP leapDown AS ({-b_plus - strong_support_length - asc_length}, {-b_plus - strong_support_length}, {-b_plus}, {-b})'
             membership_definitions.append(membership_functions[symbol])
         elif symbol == '*D':
-            # Define extremelyDown based on leapDown
+            # Define extremelyDown based on stepUp
             membership_functions[symbol] = f'DEFINEDESC extremelyDown AS ({-b_plus - strong_support_length - asc_length}, {-b_plus - strong_support_length})'
             membership_definitions.append(membership_functions[symbol])
 
@@ -363,6 +363,6 @@ def calculate_intervals_dict(notes_dict: dict) -> list[float]:
     return intervals
 
 if __name__ == "__main__":
-    contour = 'URRUd'
+    contour = 'URRUdD'
     query = create_query_from_contour(contour)
     print(query)

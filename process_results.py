@@ -413,8 +413,7 @@ def get_ordered_results_contours(result, query):
             note_sequence.append((note, degree))
         
         # Step 5: Combine all degrees to get sequence_degree
-        # Use the minimum aggregation (conjunction)
-        sequence_degree = min(degrees) if degrees else 1.0  # Default to 1.0 if no degrees
+        sequence_degree = aggregate_degrees(average_aggregation, degrees)
         
         # Step 6: Collect other record details (source, start, end)
         source = record.get('source', None)

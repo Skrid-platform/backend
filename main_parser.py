@@ -12,7 +12,7 @@ import re
 import neo4j
 
 #---Project
-from reformulation_V2 import reformulate_fuzzy_query
+from reformulation_V3 import reformulate_fuzzy_query
 from neo4j_connection import connect_to_neo4j, run_query
 from process_results import process_results_to_text, process_results_to_mp3, process_results_to_json, process_crisp_results_to_json
 from utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes, create_query_from_contour
@@ -548,8 +548,8 @@ class Parser:
         # Validate notes input based on contour_match flag
         if args.contour_match:
             # Contour match mode: Validate that the input is a valid DRU string
-            if not re.match(r'^[UDRud]+$', notes_input):
-                self.parser_w.error("When using `-C`, NOTES must be a string containing only 'U', 'D', and 'R'. Example: 'UUDDRR'.")
+            if not re.match(r'^(\*?[UD]|[ud]|R)+$', notes_input):
+                self.parser_w.error("When using `-C`, NOTES must be a string containing only '*U', 'U', 'u', 'R', 'd', 'D', and '*D'. Example: '*URRudD'.")
             contour = notes_input
             query = create_query_from_contour(contour)
         else:
