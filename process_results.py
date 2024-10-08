@@ -2,11 +2,12 @@ import os
 import shutil
 import json
 
-from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters
+from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters, extract_attributes_with_membership_functions, extract_fuzzy_membership_functions, extract_notes_from_query_dict
 from note import Note
 from degree_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees, aggregate_degrees, pitch_degree_with_intervals, duration_degree_with_multiplicative_factor
 from generate_audio import generate_mp3
 from utils import get_notes_from_source_and_time_interval, calculate_pitch_interval, calculate_intervals
+from neo4j_connection import connect_to_neo4j, run_query
 
 def min_aggregation(*degrees):
     return min(degrees)
@@ -296,6 +297,8 @@ def process_results_to_text(result, query):
 
     if allow_transpose:
         sequence_details = get_ordered_results_with_transpose(result, query)
+    elif contour:
+        sequence_details = get_ordered_results_contours(result, query)
     else:
         sequence_details = get_ordered_results(result, query)
 
@@ -303,14 +306,20 @@ def process_results_to_text(result, query):
     for source, start, end, sequence_degree, note_details in sequence_details:
         res += f"Source: {source}, Start: {start}, End: {end}, Overall Degree: {sequence_degree}\n"
 
-        for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg) in enumerate(note_details):
-            res += f"  Note {idx + 1}: {note}\n"
-            res += f"    Pitch Degree: {pitch_deg}\n"
-            res += f"    Duration Degree: {duration_deg}\n"
-            res += f"    Sequencing Degree: {sequencing_deg}\n"
-            res += f"    Aggregated Note Degree: {note_deg}\n"
+        if not contour:
+            for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg) in enumerate(note_details):
+                res += f"  Note {idx + 1}: {note}\n"
+                res += f"    Pitch Degree: {pitch_deg}\n"
+                res += f"    Duration Degree: {duration_deg}\n"
+                res += f"    Sequencing Degree: {sequencing_deg}\n"
+                res += f"    Aggregated Note Degree: {note_deg}\n"
 
-        res += "\n" # Add a blank line between sequences
+            res += "\n" # Add a blank line between sequences
+        else:
+            for idx, (note, degree) in enumerate(note_details):
+                res += f"  Note {idx + 1}: {note}\n"
+                res += f"    Contour Degree: {degree}\n"
+            res += "\n" # Add a blank line between sequences
 
     return res
 
@@ -358,7 +367,67 @@ def process_results_to_mp3(result, query, max_files, driver):
         file_name = f"{source}_{start}_{end}_{round(sequence_degree, 2)}.mp3"
         generate_mp3(notes, file_name, bpm=60)
 
+def get_ordered_results_contours(result, query):
+    notes = extract_notes_from_query_dict(query)
+    nb_facts = len([note_name for note_name, note in notes.items() if note['type'] == 'Fact'])
+    
+    # Step 1: Extract attributes associated with membership functions
+    attributes_with_membership_functions = extract_attributes_with_membership_functions(query)
+    
+    # Step 2: Build the aliases used in the return clause for these attributes
+    # The aliases are constructed as: {attribute_name}_{node_name}_{membership_function_name}
+    attribute_aliases = []
+    for node_name, attribute_name, membership_function_name in attributes_with_membership_functions:
+        alias = f"{attribute_name}_{node_name}_{membership_function_name}"
+        attribute_aliases.append((alias, node_name, attribute_name, membership_function_name))
+    
+    # Step 3: Extract the membership functions
+    membership_functions = extract_fuzzy_membership_functions(query)
+    
+    # Step 4: Process each record in the result
+    sequence_details = []
+    for record in result:
+        note_sequence = []
+        # Collect degrees for this record and notes
+        degrees = []
+        for i, (alias, node_name, attribute_name, membership_function_name) in enumerate(attribute_aliases):
+            pitch = record[f"pitch_{i}"]
+            octave = record[f"octave_{i}"]
+            duration = record[f"duration_{i}"]
+            start = record[f"start_{i}"]
+            end = record[f"end_{i}"]
+            id_ = record[f"id_{i}"]
+            note = Note(pitch, octave, duration, start, end, id_)
+            
+
+            # Retrieve the attribute value from the record
+            attribute_value = record[alias]
+            # Get the membership function
+            membership_function = membership_functions[membership_function_name]
+            # Compute the degree
+            degree = membership_function(attribute_value)
+            # Collect the degree
+            degrees.append(degree)
+
+            # Collect the note
+            note_sequence.append((note, degree))
+        
+        # Step 5: Combine all degrees to get sequence_degree
+        # Use the minimum aggregation (conjunction)
+        sequence_degree = min(degrees) if degrees else 1.0  # Default to 1.0 if no degrees
+        
+        # Step 6: Collect other record details (source, start, end)
+        source = record.get('source', None)
+        start = record.get('start', None)
+        end = record.get('end', None)
+
+        # Construct the sequence details
+        sequence_details.append([source, start, end, sequence_degree, note_sequence])
+    
+    # Step 7: Sort the sequences by their overall degree in descending order
+    sequence_details.sort(key=lambda x: x[3], reverse=True)
+    
+    return sequence_details
+
 if __name__ == "__main__":
-    # Example usage
-    l = [(almost_all(value/10.0), value/10.0) for value in range(11)]
-    print(l)
+    pass

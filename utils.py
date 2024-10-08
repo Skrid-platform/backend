@@ -66,6 +66,139 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
     query = match_clause + return_clause
     return query
 
+def create_query_from_contour(contour):
+    """
+    Constructs a fuzzy contour query based on the provided contour string.
+
+    Parameters:
+        contour (str): A string representing a sequence of contour steps.
+            Symbols:
+                '*D' : extremely down
+                'D'  : leap down
+                'd'  : step down
+                'R'  : repeat
+                'u'  : step up
+                'U'  : leap up
+                '*U' : extremely up
+
+    Returns:
+        str: A fuzzy contour query string.
+    """
+    # Mapping of contour symbols to membership function names and definitions
+    membership_functions = {}
+    # List to keep track of unique membership functions added to the query
+    membership_definitions = []
+    # List of interval conditions in the WHERE clause
+    interval_conditions = []
+    # Counter for event and relationship nodes
+    event_nodes = []
+    fact_nodes = []
+
+    # Helper function to define membership functions
+    def add_membership_function(symbol):
+        if symbol in membership_functions:
+            return  # Already defined
+
+        a_minus, a, b, b_plus = 0.0, 0.5, 1.0, 1.5
+        strong_support_length = abs(b - a)
+        desc_length = abs(b_plus - b)
+        asc_length = abs(a - a_minus)
+
+        if symbol == 'u':
+            # Define stepUp
+            membership_functions[symbol] = f'DEFINETRAP stepUp AS ({a_minus}, {a}, {b}, {b_plus})'
+            membership_definitions.append(membership_functions[symbol])
+        elif symbol == 'U':
+            # Define leapUp based on stepUp
+            membership_functions[symbol] = f'DEFINETRAP stepUp AS ({b}, {b_plus}, {b_plus + strong_support_length}, {b_plus + strong_support_length + asc_length})'
+            membership_definitions.append(membership_functions[symbol])
+        elif symbol == '*U':
+            # Define extremelyUp based on leapUp
+            membership_functions[symbol] = f'DEFINEASC extremelyUp AS ({b_plus + strong_support_length}, {b_plus + strong_support_length + asc_length})'
+            membership_definitions.append(membership_functions[symbol])
+        elif symbol == 'R':
+            # Define repeat based on stepUp and stepDown
+            membership_functions[symbol] = f'DEFINETRAP repeat AS ({-asc_length}, {-a_minus}, {a_minus}, {asc_length})'
+            membership_definitions.append(membership_functions[symbol])
+        elif symbol == 'd':
+            # Define stepDown as the negative of stepUp
+            membership_functions[symbol] = f'DEFINETRAP stepDown AS ({-b_plus}, {-b}, {-a}, {-a_minus})'
+            membership_definitions.append(membership_functions[symbol])
+        elif symbol == 'D':
+            # Define leapDown based on stepDown
+            membership_functions[symbol] = f'DEFINETRAP leapDown AS ({-b_plus - strong_support_length - asc_length}, {-b_plus - strong_support_length}, {-b_plus}, {-b})'
+            membership_definitions.append(membership_functions[symbol])
+        elif symbol == '*D':
+            # Define extremelyDown based on leapDown
+            membership_functions[symbol] = f'DEFINEDESC extremelyDown AS ({-b_plus - strong_support_length - asc_length}, {-b_plus - strong_support_length})'
+            membership_definitions.append(membership_functions[symbol])
+
+    # Normalize the contour string into a list of symbols
+    # Handle symbols like '*D', '*U'
+    i = 0
+    symbols = []
+    while i < len(contour):
+        if contour[i] == '*':
+            symbol = contour[i] + contour[i + 1]
+            i += 2
+        else:
+            symbol = contour[i]
+            i += 1
+        symbols.append(symbol)
+
+    # Build the MATCH and WHERE clauses
+    for idx, symbol in enumerate(symbols):
+        add_membership_function(symbol)
+        event_nodes.append(f'(e{idx}:Event)')
+        fact_nodes.append(f'(e{idx})--(f{idx}:Fact)')
+
+        # Determine the membership function name for the interval
+        if symbol == 'd':
+            mf_name = 'stepDown'
+        elif symbol == 'D':
+            mf_name = 'leapDown'
+        elif symbol == '*D':
+            mf_name = 'extremelyDown'
+        elif symbol == 'u':
+            mf_name = 'stepUp'
+        elif symbol == 'U':
+            mf_name = 'leapUp'
+        elif symbol == '*U':
+            mf_name = 'extremelyUp'
+        elif symbol == 'R':
+            mf_name = 'repeat'
+        else:
+            raise ValueError(f"Unknown symbol '{symbol}' in contour.")
+
+        interval_conditions.append(f'n{idx}.interval IS {mf_name}')
+
+    # Construct the query parts
+    query_parts = []
+
+    # Add membership function definitions
+    query_parts.extend(membership_definitions)
+
+    # Build the MATCH clause
+    num_intervals = len(interval_conditions)
+    events_chain = ''.join(f'(e{i}:Event)-[n{i}:NEXT]->' for i in range(num_intervals)) + f'(e{num_intervals}:Event)'
+    match_clause = 'MATCH\n  '+ events_chain + ',\n  ' + ',\n  '.join(fact_nodes)
+
+    # Build the WHERE clause
+    where_clause = ''
+    if interval_conditions:
+        where_clause = 'WHERE\n  ' + ' AND\n  '.join(interval_conditions)
+
+    # Build the RETURN clause
+    return_clause = f'RETURN e0.source AS source, e0.start AS start'
+
+    # Combine all parts into the final query
+    query = '\n'.join(query_parts) + '\n' + match_clause
+    if where_clause:
+        query += '\n' + where_clause
+    query += '\n' + return_clause
+
+    return query
+
 def get_first_k_notes_of_each_score(k, source, driver):
     # In : an integer, a driver for the DB
     # Out : a crisp query returning the sequences of k first notes for each score in the DB
@@ -191,13 +324,45 @@ def calculate_intervals(notes: list[list[tuple[str|None, int|None] | int|float|N
 
     return intervals
 
+def calculate_intervals_dict(notes_dict: dict) -> list[float]:
+    '''
+    Compute the list of intervals between consecutive notes.
+
+    - notes_dict : a dictionary of nodes with their attributes, as returned by `extract_notes_from_query`.
+
+    Output: a list of intervals between consecutive notes.
+    '''
+    # Extract Fact nodes (notes) from the dictionary
+    fact_nodes = {node_name: attrs for node_name, attrs in notes_dict.items() if attrs.get('type') == 'Fact'}
+
+    # Initialize a list to hold pitches
+    pitches = []
+
+
+    for node_name, attrs in fact_nodes.items():
+        
+        note_class = attrs.get('class')
+        octave = attrs.get('octave')
+        if note_class is not None and octave is not None:
+            pitches.append([note_class, octave])
+        else:
+            # If note class or octave is missing, append None
+            pitches.append(None)
+
+    # Compute intervals between consecutive pitches
+    intervals = []
+    for i in range(len(pitches) - 1):
+
+        if None in (pitches[i][0], pitches[i][1], pitches[i+1][0], pitches[i+1][1]):
+            interval = None
+        else:
+            interval = calculate_pitch_interval(pitches[i][0], pitches[i][1], pitches[i+1][0], pitches[i+1][1])
+
+        intervals.append(interval)
+
+    return intervals
+
 if __name__ == "__main__":
-    # Set up the driver
-    uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
-    user = "neo4j"                 # Default username
-    password = "12345678"          # Replace with your actual password
-    driver = connect_to_neo4j(uri, user, password)
-
-    generate_mp3_from_source_and_time_interval(driver, "10258_Les_matelots_du_port_St_Jacques.mei", 1.0, 1.875 + 0.125)
-
-    driver.close()
+    contour = 'URRUd'
+    query = create_query_from_contour(contour)
+    print(query)

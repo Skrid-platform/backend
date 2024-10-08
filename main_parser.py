@@ -6,6 +6,7 @@
 import argparse
 from os.path import exists
 from ast import literal_eval # safer than eval
+import re
 
 # import neo4j.exceptions.CypherSyntaxError
 import neo4j
@@ -14,7 +15,7 @@ import neo4j
 from reformulation_V2 import reformulate_fuzzy_query
 from neo4j_connection import connect_to_neo4j, run_query
 from process_results import process_results_to_text, process_results_to_mp3, process_results_to_json, process_crisp_results_to_json
-from utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes
+from utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes, create_query_from_contour
 
 ##-Init
 # version = '1.0'
@@ -543,9 +544,21 @@ class Parser:
             collections = None
         else:
             collections = args.collections.split(',')
-
-        notes = check_notes_input_format(notes_input)
-        query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition, args.contour_match, collections)
+        
+        # Validate notes input based on contour_match flag
+        if args.contour_match:
+            # Contour match mode: Validate that the input is a valid DRU string
+            if not re.match(r'^[UDRud]+$', notes_input):
+                self.parser_w.error("When using `-C`, NOTES must be a string containing only 'U', 'D', and 'R'. Example: 'UUDDRR'.")
+            contour = notes_input
+            query = create_query_from_contour(contour)
+        else:
+            # Normal mode: Validate that the input is a list of notes
+            try:
+                notes = check_notes_input_format(notes_input)
+            except (ValueError, SyntaxError):
+                self.parser_w.error("NOTES must be a valid list format. Example: [[('c', 5), 1], [('d', 5), 4]]")
+            query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition, args.contour_match, collections)
 
         if args.output == None:
             print(query)
