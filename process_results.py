@@ -6,7 +6,7 @@ from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_par
 from note import Note
 from degree_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees, aggregate_degrees, pitch_degree_with_intervals, duration_degree_with_multiplicative_factor
 from generate_audio import generate_mp3
-from utils import get_notes_from_source_and_time_interval, calculate_pitch_interval, calculate_intervals
+from utils import get_notes_from_source_and_time_interval, calculate_pitch_interval, calculate_intervals_dict
 from neo4j_connection import connect_to_neo4j, run_query
 
 def min_aggregation(*degrees):
@@ -51,7 +51,8 @@ def almost_all_aggregation_yager(*degrees):
 
 def get_ordered_results(result, query):
     # Extract the query notes and fuzzy parameters    
-    query_notes = extract_notes_from_query(query)
+    query_notes = extract_notes_from_query_dict(query)
+    query_notes = {node_name: attrs for node_name, attrs in query_notes.items() if attrs['type'] == 'Fact'}
     pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, contour, fixed_notes, _ = extract_fuzzy_parameters(query)
 
     note_sequences = []
@@ -80,9 +81,9 @@ def get_ordered_results(result, query):
         note_degrees = []
         note_details = []  # Buffer to store note details before writing
         for idx, note in enumerate(note_sequence):
-            query_note = query_notes[idx]
-            pitch_deg = pitch_degree(query_note[0][0], query_note[0][1], note.pitch, note.octave, pitch_gap)
-            duration_deg = duration_degree_with_multiplicative_factor(query_note[-1], note.duration, duration_factor)
+            query_note = query_notes[f'f{idx}']
+            pitch_deg = pitch_degree(query_note['class'], query_note['octave'], note.pitch, note.octave, pitch_gap)
+            duration_deg = duration_degree_with_multiplicative_factor(1.0/query_note['dur'], note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             
             if idx > 0:  # Compute sequencing degree for the second and third notes
@@ -112,11 +113,13 @@ def get_ordered_results(result, query):
 
 def get_ordered_results_with_transpose(result, query):
     # Extract the query notes and fuzzy parameters    
-    query_notes = extract_notes_from_query(query)
+    query_notes = extract_notes_from_query_dict(query)
+    query_notes = {node_name: attrs for node_name, attrs in query_notes.items() if attrs['type'] == 'Fact'}
+    print(query_notes)
     pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, contour, fixed_notes, _ = extract_fuzzy_parameters(query)
 
     # Compute the intervals between consecutive notes
-    intervals = calculate_intervals(query_notes)
+    intervals = calculate_intervals_dict(query_notes)
 
     note_sequences = []
     for record in result:
@@ -150,14 +153,14 @@ def get_ordered_results_with_transpose(result, query):
         note_degrees = []
         note_details = []  # Buffer to store note details before writing
         for idx, (note, interval) in enumerate(note_sequence):
-            query_note = query_notes[idx]
+            query_note = query_notes[f'f{idx}']
             if idx == 0:
                 # When considering transposition, the first note always has its pitch degree equal to 1.0
                 pitch_deg = 1.0
             else:
                 pitch_deg = pitch_degree_with_intervals(intervals[idx - 1], interval, pitch_gap)
 
-            duration_deg = duration_degree_with_multiplicative_factor(query_note[-1], note.duration, duration_factor)
+            duration_deg = duration_degree_with_multiplicative_factor(1.0/query_note['dur'], note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             
             if idx > 0:  # Compute sequencing degree for the second and third notes
