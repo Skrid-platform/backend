@@ -115,7 +115,6 @@ def get_ordered_results_with_transpose(result, query):
     # Extract the query notes and fuzzy parameters    
     query_notes = extract_notes_from_query_dict(query)
     query_notes = {node_name: attrs for node_name, attrs in query_notes.items() if attrs['type'] == 'Fact'}
-    print(query_notes)
     pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, contour, fixed_notes, _ = extract_fuzzy_parameters(query)
 
     # Compute the intervals between consecutive notes

@@ -2,6 +2,7 @@ from neo4j_connection import connect_to_neo4j, run_query
 from generate_audio import generate_mp3
 from degree_computation import convert_note_to_sharp
 from note import Note
+from refactor import move_attribute_values_to_where_clause
 
 def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, collections=None):
     '''
@@ -62,7 +63,7 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
     return_clause = "\nRETURN e0.source AS source, e0.start AS start"
     
     query = match_clause + return_clause
-    return query
+    return move_attribute_values_to_where_clause(query)
 
 def create_query_from_contour(contour):
     """
@@ -241,7 +242,7 @@ def get_first_k_notes_of_each_score(k, source, driver):
             pitch = record[f"pitch_{i}"]
             octave = record[f"octave_{i}"]
             duration = record[f"duration_{i}"]
-            note = (pitch, octave, 1/duration)
+            note = [(pitch, octave), int(1/duration)]
             sequence.append(note)
         sequences.append(sequence)
     
