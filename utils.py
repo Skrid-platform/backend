@@ -33,8 +33,6 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
     match_clause = 'MATCH\n'
     if allow_transposition:
         match_clause += ' ALLOW_TRANSPOSITION\n'
-    if contour_match:
-        match_clause += ' CONTOUR\n'
 
     match_clause += f' TOLERANT pitch={pitch_distance}, duration={duration_factor}, gap={duration_gap}\n ALPHA {alpha}\n'
 
@@ -53,14 +51,14 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
 
         for note in note_or_chord[:-1]:
             class_, octave = note
-            fact = "(e{})--(f{}{{class:'{}', octave:{}, dur:{}}})".format(i, fact_nb, class_, octave, duration)
+            fact = "(e{})--(f{}:Fact{{class:'{}', octave:{}, dur:{}}})".format(i, fact_nb, class_, octave, duration)
 
             facts.append(fact)
             fact_nb += 1
 
         events.append(event)
     
-    match_clause += " " + "-[:NEXT]->".join(events) + ",\n " + ",\n ".join(facts)
+    match_clause += " " + "".join(f"{events[i]}-[n{i}:NEXT]->" for i in range(len(events)-1)) + events[-1] + ",\n " + ",\n ".join(facts)
     return_clause = "\nRETURN e0.source AS source, e0.start AS start"
     
     query = match_clause + return_clause
