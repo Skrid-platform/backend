@@ -89,9 +89,6 @@ def create_query_from_contour(contour):
     membership_definitions = []
     # List of interval conditions in the WHERE clause
     interval_conditions = []
-    # Counter for event and relationship nodes
-    event_nodes = []
-    fact_nodes = []
 
     # Helper function to define membership functions
     def add_membership_function(symbol):
@@ -148,8 +145,6 @@ def create_query_from_contour(contour):
     # Build the MATCH and WHERE clauses
     for idx, symbol in enumerate(symbols):
         add_membership_function(symbol)
-        event_nodes.append(f'(e{idx}:Event)')
-        fact_nodes.append(f'(e{idx})--(f{idx}:Fact)')
 
         # Determine the membership function name for the interval
         if symbol == 'd':
@@ -170,6 +165,8 @@ def create_query_from_contour(contour):
             raise ValueError(f"Unknown symbol '{symbol}' in contour.")
 
         interval_conditions.append(f'n{idx}.interval IS {mf_name}')
+
+    fact_nodes = [f'(e{idx})--(f{idx}:Fact)' for idx in range(len(symbols) + 1)]
 
     # Construct the query parts
     query_parts = []

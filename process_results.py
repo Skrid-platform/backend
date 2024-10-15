@@ -101,7 +101,7 @@ def get_ordered_results(result, query):
             note_detail = (note, pitch_deg, duration_deg, sequencing_deg, note_deg)
             note_details.append(note_detail)
         
-        sequence_degree = aggregate_degrees(almost_all_aggregation_yager, note_degrees)
+        sequence_degree = aggregate_degrees(average_aggregation, note_degrees)
         
         if sequence_degree >= alpha:  # Apply alpha cut
             sequence_details.append((source, start, end, sequence_degree, note_details))
@@ -196,7 +196,10 @@ def get_ordered_results_contours(result, query):
     
     # Step 2: Build the aliases used in the return clause for these attributes
     # The aliases are constructed as: {attribute_name}_{node_name}_{membership_function_name}
-    attribute_aliases = []
+
+    # Special case for first note : membership degree is always 1.0
+    # 
+    attribute_aliases = [[None, None, None, None]]
     for node_name, attribute_name, membership_function_name in attributes_with_membership_functions:
         alias = f"{attribute_name}_{node_name}_{membership_function_name}"
         attribute_aliases.append((alias, node_name, attribute_name, membership_function_name))
@@ -220,12 +223,17 @@ def get_ordered_results_contours(result, query):
             note = Note(pitch, octave, duration, start, end, id_)
             
 
-            # Retrieve the attribute value from the record
-            attribute_value = record[alias]
-            # Get the membership function
-            membership_function = membership_functions[membership_function_name]
-            # Compute the degree
-            degree = membership_function(attribute_value)
+            # Deal with first note
+            if i == 0:
+                degree = 1.0
+            else:
+                # Retrieve the attribute value from the record
+                attribute_value = record[alias]
+                # Get the membership function
+                membership_function = membership_functions[membership_function_name]
+                # Compute the degree
+                degree = membership_function(attribute_value)
+
             # Collect the degree
             degrees.append(degree)
 
