@@ -100,33 +100,62 @@ def create_query_from_contour(contour):
         desc_length = abs(b_plus - b)
         asc_length = abs(a - a_minus)
 
+        # if symbol == 'u':
+        #     # Define stepUp
+        #     membership_functions[symbol] = f'DEFINETRAP stepUp AS ({a_minus}, {a}, {b}, {b_plus})'
+        #     membership_definitions.append(membership_functions[symbol])
+        # elif symbol == 'U':
+        #     # Define leapUp based on stepUp
+        #     membership_functions[symbol] = f'DEFINETRAP leapUp AS ({b}, {b_plus}, {b_plus + strong_support_length}, {b_plus + strong_support_length + asc_length})'
+        #     membership_definitions.append(membership_functions[symbol])
+        # elif symbol == '*U':
+        #     # Define extremelyUp based on leapUp
+        #     membership_functions[symbol] = f'DEFINEASC extremelyUp AS ({b_plus + strong_support_length}, {b_plus + strong_support_length + asc_length})'
+        #     membership_definitions.append(membership_functions[symbol])
+        # elif symbol == 'R':
+        #     # Define repeat based on stepUp
+        #     membership_functions[symbol] = f'DEFINETRAP repeat AS ({-asc_length}, {-a_minus}, {a_minus}, {asc_length})'
+        #     membership_definitions.append(membership_functions[symbol])
+        # elif symbol == 'd':
+        #     # Define stepDown based on stepUp
+        #     membership_functions[symbol] = f'DEFINETRAP stepDown AS ({-b_plus}, {-b}, {-a}, {-a_minus})'
+        #     membership_definitions.append(membership_functions[symbol])
+        # elif symbol == 'D':
+        #     # Define leapDown based on stepUp
+        #     membership_functions[symbol] = f'DEFINETRAP leapDown AS ({-b_plus - strong_support_length - asc_length}, {-b_plus - strong_support_length}, {-b_plus}, {-b})'
+        #     membership_definitions.append(membership_functions[symbol])
+        # elif symbol == '*D':
+        #     # Define extremelyDown based on stepUp
+        #     membership_functions[symbol] = f'DEFINEDESC extremelyDown AS ({-b_plus - strong_support_length - asc_length}, {-b_plus - strong_support_length})'
+        #     membership_definitions.append(membership_functions[symbol])
+
         if symbol == 'u':
             # Define stepUp
-            membership_functions[symbol] = f'DEFINETRAP stepUp AS ({a_minus}, {a}, {b}, {b_plus})'
+            membership_functions[symbol] = f'DEFINETRAP stepUp AS (0.0, 0.5, 0.5, 1.25)'
             membership_definitions.append(membership_functions[symbol])
         elif symbol == 'U':
             # Define leapUp based on stepUp
-            membership_functions[symbol] = f'DEFINETRAP leapUp AS ({b}, {b_plus}, {b_plus + strong_support_length}, {b_plus + strong_support_length + asc_length})'
+            membership_functions[symbol] = f'DEFINETRAP leapUp AS (0.25, 1, 1.5, 2.25)'
             membership_definitions.append(membership_functions[symbol])
         elif symbol == '*U':
             # Define extremelyUp based on leapUp
-            membership_functions[symbol] = f'DEFINEASC extremelyUp AS ({b_plus + strong_support_length}, {b_plus + strong_support_length + asc_length})'
+            membership_functions[symbol] = f'DEFINEASC extremelyUp AS (1.25, 2)'
             membership_definitions.append(membership_functions[symbol])
         elif symbol == 'R':
             # Define repeat based on stepUp
-            membership_functions[symbol] = f'DEFINETRAP repeat AS ({-asc_length}, {-a_minus}, {a_minus}, {asc_length})'
+            membership_functions[symbol] = f'DEFINETRAP repeat AS (-0.75, 0.0, 0.0, 0.75)'
             membership_definitions.append(membership_functions[symbol])
         elif symbol == 'd':
             # Define stepDown based on stepUp
-            membership_functions[symbol] = f'DEFINETRAP stepDown AS ({-b_plus}, {-b}, {-a}, {-a_minus})'
+            membership_functions[symbol] = f'DEFINETRAP stepDown AS (-1.25, -0.5, -0.5, 0.0)'
             membership_definitions.append(membership_functions[symbol])
         elif symbol == 'D':
             # Define leapDown based on stepUp
-            membership_functions[symbol] = f'DEFINETRAP leapDown AS ({-b_plus - strong_support_length - asc_length}, {-b_plus - strong_support_length}, {-b_plus}, {-b})'
+            membership_functions[symbol] = f'DEFINETRAP leapDown AS (-2.25, -1.5, -1, -0.25)'
             membership_definitions.append(membership_functions[symbol])
         elif symbol == '*D':
             # Define extremelyDown based on stepUp
-            membership_functions[symbol] = f'DEFINEDESC extremelyDown AS ({-b_plus - strong_support_length - asc_length}, {-b_plus - strong_support_length})'
+            membership_functions[symbol] = f'DEFINEDESC extremelyDown AS (-2, -1.25)'
             membership_definitions.append(membership_functions[symbol])
 
     # Normalize the contour string into a list of symbols
