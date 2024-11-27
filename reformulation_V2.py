@@ -223,16 +223,20 @@ def create_where_clause_simple(notes, fixed_notes, pitch_distance, duration_fact
                     o = 4 if octave is None else octave # If octave is None, use 4 to get near notes classes
                     near_notes = find_nearby_pitches(note, o, pitch_distance)
 
-                    note_condition = '('
-                    for n, o_ in near_notes:
-                        base_condition = make_note_condition(n, fact_nb)
+                    # note_condition = '('
+                    # for n, o_ in near_notes:
+                    #     base_condition = make_note_condition(n, fact_nb)
 
-                        if octave == None:
-                            note_condition += f'\n  ({base_condition}) OR '
-                        else:
-                            note_condition += f'\n  ({base_condition} AND f{fact_nb}.octave = {o_}) OR '
+                    #     if octave == None:
+                    #         note_condition += f'\n  ({base_condition}) OR '
+                    #     else:
+                    #         note_condition += f'\n  ({base_condition} AND f{fact_nb}.octave = {o_}) OR '
 
-                    note_condition = note_condition[:-len(' OR ')] + '\n )' # Remove trailing ' AND '
+                    # note_condition = note_condition[:-len(' OR ')] + '\n )' # Remove trailing ' AND '
+
+                    low_freq_bound, high_freq_bound = find_frequency_bounds(note, o, pitch_distance)
+                    note_condition = f"{low_freq_bound} <= f{fact_nb}.frequency AND f{fact_nb}.frequency <= {high_freq_bound}"
+
 
             if note_condition != '':
                 where_clauses.append(' ' + note_condition)
