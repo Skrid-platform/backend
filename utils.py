@@ -268,7 +268,7 @@ def get_first_k_notes_of_each_score(k, source, driver):
             pitch = record[f"pitch_{i}"]
             octave = record[f"octave_{i}"]
             duration = record[f"duration_{i}"]
-            note = [(pitch, octave), int(1/duration)]
+            note = [(pitch, octave), 1/duration]
             sequence.append(note)
         sequences.append(sequence)
     
