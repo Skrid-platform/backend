@@ -1,4 +1,5 @@
 from degree_computation import convert_note_to_sharp
+from math import ceil, floor
 
 def find_nearby_pitches_old(pitch, octave, max_distance):
     pitch = convert_note_to_sharp(pitch)
@@ -77,27 +78,31 @@ def find_nearby_pitches(pitch, octave, pitch_distance):
     return res
 
 def find_frequency_bounds(pitch, octave, max_distance):
-    # Define pitches and their relative semitone positions from A
-    notes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
-    semitones_from_a = [0, 2, 3, 5, 7, 8, 10]  # A to G, cumulative semitone distance
-    
-    # Create a mapping from note to its index and semitone offset
-    note_to_semitone = {note: semitones for note, semitones in zip(notes, semitones_from_a)}
-    
+    """
+    Calculates the frequency bounds for a given pitch, octave, and maximum semitone distance.
+
+    Parameters:
+        pitch (str): The note name (e.g., 'c', 'c#', 'd', 'd#', ..., 'b').
+        octave (int): The octave number.
+        max_distance (int): The maximum number of semitones away from the base note.
+
+    Returns:
+        tuple: A tuple containing the minimum and maximum frequencies (in Hz) as integers.
+    """
+    # Ensure pitch is in sharps
+    pitch = convert_note_to_sharp(pitch)
+
+    # Define note to semitone offset mapping from A
+    note_to_semitone = {'a': 0, 'a#': 1, 'b': 2, 'c': 3, 'c#': 4, 'd': 5, 'd#': 6, 'e': 7, 'f': 8, 'f#': 9, 'g': 10, 'g#': 11}
+
+    if pitch not in note_to_semitone:
+        raise ValueError(f"Invalid pitch name: {pitch}")
+        
     # Find the base semitone position for the given pitch and octave
-    if pitch == 'a' or pitch == 'b' :
+    if pitch in ['a', 'a#', 'b']:
         base_semitone = note_to_semitone[pitch] + (octave * 12) + 21
     else :
         base_semitone = note_to_semitone[pitch] + ((octave - 1) * 12) + 21
-    
-    # # Ugly fix
-    # if pitch == 'b' and octave == 4:
-    #     base_semitone = note_to_semitone[pitch] + ((octave - 1) * 12) + 21
-    # elif octave == 5:
-    #     if pitch == 'a' or pitch == 'b' :
-    #         base_semitone = note_to_semitone[pitch] + ((octave + 1) * 12) + 21
-    #     else :
-    #         base_semitone = note_to_semitone[pitch] + (octave * 12) + 21
     
     # Compute the frequency range based on the maximum semitone distance
     lower_bound_semitone = base_semitone - max_distance
@@ -106,7 +111,7 @@ def find_frequency_bounds(pitch, octave, max_distance):
     min_frequency = 440 * 2 ** ((lower_bound_semitone - 69) / 12)
     max_frequency = 440 * 2 ** ((upper_bound_semitone - 69) / 12)
     
-    return round(min_frequency,2), round(max_frequency,2)
+    return floor(min_frequency), ceil(max_frequency)
 
 if __name__ == "__main__":
     # Example usage:

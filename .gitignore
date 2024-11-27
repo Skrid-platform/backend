@@ -4,3 +4,6 @@
 *.txt
 
 __pycache__/
+CSV/
+latex/
+*.csv
