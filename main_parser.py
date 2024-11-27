@@ -17,6 +17,9 @@ from neo4j_connection import connect_to_neo4j, run_query
 from process_results import process_results_to_text, process_results_to_mp3, process_results_to_json, process_crisp_results_to_json
 from utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes, create_query_from_contour
 
+#---Performance tests
+from testing_utilities import PerformanceLogger
+
 ##-Init
 # version = '1.0'
 
@@ -453,7 +456,9 @@ class Parser:
             self.parse_compile(args)
 
         elif args.subparser in ('s', 'send'):
+            # logger.start("w_comp_and_ranking")
             self.parse_send(args)
+            # logger.end("w_comp_and_ranking")
 
         elif args.subparser in ('w', 'write'):
             self.parse_write(args)
@@ -505,7 +510,9 @@ class Parser:
         self.init_driver(args.URI, args.user, args.password)
 
         try:
+            # logger.start("only_query")
             res = run_query(self.driver, crisp_query)
+            # logger.end("only_query")
         except neo4j.exceptions.CypherSyntaxError as err:
             print('parse_send: query syntax error: ' + str(err))
             return
@@ -635,5 +642,21 @@ class Parser:
 
 ##-Run
 if __name__ == '__main__':
-    app = Parser()
-    app.parse()
+    testing_mode = False
+
+    if testing_mode:
+        logger = PerformanceLogger()
+        app = Parser()
+        app.parse()
+        logger.save()
+
+        # Set up a driver just to clear the cache
+        uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
+        user = "neo4j"                 # Default username
+        password = "12345678"          # Replace with your actual password
+        driver = connect_to_neo4j(uri, user, password)
+        run_query(driver, "CALL db.clearQueryCaches()")
+    
+    else:
+        app = Parser()
+        app.parse()
