@@ -177,7 +177,7 @@ def get_ordered_results_with_transpose(result, query):
             note_detail = (note, pitch_deg, duration_deg, sequencing_deg, note_deg)
             note_details.append(note_detail)
         
-        sequence_degree = aggregate_degrees(almost_all_aggregation_yager, note_degrees)
+        sequence_degree = aggregate_degrees(average_aggregation, note_degrees)
         
         if sequence_degree >= alpha:  # Apply alpha cut
             sequence_details.append((source, start, end, sequence_degree, note_details))
