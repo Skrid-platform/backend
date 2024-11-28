@@ -7,6 +7,7 @@ from degree_computation import convert_note_to_sharp
 from refactor import move_attribute_values_to_where_clause, refactor_variable_names
 
 def make_duration_condition(duration_factor, duration, node_name):
+    print(duration)
     if duration == None:
         return ''
 
@@ -93,20 +94,24 @@ def make_pitch_condition(pitch_distance, pitch, octave, name):
             o = 4 if octave is None else octave  # Default octave if not specified
             near_pitches = find_nearby_pitches(pitch, o, pitch_distance)
 
-            pitch_condition = '('
-            for n, o_ in near_pitches:
-                base_note, accidental = split_note_accidental(n)
-                base_condition = f"{name}.class = '{base_note}'"
-                if accidental:
-                    base_condition += f" AND ({name}.accid = '{accidental}' OR {name}.accid_ges = '{accidental}')"
-                else:
-                    base_condition += f" AND NOT EXISTS({name}.accid) AND NOT EXISTS({name}.accid)"
-                if octave is None:
-                    pitch_condition += f"\n  ({base_condition}) OR "
-                else:
-                    pitch_condition += f"\n  ({base_condition} AND {name}.octave = {o_}) OR "
-            # Remove the trailing ' OR ' and close the parentheses
-            pitch_condition = pitch_condition.rstrip(' OR ') + '\n)'
+            # pitch_condition = '('
+            # for n, o_ in near_pitches:
+            #     base_note, accidental = split_note_accidental(n)
+            #     base_condition = f"{name}.class = '{base_note}'"
+            #     if accidental:
+            #         base_condition += f" AND ({name}.accid = '{accidental}' OR {name}.accid_ges = '{accidental}')"
+            #     else:
+            #         base_condition += f" AND NOT EXISTS({name}.accid) AND NOT EXISTS({name}.accid)"
+            #     if octave is None:
+            #         pitch_condition += f"\n  ({base_condition}) OR "
+            #     else:
+            #         pitch_condition += f"\n  ({base_condition} AND {name}.octave = {o_}) OR "
+            # # Remove the trailing ' OR ' and close the parentheses
+            # pitch_condition = pitch_condition.rstrip(' OR ') + '\n)'
+
+            low_freq_bound, high_freq_bound = find_frequency_bounds(pitch, o, pitch_distance)
+            pitch_condition = f"{low_freq_bound} <= {name}.frequency AND {name}.frequency <= {high_freq_bound}"
+            
     return pitch_condition
 
 def make_sequencing_condition(duration_gap, name_1, name_2):

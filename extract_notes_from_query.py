@@ -186,6 +186,9 @@ def extract_notes_from_query_dict(query: str) -> dict:
                 except ValueError:
                     pass  # Keep value as string if it cannot be converted
 
+            if value == "None":
+                value = None
+
             # Add the attribute to the node_attributes dictionary
             if var in node_attributes:
                 node_attributes[var][attr] = value
