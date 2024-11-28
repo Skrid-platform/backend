@@ -53,7 +53,7 @@ def get_ordered_results(result, query):
     # Extract the query notes and fuzzy parameters    
     query_notes = extract_notes_from_query_dict(query)
     query_notes = {node_name: attrs for node_name, attrs in query_notes.items() if attrs['type'] == 'Fact'}
-    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, contour, fixed_notes, _ = extract_fuzzy_parameters(query)
+    pitch_gap, duration_factor, sequencing_gap, alpha, _, _, _, _ = extract_fuzzy_parameters(query)
 
     note_sequences = []
     for record in result:
