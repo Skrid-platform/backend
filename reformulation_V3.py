@@ -7,7 +7,6 @@ from degree_computation import convert_note_to_sharp
 from refactor import move_attribute_values_to_where_clause, refactor_variable_names
 
 def make_duration_condition(duration_factor, duration, node_name):
-    print(duration)
     if duration == None:
         return ''
 
