@@ -71,7 +71,8 @@ def get_ordered_results(result, query):
             note = Note(pitch, octave, duration, start, end, id_)
             note_sequence.append(note)
 
-            fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
+            # fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
+            fact_nb += 1
 
         note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
 
@@ -142,7 +143,8 @@ def get_ordered_results_with_transpose(result, query):
                 interval = record[f"interval_{event_nb - 1}"]
 
             note_sequence.append((note, interval))
-            fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
+            # fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
+            fact_nb += 1
 
         note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
 
