@@ -84,7 +84,7 @@ def get_ordered_results(result, query):
         for idx, note in enumerate(note_sequence):
             query_note = query_notes[f'f{idx}']
             pitch_deg = pitch_degree(query_note['class'], query_note['octave'], note.pitch, note.octave, pitch_gap)
-            duration_deg = duration_degree_with_multiplicative_factor(1.0/query_note['dur'], note.duration, duration_factor)
+            duration_deg = duration_degree_with_multiplicative_factor(query_note['dur'], note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             
             if idx > 0:  # Compute sequencing degree for the second and third notes
