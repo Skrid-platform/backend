@@ -53,7 +53,7 @@ def get_ordered_results(result, query):
     # Extract the query notes and fuzzy parameters    
     query_notes = extract_notes_from_query_dict(query)
     query_notes = {node_name: attrs for node_name, attrs in query_notes.items() if attrs['type'] == 'Fact'}
-    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, contour, fixed_notes, _ = extract_fuzzy_parameters(query)
+    pitch_gap, duration_factor, sequencing_gap, alpha, _, _, _, _ = extract_fuzzy_parameters(query)
 
     note_sequences = []
     for record in result:
@@ -71,7 +71,8 @@ def get_ordered_results(result, query):
             note = Note(pitch, octave, duration, start, end, id_)
             note_sequence.append(note)
 
-            fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
+            # fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
+            fact_nb += 1
 
         note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
 
@@ -142,7 +143,8 @@ def get_ordered_results_with_transpose(result, query):
                 interval = record[f"interval_{event_nb - 1}"]
 
             note_sequence.append((note, interval))
-            fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
+            # fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
+            fact_nb += 1
 
         note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
 

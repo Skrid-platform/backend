@@ -7,6 +7,8 @@ import glob
 import random
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+import random
+import ast
 
 class PerformanceLogger:
     _instance = None
@@ -299,117 +301,74 @@ def process_and_generate_latex(csv_file, nb_sequences, param_values, max_length,
     
     print(f"LaTeX code written to './latex/{file_name}_surplus.tex")
 
-
 if __name__ == "__main__":
-    sequences = [
-        [
-            [('b', 4), 8], [('c', 5), 8], [('d', 5), 8], [('d', 5), 8], [('d', 5), 8], 
-            [('e', 5), 8], [('d', 5), 4], [('b', 4), 8], [('b', 4), 16], [('c', 5), 16], 
-            [('d', 5), 8], [('d', 5), 8], [('d', 5), 8], [('e', 5), 8], [('d', 5), 4], 
-            [('b', 4), 8], [('b', 4), 16], [('c', 5), 16], [('d', 5), 8], [('d', 5), 8]
-        ],
-        [
-            [('c', 5), 2.6666666666666665], [('c', 5), 8.0], [('d', 5), 8.0], [('f', 5), 8.0], 
-            [('e', 5), 2.6666666666666665], [('d', 5), 8.0], [('c', 5), 4.0], [('a', 4), 8.0], 
-            [('a', 4), 8.0], [('a', 4), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], 
-            [('c', 5), 2.6666666666666665], [('c', 5), 8.0], [('d', 5), 8.0], [('f', 5), 8.0], 
-            [('e', 5), 2.6666666666666665], [('d', 5), 8.0], [('c', 5), 8.0]
-        ],
-        [
-            [('a', 4), 4.0], [('a', 4), 8.0], [('c', 5), 2.6666666666666665], [('c', 5), 2.6666666666666665], 
-            [('b', 4), 2.6666666666666665], [('c', 5), 4.0], [('b', 4), 8.0], [('a', 4), 4.0], 
-            [('b', 4), 8.0], [('c', 5), 4.0], [('b', 4), 8.0], [('a', 4), 4.0], [('g', 4), 8.0], 
-            [('a', 4), 4.0], [('a', 4), 8.0], [('c', 5), 2.6666666666666665], [('c', 5), 2.6666666666666665], 
-            [('b', 4), 4.0], [('b', 4), 8.0], [('a', 4), 4.0]
-        ],
-        [
-            [('b', 4), 8.0], [('c', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], [('c', 5), 8.0], 
-            [('b', 4), 8.0], [('a', 4), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], [('b', 4), 4.0], 
-            [('g', 4), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], 
-            [('c', 5), 8.0], [('b', 4), 8.0], [('a', 4), 8.0], [('g', 4), 8.0], [('a', 4), 8.0]
-        ],
-        [
-            [('a', 4), 4.0], [('b', 4), 8.0], [('b', 4), 4.0], [('a', 4), 8.0], [('a', 4), 2.6666666666666665], 
-            [('g', 4), 4.0], [('b', 4), 8.0], [('a', 4), 4.0], [('g', 4), 8.0], [('f', 4), 4.0], 
-            [('g', 4), 8.0], [('a', 4), 2.6666666666666665], [('g', 4), 8.0], [('a', 4), 8.0], 
-            [('b', 4), 8.0], [('b', 4), 4.0], [('a', 4), 8.0], [('a', 4), 8.0], [('g', 4), 8.0], [('a', 4), 8.0]
-        ],
-        [
-            [('a', 4), 5.333333333333333], [('b', 4), 16.0], [('c', 5), 8.0], [('c', 5), 8.0], 
-            [('b', 4), 8.0], [('a', 4), 8.0], [('a', 4), 8.0], [('g', 4), 8.0], [('a', 4), 5.333333333333333], 
-            [('b', 4), 16.0], [('c', 5), 8.0], [('c', 5), 8.0], [('b', 4), 8.0], [('b', 4), 8.0], 
-            [('a', 4), 4.0], [('c', 5), 5.333333333333333], [('c', 5), 16.0], [('c', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0]
-        ],
-        [
-            [('d', 5), 4.0], [('d', 5), 8.0], [('e', 5), 8.0], [('c', 5), 4.0], [('d', 5), 8.0], 
-            [('e', 5), 8.0], [('f', 5), 8.0], [('e', 5), 8.0], [('d', 5), 4.0], [('e', 5), 2.6666666666666665], 
-            [('b', 4), 16.0], [('c', 5), 16.0], [('d', 5), 4.0], [('d', 5), 8.0], [('e', 5), 8.0], 
-            [('c', 5), 4.0], [('d', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('a', 4), 8.0]
-        ],
-        [
-            [('a', 4), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], 
-            [('d', 5), 8.0], [('c', 5), 8.0], [('b', 4), 4.0], [('r', None), 8.0], [('a', 4), 8.0], 
-            [('b', 4), 8.0], [('c', 5), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], [('d', 5), 8.0], 
-            [('c', 5), 8.0], [('b', 4), 4.0], [('r', None), 8.0], [('e', 4), 8.0], [('a', 4), 8.0]
-        ],
-        [
-            [('e', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('c', 5), 4.0], [('c', 5), 8.0], 
-            [('d', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], [('e', 5), 4.0], [('d', 5), 8.0], 
-            [('e', 5), 8.0], [('e', 5), 8.0], [('c', 5), 8.0], [('c', 5), 8.0], [('d', 5), 8.0], 
-            [('d', 5), 8.0], [('e', 5), 4.0], [('e', 5), 8.0], [('e', 5), 8.0], [('c', 5), 5.333333333333333]
-        ],
-        [
-            [('c', 5), 8.0], [('b', 4), 8.0], [('a', 4), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], 
-            [('c', 5), 8.0], [('d', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('e', 5), 8.0], 
-            [('c', 5), 8.0], [('a', 4), 4.0], [('g', 4), 8.0], [('g', 4), 8.0], [('c', 5), 8.0], 
-            [('b', 4), 8.0], [('a', 4), 8.0], [('b', 4), 8.0], [('c', 5), 4.0], [('c', 5), 8.0]
-        ]
-    ]
+    # sequences = [
+    #     [[('a', 4), 8.0], [('b', 4), 8.0], [('g', 4), 8.0], [('a', 4), 8.0], [('b', 4), 16.0], [('a', 4), 16.0], [('b', 4), 16.0], [('c', 5), 16.0], [('b', 4), 16.0], [('c', 5), 16.0], [('b', 4), 16.0], [('b', 4), 16.0], [('a', 4), 8.0], [('b', 4), 8.0], [('g', 4), 8.0]], 
+    #     [[('d', 5), 2.6666666666666665], [('e', 5), 8.0], [('c', 5), 8.0], [('c', 5), 8.0], [('c', 5), 8.0], [('b', 4), 8.0], [('c', 5), 2.6666666666666665], [(None, None), 8.0], [('d', 5), 8.0], [('e', 5), 8.0], [('c', 5), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], [('d', 5), 2.6666666666666665], [('e', 5), 8.0]], 
+    #     [[('b', 4), 4.0], [('e', 4), 8.0], [('a', 4), 8.0], [('g', 4), 8.0], [('a', 4), 8.0], [('c', 5), 8.0], [('b', 4), 4.0], [(None, None), 8.0], [('e', 4), 8.0], [('a', 4), 5.333333333333333], [('g', 4), 16.0], [('a', 4), 8.0], [('c', 5), 8.0], [('b', 4), 4.0], [('e', 4), 8.0]], 
+    #     [[('e', 5), 4.0], [('c', 5), 5.333333333333333], [('b', 4), 16.0], [('a', 4), 8.0], [('g', 4), 8.0], [('c', 5), 4.0], [('e', 5), 4.0], [('c', 5), 5.333333333333333], [('b', 4), 16.0], [('a', 4), 8.0], [('g', 4), 8.0], [('c', 5), 4.0], [('e', 5), 8.0], [('d', 5), 8.0], [('c', 5), 4.0]], 
+    #     [[('a', 4), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], [('d', 5), 4.0], [('d', 5), 8.0], [('d', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('c', 5), 2.6666666666666665], [(None, None), 2.6666666666666665], [('g', 4), 8.0], [('g', 4), 8.0], [('g', 4), 8.0], [('c', 5), 2.6666666666666665], [('a', 4), 8.0]], 
+    #     [[('b', 4), 8.0], [('c', 5), 8.0], [('d', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], [('c', 5), 8.0], [('c', 5), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], [('d', 5), 8.0], [('e', 5), 8.0], [('d', 5), 4.0], [('c', 5), 8.0], [('c', 5), 8.0]], 
+    #     [[('c', 5), 4.0], [('c', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], [('e', 5), 4.0], [('d', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('c', 5), 8.0], [('c', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], [('e', 5), 4.0], [('e', 5), 8.0]], 
+    #     [[('c', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], [('c', 5), 4.0], [('g', 4), 4.0], [(None, None), 4.0], [('e', 5), 8.0], [('e', 5), 4.0], [('g', 5), 8.0], [('f', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('c', 5), 8.0], [('d', 5), 2.6666666666666665], [(None, None), 4.0]], 
+    #     [[('d', 5), 8.0], [('d', 5), 16.0], [('e', 5), 16.0], [('f', 5), 8.0], [('f', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('c', 5), 16.0], [('d', 5), 16.0], [('e', 5), 16.0], [('c', 5), 16.0], [('d', 5), 8.0], [('d', 5), 16.0], [('e', 5), 16.0], [('f', 5), 8.0]], 
+    #     [[('g', 4), 8.0], [('g', 4), 8.0], [('c', 5), 4.0], [('e', 5), 4.0], [('c', 5), 5.333333333333333], [('b', 4), 16.0], [('a', 4), 8.0], [('g', 4), 8.0], [('c', 5), 4.0], [('e', 5), 4.0], [('c', 5), 5.333333333333333], [('b', 4), 16.0], [('a', 4), 8.0], [('g', 4), 8.0], [('c', 5), 4.0]], 
+    #     [[('a', 4), 8.0], [('b', 4), 8.0], [('a', 4), 8.0], [('g', 4), 8.0], [('g', 4), 8.0], [('f', 4), 8.0], [('g', 4), 8.0], [('a', 4), 8.0], [('a', 4), 8.0], [('b', 4), 8.0], [('a', 4), 8.0], [('b', 4), 4.0], [('a', 4), 8.0], [('g', 4), 8.0], [('a', 4), 4.0]], 
+    #     [[('c', 5), 2.6666666666666665], [('e', 5), 4.0], [('c', 5), 8.0], [('b', 4), 2.6666666666666665], [('b', 4), 4.0], [('d', 5), 8.0], [('c', 5), 4.0], [('b', 4), 8.0], [('a', 4), 2.6666666666666665], [('c', 5), 2.6666666666666665], [('e', 5), 4.0], [('c', 5), 8.0], [('b', 4), 2.6666666666666665], [('b', 4), 4.0], [('b', 4), 8.0]], 
+    #     [[('d', 5), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], [('a', 4), 2.6666666666666665], [(None, None), 8.0], [('b', 4), 2.6666666666666665], [('a', 4), 8.0], [('g', 4), 8.0], [('a', 4), 8.0], [('d', 5), 8.0], [('b', 4), 4.0], [('c', 5), 8.0], [('a', 4), 2.6666666666666665], [(None, None), 2.0], [('b', 4), 2.0]], 
+    #     [[('f', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('d', 5), 4.0], [('d', 5), 4.0], [('g', 5), 8.0], [('f', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('d', 5), 4.0], [('d', 5), 4.0], [('g', 5), 8.0], [('f', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0]], 
+    #     [[('e', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('c', 5), 4.0], [('d', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('e', 5), 4.0], [('c', 5), 4.0], [('d', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0]]
+    # ]
 
+    # generate_multiple_random_notes(15, 15)
+    sequences = []
+    with open("random_notes.txt", "r") as f:
+        sequences = ast.literal_eval(f.read())
+    sequences = sequences[:10]
     nb_sequences=len(sequences)
     max_length=15
 
-    # # Tests pour le pitch
-    # param_values=[0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
-    # param_name = "-p"
-    # dir_path = f"./test_queries/{param_name}_flex/"
-
-    # generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
-
-    # execute_queries(dir_path, sequences, param_name, param_values, max_length)
-
-    # command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
-    # print(f"Running command: {command}")
-    # subprocess.run(command, shell=True)
-
-    # process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name)
-
-    # # Tests pour le duration
-    # param_values=[2.0, 4.0, 8.0]
-    # param_name = "-f"
-    # dir_path = f"./test_queries/{param_name}_flex/"
-
-    # generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
-
-    # execute_queries(dir_path, sequences, param_name, param_values, max_length)
-
-    # command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
-    # print(f"Running command: {command}")
-    # subprocess.run(command, shell=True)
-
-    # process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name)
-
-    # Tests pour le gap
-    param_values=[0.5]
-    param_name = "-g"
+    # Tests pour le pitch
+    param_values=[0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    param_name = "-p"
     dir_path = f"./test_queries/{param_name}_flex/"
 
-    # generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
+    generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
 
     execute_queries(dir_path, sequences, param_name, param_values, max_length)
 
-    command = f"mv ./performance_log.csv ./CSV/{param_name}_2_log.csv"
+    command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
     print(f"Running command: {command}")
     subprocess.run(command, shell=True)
 
-    process_and_generate_latex(f"./CSV/{param_name}_2_log.csv", nb_sequences, param_values, max_length, param_name)
+    process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name, "pitch flex.")
+
+    # Tests pour le duration
+    param_values=[2.0, 4.0, 8.0]
+    param_name = "-f"
+    dir_path = f"./test_queries/{param_name}_flex/"
+
+    generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
+
+    execute_queries(dir_path, sequences, param_name, param_values, max_length)
+
+    command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
+    print(f"Running command: {command}")
+    subprocess.run(command, shell=True)
+
+    process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name, "dur. flex.")
+
+    # Tests pour le gap
+    param_values=[0.25, 0,1875, 0.125, 0.0625]
+    param_name = "-g"
+    dir_path = f"./test_queries/{param_name}_flex/"
+
+    generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
+
+    execute_queries(dir_path, sequences, param_name, param_values, max_length)
+
+    command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
+    print(f"Running command: {command}")
+    subprocess.run(command, shell=True)
+
+    process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name, "seq flex.")
