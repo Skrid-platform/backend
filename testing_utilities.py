@@ -7,7 +7,6 @@ import glob
 import random
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-import random
 import ast
 
 class PerformanceLogger:
@@ -194,14 +193,17 @@ def generate_random_queries(sequences, num_queries=100):
         print(f"Running command: {command}")
         subprocess.run(command, shell=True)
 
-def generate_length_based_queries(output_dir, sequences, param_name, param_values, max_lenght):
+def generate_length_based_queries(output_dir, sequences, param_name, param_values, max_length):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+    else:
+        for file_path in glob.glob(os.path.join(output_dir, "*.cypher")):
+            os.remove(file_path)
 
     # Itérer sur chaque valeur du paramètre
     for param_value in param_values:
         # Itérer sur les longueurs de pattern (de 1 à 20)
-        for pattern_length in range(1, max_lenght + 1):
+        for pattern_length in range(1, max_length + 1):
             # Générer une requête pour chaque séquence
             for seq_index, sequence in enumerate(sequences):
                 # Extraire le sous-pattern de la séquence
@@ -228,16 +230,53 @@ def generate_length_based_queries(output_dir, sequences, param_name, param_value
 
     print(f"Queries written to {output_dir}")
 
-def execute_queries(dir_path, sequences, param_name, param_values, max_lenght):
+def generate_queries_v2(test_name, sequences, p_value, f_value, g_value, max_length):
+    output_dir = f"./test_queries/{test_name}/"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    else:
+        for file_path in glob.glob(os.path.join(output_dir, "*.cypher")):
+            os.remove(file_path)
+
+    # Itérer sur les longueurs de pattern (de 1 à 20)
+    for pattern_length in range(1, max_length + 1):
+        # Générer une requête pour chaque séquence
+        for seq_index, sequence in enumerate(sequences):
+            # Extraire le sous-pattern de la séquence
+            pattern = sequence[:pattern_length]
+            formatted_pattern = f"\"{pattern}\""
+
+            # Construire le nom du fichier de sortie
+            file_name = f"{test_name}_len_{pattern_length}_seq_{seq_index + 1}.cypher"
+            output_file = os.path.join(output_dir, file_name)
+
+            # Construire la commande
+            command = (f"python3 main_parser.py write -o {output_file} -p {p_value} -f {f_value} -g {g_value} -a 0.0 {formatted_pattern}")
+
+            print(f"Running command: {command}")
+            subprocess.run(command, shell=True)
+
+    print(f"Queries written to {output_dir}")
+
+def execute_queries(dir_path, sequences, param_name, param_values, max_length):
     for param_value in param_values:
-        for pattern_length in range(1, max_lenght + 1):
+        for pattern_length in range(1, max_length + 1):
             for seq_index, sequence in enumerate(sequences):
                 query_file = f"{param_name.strip('-')}_{param_value}_len_{pattern_length}_seq_{seq_index + 1}.cypher"
                 command = f"python3 main_parser.py send -f -F {dir_path}{query_file}  > /dev/null"
                 print(f"Running command: {command}")
                 subprocess.run(command, shell=True)
 
-def process_and_generate_latex(csv_file, nb_sequences, param_values, max_length, file_name):
+def execute_queries_fixed_params(test_name, sequences, max_length):
+    dir_path = f"./test_queries/{test_name}/"
+    for pattern_length in range(1, max_length + 1):
+        for seq_index, sequence in enumerate(sequences):
+            query_file = f"{test_name}_len_{pattern_length}_seq_{seq_index + 1}.cypher"
+            command = f"python3 main_parser.py send -f -F {dir_path}{query_file}  > /dev/null"
+            print(f"Running command: {command}")
+            subprocess.run(command, shell=True)
+
+def process_and_generate_latex(csv_file, nb_sequences, param_values, max_length, file_name, label_title):
     # Chargement des données depuis le CSV
     with open(csv_file, "r") as file:
         reader = csv.DictReader(file, delimiter=";")
@@ -281,7 +320,7 @@ def process_and_generate_latex(csv_file, nb_sequences, param_values, max_length,
     # Générer les deux figures
     latex_code = generate_latex_curves(
         avg_total_times,
-        labels="Param = {param}"
+        labels=f"{label_title}"+" = {param}"
     )
 
     # Écrire le code LaTeX dans un fichier
@@ -292,7 +331,7 @@ def process_and_generate_latex(csv_file, nb_sequences, param_values, max_length,
 
     latex_code = generate_latex_curves(
         avg_execution_deltas,
-        labels="Param = {param}"
+        labels=f"{label_title}"+" = {param}"
     )
 
     # Écrire le code LaTeX dans un fichier
@@ -301,74 +340,219 @@ def process_and_generate_latex(csv_file, nb_sequences, param_values, max_length,
     
     print(f"LaTeX code written to './latex/{file_name}_surplus.tex")
 
-if __name__ == "__main__":
-    # sequences = [
-    #     [[('a', 4), 8.0], [('b', 4), 8.0], [('g', 4), 8.0], [('a', 4), 8.0], [('b', 4), 16.0], [('a', 4), 16.0], [('b', 4), 16.0], [('c', 5), 16.0], [('b', 4), 16.0], [('c', 5), 16.0], [('b', 4), 16.0], [('b', 4), 16.0], [('a', 4), 8.0], [('b', 4), 8.0], [('g', 4), 8.0]], 
-    #     [[('d', 5), 2.6666666666666665], [('e', 5), 8.0], [('c', 5), 8.0], [('c', 5), 8.0], [('c', 5), 8.0], [('b', 4), 8.0], [('c', 5), 2.6666666666666665], [(None, None), 8.0], [('d', 5), 8.0], [('e', 5), 8.0], [('c', 5), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], [('d', 5), 2.6666666666666665], [('e', 5), 8.0]], 
-    #     [[('b', 4), 4.0], [('e', 4), 8.0], [('a', 4), 8.0], [('g', 4), 8.0], [('a', 4), 8.0], [('c', 5), 8.0], [('b', 4), 4.0], [(None, None), 8.0], [('e', 4), 8.0], [('a', 4), 5.333333333333333], [('g', 4), 16.0], [('a', 4), 8.0], [('c', 5), 8.0], [('b', 4), 4.0], [('e', 4), 8.0]], 
-    #     [[('e', 5), 4.0], [('c', 5), 5.333333333333333], [('b', 4), 16.0], [('a', 4), 8.0], [('g', 4), 8.0], [('c', 5), 4.0], [('e', 5), 4.0], [('c', 5), 5.333333333333333], [('b', 4), 16.0], [('a', 4), 8.0], [('g', 4), 8.0], [('c', 5), 4.0], [('e', 5), 8.0], [('d', 5), 8.0], [('c', 5), 4.0]], 
-    #     [[('a', 4), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], [('d', 5), 4.0], [('d', 5), 8.0], [('d', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('c', 5), 2.6666666666666665], [(None, None), 2.6666666666666665], [('g', 4), 8.0], [('g', 4), 8.0], [('g', 4), 8.0], [('c', 5), 2.6666666666666665], [('a', 4), 8.0]], 
-    #     [[('b', 4), 8.0], [('c', 5), 8.0], [('d', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], [('c', 5), 8.0], [('c', 5), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], [('d', 5), 8.0], [('e', 5), 8.0], [('d', 5), 4.0], [('c', 5), 8.0], [('c', 5), 8.0]], 
-    #     [[('c', 5), 4.0], [('c', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], [('e', 5), 4.0], [('d', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('c', 5), 8.0], [('c', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], [('e', 5), 4.0], [('e', 5), 8.0]], 
-    #     [[('c', 5), 8.0], [('d', 5), 8.0], [('d', 5), 8.0], [('c', 5), 4.0], [('g', 4), 4.0], [(None, None), 4.0], [('e', 5), 8.0], [('e', 5), 4.0], [('g', 5), 8.0], [('f', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('c', 5), 8.0], [('d', 5), 2.6666666666666665], [(None, None), 4.0]], 
-    #     [[('d', 5), 8.0], [('d', 5), 16.0], [('e', 5), 16.0], [('f', 5), 8.0], [('f', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('c', 5), 16.0], [('d', 5), 16.0], [('e', 5), 16.0], [('c', 5), 16.0], [('d', 5), 8.0], [('d', 5), 16.0], [('e', 5), 16.0], [('f', 5), 8.0]], 
-    #     [[('g', 4), 8.0], [('g', 4), 8.0], [('c', 5), 4.0], [('e', 5), 4.0], [('c', 5), 5.333333333333333], [('b', 4), 16.0], [('a', 4), 8.0], [('g', 4), 8.0], [('c', 5), 4.0], [('e', 5), 4.0], [('c', 5), 5.333333333333333], [('b', 4), 16.0], [('a', 4), 8.0], [('g', 4), 8.0], [('c', 5), 4.0]], 
-    #     [[('a', 4), 8.0], [('b', 4), 8.0], [('a', 4), 8.0], [('g', 4), 8.0], [('g', 4), 8.0], [('f', 4), 8.0], [('g', 4), 8.0], [('a', 4), 8.0], [('a', 4), 8.0], [('b', 4), 8.0], [('a', 4), 8.0], [('b', 4), 4.0], [('a', 4), 8.0], [('g', 4), 8.0], [('a', 4), 4.0]], 
-    #     [[('c', 5), 2.6666666666666665], [('e', 5), 4.0], [('c', 5), 8.0], [('b', 4), 2.6666666666666665], [('b', 4), 4.0], [('d', 5), 8.0], [('c', 5), 4.0], [('b', 4), 8.0], [('a', 4), 2.6666666666666665], [('c', 5), 2.6666666666666665], [('e', 5), 4.0], [('c', 5), 8.0], [('b', 4), 2.6666666666666665], [('b', 4), 4.0], [('b', 4), 8.0]], 
-    #     [[('d', 5), 8.0], [('b', 4), 8.0], [('c', 5), 8.0], [('a', 4), 2.6666666666666665], [(None, None), 8.0], [('b', 4), 2.6666666666666665], [('a', 4), 8.0], [('g', 4), 8.0], [('a', 4), 8.0], [('d', 5), 8.0], [('b', 4), 4.0], [('c', 5), 8.0], [('a', 4), 2.6666666666666665], [(None, None), 2.0], [('b', 4), 2.0]], 
-    #     [[('f', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('d', 5), 4.0], [('d', 5), 4.0], [('g', 5), 8.0], [('f', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('d', 5), 4.0], [('d', 5), 4.0], [('g', 5), 8.0], [('f', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0]], 
-    #     [[('e', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('c', 5), 4.0], [('d', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0], [('d', 5), 8.0], [('e', 5), 4.0], [('c', 5), 4.0], [('d', 5), 8.0], [('e', 5), 8.0], [('e', 5), 8.0]]
-    # ]
+def generate_multiple_random_notes(n, num_notes=15, output_file="random_notes.txt"):
+    """
+    Génère `n` listes de 15 notes à partir de partitions aléatoires et les écrit dans un fichier texte.
+    
+    Args:
+        n (int): Nombre de listes à générer.
+        num_notes (int): Nombre exact de notes à garder (par défaut 15).
+        output_file (str): Nom du fichier de sortie (par défaut "random_notes.txt").
+        
+    Returns:
+        None
+    """
+    # Obtenir la liste des partitions avec `list`
+    result = subprocess.run(
+        ["python3", "main_parser.py", "list"], capture_output=True, text=True
+    )
+    partitions = result.stdout.strip().splitlines()
+    
+    if not partitions:
+        raise ValueError("No partitions found.")
 
+    generated_notes = []
+
+    for _ in range(n):
+        # Choisir une partition aléatoirement
+        chosen_partition = random.choice(partitions)
+
+        # Générer un entier aléatoire k entre 1 et 10
+        k = random.randint(1, 10)
+        num_extra_notes = num_notes + k
+
+        # Obtenir les `num_notes+k` premières notes avec `get`
+        result = subprocess.run(
+            ["python3", "main_parser.py", "get", chosen_partition, str(num_extra_notes)],
+            capture_output=True,
+            text=True
+        )
+        notes = result.stdout.strip()
+
+        # Convertir la chaîne en une liste Python
+        try:
+            notes_list = ast.literal_eval(notes)
+        except (SyntaxError, ValueError):
+            raise ValueError("Failed to parse notes from command output.")
+        
+        if len(notes_list) < num_extra_notes:
+            raise ValueError(f"Partition {chosen_partition} does not have enough notes.")
+
+        # Retirer les k premières notes pour conserver les 15 suivantes
+        truncated_notes = notes_list[k:k + num_notes]
+        generated_notes.append(truncated_notes)
+
+    # Écrire les résultats dans un fichier texte
+    with open(output_file, "w") as f:
+        f.write(repr(generated_notes))
+
+    print(f"Generated notes saved to {output_file}")
+
+def process_and_generate_fixed_param_latex(csv_file, nb_sequences, max_length, file_name, label_title):
+    """
+    Traite les données du fichier CSV et génère une courbe en LaTeX pour les temps totaux.
+
+    Args:
+        csv_file (str): Chemin vers le fichier CSV contenant les temps d'exécution.
+        nb_sequences (int): Nombre de séquences par longueur.
+        max_length (int): Longueur maximale des requêtes.
+        file_name (str): Nom du fichier LaTeX de sortie.
+        label_title (str): Titre du label pour la courbe.
+    """
+    # Chargement des données depuis le CSV
+    with open(csv_file, "r") as file:
+        reader = csv.DictReader(file, delimiter=";")
+        rows = list(reader)
+
+    # Initialisation des structures pour les données
+    total_times = [[] for _ in range(max_length)]
+
+    # Remplissage des données
+    for length in range(1, max_length + 1):
+        base_idx = (length - 1) * nb_sequences * 2  # Chaque longueur a nb_sequences * 2 lignes
+        for seq in range(nb_sequences):
+            total_time = float(rows[base_idx + seq * 2]["duration"])  # Temps total uniquement
+            total_times[length - 1].append(total_time)
+
+    # Calcul des moyennes
+    avg_total_times = [np.mean(times) for times in total_times]
+
+    # Génération du code LaTeX
+    def generate_latex_curves(data):
+        colors = ["blue"]
+        latex_code = f"""
+        \\addplot[color={colors[0]}, mark=*, thick] coordinates {{{" ".join(f"({i + 1}, {value:.4f})" for i, value in enumerate(data))}}};
+        \\addlegendentry{{{label_title}}}
+        """
+        return latex_code
+
+    latex_code = generate_latex_curves(avg_total_times)
+
+    # Écrire le code LaTeX dans un fichier
+    with open(f"./latex/{file_name}.tex", "w") as file:
+        file.write(latex_code)
+
+    print(f"LaTeX code written to './latex/{file_name}.tex'")
+
+
+def process_and_generate_fixed_param_latex(csv_file, nb_sequences, max_length, file_name, label_title):
+    """
+    Traite les données du fichier CSV et génère une courbe en LaTeX pour les temps totaux.
+
+    Args:
+        csv_file (str): Chemin vers le fichier CSV contenant les temps d'exécution.
+        nb_sequences (int): Nombre de séquences par longueur.
+        max_length (int): Longueur maximale des requêtes.
+        file_name (str): Nom du fichier LaTeX de sortie.
+        label_title (str): Titre du label pour la courbe.
+    """
+    # Chargement des données depuis le CSV
+    with open(csv_file, "r") as file:
+        reader = csv.DictReader(file, delimiter=";")
+        rows = list(reader)
+
+    # Initialisation des structures pour les données
+    total_times = [[] for _ in range(max_length)]
+
+    # Remplissage des données
+    for length in range(1, max_length + 1):
+        base_idx = (length - 1) * nb_sequences * 2  # Chaque longueur a nb_sequences * 2 lignes
+        for seq in range(nb_sequences):
+            total_time = float(rows[base_idx + seq * 2]["duration"])  # Temps total uniquement
+            total_times[length - 1].append(total_time)
+
+    # Calcul des moyennes
+    avg_total_times = [np.mean(times) for times in total_times]
+
+    # Génération du code LaTeX
+    def generate_latex_curves(data):
+        colors = ["blue"]
+        latex_code = f"""
+        \\addplot[color={colors[0]}, mark=*, thick] coordinates {{{" ".join(f"({i + 1}, {value:.4f})" for i, value in enumerate(data))}}};
+        \\addlegendentry{{{label_title}}}
+        """
+        return latex_code
+
+    latex_code = generate_latex_curves(avg_total_times)
+
+    # Écrire le code LaTeX dans un fichier
+    with open(f"./latex/{file_name}.tex", "w") as file:
+        file.write(latex_code)
+
+    print(f"LaTeX code written to './latex/{file_name}.tex'")
+
+
+if __name__ == "__main__":
     # generate_multiple_random_notes(15, 15)
     sequences = []
     with open("random_notes.txt", "r") as f:
         sequences = ast.literal_eval(f.read())
-    sequences = sequences[:10]
+    # sequences = sequences[:10]
     nb_sequences=len(sequences)
     max_length=15
 
-    # Tests pour le pitch
-    param_values=[0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
-    param_name = "-p"
-    dir_path = f"./test_queries/{param_name}_flex/"
+    db_id = "1"
+    test_name = f"db_size"
+    # generate_queries_v2(test_name, sequences, 2.0, 2.0, 0.125, max_length)
+    # execute_queries_fixed_params(test_name, sequences, max_length)
 
-    generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
+    # command = f"mv ./performance_log.csv ./CSV/{test_name}_{db_id}_log.csv"
+    # print(f"Running command: {command}")
+    # subprocess.run(command, shell=True)
 
-    execute_queries(dir_path, sequences, param_name, param_values, max_length)
+    process_and_generate_fixed_param_latex(f"./CSV/{test_name}_{db_id}_log.csv", nb_sequences, max_length, test_name, db_id)
 
-    command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
-    print(f"Running command: {command}")
-    subprocess.run(command, shell=True)
+    # # Tests pour le pitch
+    # param_values=[0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    # param_name = "-p"
+    # dir_path = f"./test_queries/{param_name}_flex/"
 
-    process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name, "pitch flex.")
+    # generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
 
-    # Tests pour le duration
-    param_values=[2.0, 4.0, 8.0]
-    param_name = "-f"
-    dir_path = f"./test_queries/{param_name}_flex/"
+    # execute_queries(dir_path, sequences, param_name, param_values, max_length)
 
-    generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
+    # command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
+    # print(f"Running command: {command}")
+    # subprocess.run(command, shell=True)
 
-    execute_queries(dir_path, sequences, param_name, param_values, max_length)
+    # process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name, "pitch flex.")
 
-    command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
-    print(f"Running command: {command}")
-    subprocess.run(command, shell=True)
+    # # Tests pour le duration
+    # param_values=[2.0, 4.0, 8.0]
+    # param_name = "-f"
+    # dir_path = f"./test_queries/{param_name}_flex/"
 
-    process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name, "dur. flex.")
+    # generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
+
+    # execute_queries(dir_path, sequences, param_name, param_values, max_length)
+
+    # command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
+    # print(f"Running command: {command}")
+    # subprocess.run(command, shell=True)
+
+    # process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name, "dur. flex.")
 
     # Tests pour le gap
-    param_values=[0.25, 0,1875, 0.125, 0.0625]
-    param_name = "-g"
-    dir_path = f"./test_queries/{param_name}_flex/"
+    # param_values=[0.25, 0.1875, 0.125, 0.0625]
+    # param_name = "-g"
+    # dir_path = f"./test_queries/{param_name}_flex/"
 
-    generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
+    # generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
 
-    execute_queries(dir_path, sequences, param_name, param_values, max_length)
+    # execute_queries(dir_path, sequences, param_name, param_values, max_length)
 
-    command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
-    print(f"Running command: {command}")
-    subprocess.run(command, shell=True)
+    # command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
+    # print(f"Running command: {command}")
+    # subprocess.run(command, shell=True)
 
-    process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name, "seq flex.")
+    # process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name, "seq flex.")
