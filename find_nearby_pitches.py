@@ -105,8 +105,9 @@ def find_frequency_bounds(pitch, octave, max_distance):
         base_semitone = note_to_semitone[pitch] + ((octave - 1) * 12) + 21
     
     # Compute the frequency range based on the maximum semitone distance
-    lower_bound_semitone = base_semitone - max_distance
-    upper_bound_semitone = base_semitone + max_distance
+    # Quick ugly fix here
+    lower_bound_semitone = base_semitone - max_distance - 1.0
+    upper_bound_semitone = base_semitone + max_distance + 1.0
     
     min_frequency = 440 * 2 ** ((lower_bound_semitone - 69) / 12)
     max_frequency = 440 * 2 ** ((upper_bound_semitone - 69) / 12)
