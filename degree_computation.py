@@ -66,16 +66,16 @@ def pitch_degree(note1, octave1, note2, octave2, pitch_gap):
     if pitch_gap == 0:
         return 1.0
 
-    #TODO: Why not just `pitch_gap` but ` + pitch_gap / 10` ?
-    # Maybe this is to avoid to have 0% for a match at the edge ?
-    d = 1 - (note_distance_in_tones(note1, octave1, note2, octave2) / (pitch_gap + pitch_gap*0.1))
+    # d = 1 - (note_distance_in_tones(note1, octave1, note2, octave2) / (pitch_gap + pitch_gap*0.1))
+    d = 1 - (note_distance_in_tones(note1, octave1, note2, octave2) / pitch_gap)
     return max(d, 0)
 
 def pitch_degree_with_intervals(interval1, interval2, pitch_gap):
     if pitch_gap == 0 or interval1 == None or interval2 == None:
         return 1.0
 
-    d = 1 - (abs(interval1 - interval2) / (pitch_gap + pitch_gap*0.1))
+    # d = 1 - (abs(interval1 - interval2) / (pitch_gap + pitch_gap*0.1))
+    d = 1 - (abs(interval1 - interval2) / pitch_gap)
     return max(d, 0)
   
 
@@ -86,7 +86,8 @@ def duration_degree(duration1, duration2, max_duration_distance):
     duration_difference = abs(duration1 - duration2)
     
     # Calculate the degree based on the duration gap
-    degree = max(1 - (duration_difference / (max_duration_distance + max_duration_distance*0.1)), 0)
+    # degree = max(1 - (duration_difference / (max_duration_distance + max_duration_distance*0.1)), 0)
+    degree = max(1 - (duration_difference / max_duration_distance), 0)
     
     return degree
 
@@ -94,9 +95,13 @@ def duration_degree_with_multiplicative_factor(expected_duration, duration, fact
     if factor == 1.0 or expected_duration is None:
         return 1.0
 
-    expected_duration = 1.0/expected_duration
-    lower_bound = expected_duration / factor*0.9
-    upper_bound = expected_duration * factor*1.1
+    # expected_duration = 1.0/expected_duration
+    duration = 1.0/duration
+
+    # lower_bound = expected_duration / factor*0.9
+    # upper_bound = expected_duration * factor*1.1
+    lower_bound = expected_duration / factor
+    upper_bound = expected_duration * factor
 
     # If the duration is outside the acceptable range, return 0
     if duration < lower_bound or duration > upper_bound:
@@ -117,7 +122,8 @@ def sequencing_degree(end_time1, start_time2, max_gap):
     time_gap = start_time2 - end_time1
     
     # Calculate the degree based on the maximum allowed gap
-    degree = max(1 - (time_gap / (max_gap + max_gap*0.1)), 0)
+    # degree = max(1 - (time_gap / (max_gap + max_gap*0.1)), 0)
+    degree = max(1 - (time_gap / max_gap), 0)
     
     return degree
 
