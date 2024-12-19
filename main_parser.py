@@ -456,9 +456,11 @@ class Parser:
             self.parse_compile(args)
 
         elif args.subparser in ('s', 'send'):
-            # logger.start("w_comp_and_ranking")
+            if testing_mode:
+                logger.start("w_comp_and_ranking")
             self.parse_send(args)
-            # logger.end("w_comp_and_ranking")
+            if testing_mode:
+                logger.end("w_comp_and_ranking")
 
         elif args.subparser in ('w', 'write'):
             self.parse_write(args)
@@ -510,9 +512,11 @@ class Parser:
         self.init_driver(args.URI, args.user, args.password)
 
         try:
-            # logger.start("only_query")
+            if testing_mode:
+                logger.start("only_query")
             res = run_query(self.driver, crisp_query)
-            # logger.end("only_query")
+            if testing_mode:
+                logger.end("only_query")
         except neo4j.exceptions.CypherSyntaxError as err:
             print('parse_send: query syntax error: ' + str(err))
             return
