@@ -1,33 +1,33 @@
 import re
 from find_nearby_pitches import find_frequency_bounds, find_nearby_pitches
 from extract_notes_from_query import extract_notes_from_query_dict, extract_fuzzy_parameters, extract_match_clause, extract_where_clause, extract_attributes_with_membership_functions, extract_membership_function_support_intervals
-from find_duration_range import find_duration_range_decimal, find_duration_range_multiplicative_factor_asym, find_duration_range_multiplicative_factor_sym
+from find_duration_range import find_duration_range_decimal, find_duration_range_multiplicative_factor_sym
 from utils import calculate_intervals_dict
 from degree_computation import convert_note_to_sharp
 from refactor import move_attribute_values_to_where_clause, refactor_variable_names
 
-def make_duration_condition(duration_factor, duration, node_name):
+def make_duration_condition(duration_factor, duration, node_name, alpha):
     if duration == None:
         return ''
 
     if duration_factor != 1:
-        min_duration, max_duration = find_duration_range_multiplicative_factor_sym(duration, duration_factor)
+        min_duration, max_duration = find_duration_range_multiplicative_factor_sym(duration, duration_factor, alpha)
         res = f"{node_name}.dur >= {min_duration} AND {node_name}.dur <= {max_duration}"
     else:
-        duration = find_duration_range_multiplicative_factor_sym(duration, 1.0)[0]
+        duration = find_duration_range_multiplicative_factor_sym(duration, 1.0, alpha)[0]
         res = f"{node_name}.dur = {duration}"
     return res
 
-def make_interval_condition(interval, duration_gap, pitch_distance, idx):
+def make_interval_condition(interval, duration_gap, pitch_distance, idx, alpha):
     if duration_gap > 0:
         if pitch_distance > 0:
-            interval_condition = f'{interval - pitch_distance} <= totalInterval_{idx} AND totalInterval_{idx} <= {interval + pitch_distance}'
+            interval_condition = f'{interval - pitch_distance * (1 - alpha)} <= totalInterval_{idx} AND totalInterval_{idx} <= {interval + pitch_distance * (1 - alpha)}'
         else:
             interval_condition = f'totalInterval_{idx} = {interval}'
     else:
         # Construct interval conditions for direct connections
         if pitch_distance > 0:
-            interval_condition = f'{interval - pitch_distance} <= n{idx}.interval AND n{idx}.interval <= {interval + pitch_distance}'
+            interval_condition = f'{interval - pitch_distance * (1 - alpha)} <= n{idx}.interval AND n{idx}.interval <= {interval + pitch_distance * (1 - alpha)}'
         else:
             interval_condition = f'n{idx}.interval = {interval}'
     return interval_condition
@@ -55,7 +55,7 @@ def split_note_accidental(note):
     else:
         raise ValueError(f"Invalid note name: {note}")
 
-def make_pitch_condition(pitch_distance, pitch, octave, name):
+def make_pitch_condition(pitch_distance, pitch, octave, name, alpha):
     """
     Creates a pitch condition for a given note, handling accidentals properly.
 
@@ -76,7 +76,7 @@ def make_pitch_condition(pitch_distance, pitch, octave, name):
     else:
         if pitch_distance == 0 or pitch == 'r':
             if pitch == 'r':
-                pitch_condition = f"{name}.class = 'r'"
+                pitch_condition = f"{name}.type = 'rest'"
             else:
                 # Split pitch into base note and accidental
                 base_note, accidental = split_note_accidental(pitch)
@@ -108,13 +108,13 @@ def make_pitch_condition(pitch_distance, pitch, octave, name):
             # # Remove the trailing ' OR ' and close the parentheses
             # pitch_condition = pitch_condition.rstrip(' OR ') + '\n)'
 
-            low_freq_bound, high_freq_bound = find_frequency_bounds(pitch, o, pitch_distance)
+            low_freq_bound, high_freq_bound = find_frequency_bounds(pitch, o, pitch_distance, alpha)
             pitch_condition = f"{low_freq_bound} <= {name}.frequency AND {name}.frequency <= {high_freq_bound}"
             
     return pitch_condition
 
-def make_sequencing_condition(duration_gap, name_1, name_2):
-    sequencing_condition = f"{name_1}.end >= {name_2}.start - {duration_gap}"
+def make_sequencing_condition(duration_gap, name_1, name_2, alpha):
+    sequencing_condition = f"{name_1}.end >= {name_2}.start - {duration_gap * (1 - alpha)}"
     return sequencing_condition
 
 def create_match_clause(query):
@@ -258,7 +258,7 @@ def create_with_clause_interval(nb_events, duration_gap):
 
     return with_clause
 
-def create_where_clause(query, allow_transposition, pitch_distance, duration_factor, duration_gap):
+def create_where_clause(query, allow_transposition, pitch_distance, duration_factor, duration_gap, alpha = 0.0):
     # Step 1: Extract the WHERE clause from the query
     try:
         where_clause = extract_where_clause(query)
@@ -350,23 +350,23 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
         attrs = notes_dict[f_node]
         duration = attrs.get('dur')
         if duration is not None:
-            duration_condition = make_duration_condition(duration_factor, duration, f_node)
+            duration_condition = make_duration_condition(duration_factor, duration, f_node, alpha)
             if duration_condition:
                 where_clauses.append(duration_condition)
         
         if allow_transposition:
             if idx < len(f_nodes) - 1:
-                interval_condition = make_interval_condition(intervals[idx], duration_gap, pitch_distance, idx)
+                interval_condition = make_interval_condition(intervals[idx], duration_gap, pitch_distance, idx, alpha)
                 if interval_condition:
                     where_clauses.append(interval_condition)
         else:
-            duration_condition = make_pitch_condition(pitch_distance, attrs.get('class'), attrs.get('octave'), f_node)
+            duration_condition = make_pitch_condition(pitch_distance, attrs.get('class'), attrs.get('octave'), f_node, alpha)
             if duration_condition:
                 where_clauses.append(duration_condition)
         
         if duration_gap > 0:
             if idx < len(f_nodes) - 1:
-                sequencing_condition = make_sequencing_condition(duration_gap, f'e{idx}', f'e{idx+1}')
+                sequencing_condition = make_sequencing_condition(duration_gap, f'e{idx}', f'e{idx+1}', alpha)
                 if sequencing_condition:
                     where_clauses.append(sequencing_condition)
 
@@ -492,7 +492,7 @@ def reformulate_fuzzy_query(query):
         with_clause = ''
 
     #------Construct the WHERE clause
-    where_clause = create_where_clause(query, allow_transposition, pitch_distance, duration_factor, duration_gap)
+    where_clause = create_where_clause(query, allow_transposition, pitch_distance, duration_factor, duration_gap, alpha)
 
     # #------Construct the collection filter
     # col_clause = create_collection_clause(collections, nb_events, nb_facts, duration_gap, allow_transposition or contour_match)

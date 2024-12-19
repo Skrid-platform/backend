@@ -95,6 +95,7 @@ def get_ordered_results(result, query):
 
             if len(relevant_note_degrees) > 0:
                 note_deg = aggregate_degrees(min_aggregation, relevant_note_degrees)
+                # note_deg = aggregate_degrees(average_aggregation, relevant_note_degrees)
             else :
                 note_deg = 1.0
             note_degrees.append(note_deg)
@@ -102,9 +103,11 @@ def get_ordered_results(result, query):
             note_detail = (note, pitch_deg, duration_deg, sequencing_deg, note_deg)
             note_details.append(note_detail)
         
-        sequence_degree = aggregate_degrees(average_aggregation, note_degrees)
+        sequence_degree = aggregate_degrees(min_aggregation, note_degrees)
+        # sequence_degree = aggregate_degrees(average_aggregation, note_degrees)
         
         if sequence_degree >= alpha:  # Apply alpha cut
+        # if sequence_degree >= 0.0: 
             sequence_details.append((source, start, end, sequence_degree, note_details))
     
     # Sort the sequences by their overall degree in descending order
@@ -161,7 +164,7 @@ def get_ordered_results_with_transpose(result, query):
             else:
                 pitch_deg = pitch_degree_with_intervals(intervals[idx - 1], interval, pitch_gap)
 
-            duration_deg = duration_degree_with_multiplicative_factor(1.0/query_note['dur'], note.duration, duration_factor)
+            duration_deg = duration_degree_with_multiplicative_factor(query_note['dur'], note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             
             if idx > 0:  # Compute sequencing degree for the second and third notes
@@ -179,9 +182,10 @@ def get_ordered_results_with_transpose(result, query):
             note_detail = (note, pitch_deg, duration_deg, sequencing_deg, note_deg)
             note_details.append(note_detail)
         
-        sequence_degree = aggregate_degrees(average_aggregation, note_degrees)
+        sequence_degree = aggregate_degrees(min_aggregation, note_degrees)
         
         if sequence_degree >= alpha:  # Apply alpha cut
+        # if sequence_degree >= 0.0:
             sequence_details.append((source, start, end, sequence_degree, note_details))
     
     # Sort the sequences by their overall degree in descending order
