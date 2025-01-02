@@ -20,16 +20,27 @@ def make_duration_condition(duration_factor, duration, node_name, alpha):
 
 def make_interval_condition(interval, duration_gap, pitch_distance, idx, alpha):
     if duration_gap > 0:
+        # Utiliser halfTonesFromA4 pour calculer les intervalles entre deux Fact nodes
         if pitch_distance > 0:
-            interval_condition = f'{interval - pitch_distance * (1 - alpha)} <= totalInterval_{idx} AND totalInterval_{idx} <= {interval + pitch_distance * (1 - alpha)}'
+            interval_condition = (
+                f"{interval - pitch_distance * (1 - alpha)} <= "
+                f"toFloat(f{idx + 1}.halfTonesFromA4 - f{idx}.halfTonesFromA4)/2 AND "
+                f"toFloat(f{idx + 1}.halfTonesFromA4 - f{idx}.halfTonesFromA4)/2 <= "
+                f"{interval + pitch_distance * (1 - alpha)}"
+            )
         else:
-            interval_condition = f'totalInterval_{idx} = {interval}'
+            interval_condition = (
+                f"toFloat(f{idx + 1}.halfTonesFromA4 - f{idx}.halfTonesFromA4)/2 = {interval}"
+            )
     else:
         # Construct interval conditions for direct connections
         if pitch_distance > 0:
-            interval_condition = f'{interval - pitch_distance * (1 - alpha)} <= n{idx}.interval AND n{idx}.interval <= {interval + pitch_distance * (1 - alpha)}'
+            interval_condition = (
+                f"{interval - pitch_distance * (1 - alpha)} <= n{idx}.interval AND "
+                f"n{idx}.interval <= {interval + pitch_distance * (1 - alpha)}"
+            )
         else:
-            interval_condition = f'n{idx}.interval = {interval}'
+            interval_condition = f"n{idx}.interval = {interval}"
     return interval_condition
 
 def split_note_accidental(note):
@@ -140,16 +151,17 @@ def create_match_clause(query):
         # To give a higher bound to the number of intermediate notes, we suppose the shortest possible note has a duration of 0.125
         max_intermediate_nodes = max(int(duration_gap / 0.125), 1)
 
-        if allow_transposition:
-            # Create paths with variable length relationships using variable node names
-            event_paths = []
-            for idx in range(len(event_nodes) - 1):
-                path = f'p{idx} = (e{idx}:Event)-[:NEXT*1..{max_intermediate_nodes + 1}]->(e{idx+1})'
-                event_paths.append(path)
-            event_path = ',\n '.join(event_paths) + ','
-        else:
-            # Create a simplified path without intervals
-            event_path = f'-[:NEXT*1..{max_intermediate_nodes + 1}]->'.join([f'({node}:Event)' for node in event_nodes]) + ','
+        # if allow_transposition:
+        #     # Create paths with variable length relationships using variable node names
+        #     event_paths = []
+        #     for idx in range(len(event_nodes) - 1):
+        #         path = f'p{idx} = (e{idx}:Event)-[:NEXT*1..{max_intermediate_nodes + 1}]->(e{idx+1})'
+        #         event_paths.append(path)
+        #     event_path = ',\n '.join(event_paths) + ','
+        # else:
+
+        # Create a simplified path without intervals
+        event_path = f'-[:NEXT*1..{max_intermediate_nodes + 1}]->'.join([f'({node}:Event)' for node in event_nodes]) + ','
 
         #---Extract the rest of the MATCH clause (non-event chain patterns) from the input query
         original_match_clause = extract_match_clause(query)
@@ -236,6 +248,7 @@ def create_match_clause(query):
         return match_clause
 
 def create_with_clause_interval(nb_events, duration_gap):
+    return ''
     '''
     Create the WITH clause for the compilated query that need intervals (so with `allow_transposition` or `contour`).
 
@@ -424,7 +437,7 @@ def create_return_clause(query, notes_dict, duration_gap=0., intervals=False):
 
         if intervals and idx < len(event_nodes) - 1:
             if duration_gap > 0:
-                return_clauses.append(f"totalInterval_{idx} AS interval_{idx}")
+                return_clauses.append(f"toFloat(f{idx + 1}.halfTonesFromA4 - f{idx}.halfTonesFromA4)/2 AS interval_{idx}")
             else:
                 # Assuming relationships are named based on indices
                 return_clauses.append(f"n{idx}.interval AS interval_{idx}")
