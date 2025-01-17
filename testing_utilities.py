@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import ast
 
+from neo4j_connection import connect_to_neo4j, run_query
+
 class PerformanceLogger:
     _instance = None
     log_file = "performance_log.csv"
@@ -193,7 +195,7 @@ def generate_random_queries(sequences, num_queries=100):
         print(f"Running command: {command}")
         subprocess.run(command, shell=True)
 
-def generate_length_based_queries(output_dir, sequences, param_name, param_values, max_length):
+def generate_length_based_queries(output_dir, sequences, param_name, param_values, max_length, transpose):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     else:
@@ -223,38 +225,44 @@ def generate_length_based_queries(output_dir, sequences, param_name, param_value
                     p_value, f_value, g_value = 0.0, 1.0, param_value
 
                 # Construire la commande
-                command = (f"python3 main_parser.py write -o {output_file} -p {p_value} -f {f_value} -g {g_value} -a 0.0 {formatted_pattern}")
+                if not transpose:
+                    command = (f"python3 main_parser.py write -o {output_file} -p {p_value} -f {f_value} -g {g_value} -a 0.0 {formatted_pattern}")
+                if transpose:
+                    command = (f"python3 main_parser.py write -o {output_file} -p {p_value} -f {f_value} -g {g_value} -a 0.0 -t {formatted_pattern}")
 
                 print(f"Running command: {command}")
                 subprocess.run(command, shell=True)
 
     print(f"Queries written to {output_dir}")
 
-def generate_queries_v2(test_name, sequences, p_value, f_value, g_value, max_length):
+def generate_queries_v2(test_name, sequences, p_value, f_value, g_value, pattern_length, with_transpose = False):
     output_dir = f"./test_queries/{test_name}/"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    else:
-        for file_path in glob.glob(os.path.join(output_dir, "*.cypher")):
-            os.remove(file_path)
 
-    # Itérer sur les longueurs de pattern (de 1 à 20)
-    for pattern_length in range(1, max_length + 1):
-        # Générer une requête pour chaque séquence
-        for seq_index, sequence in enumerate(sequences):
-            # Extraire le sous-pattern de la séquence
-            pattern = sequence[:pattern_length]
-            formatted_pattern = f"\"{pattern}\""
+    # Générer une requête pour chaque séquence
+    for seq_index, sequence in enumerate(sequences):
+        # Extraire le sous-pattern de la séquence
+        pattern = sequence[:pattern_length]
+        formatted_pattern = f"\"{pattern}\""
 
-            # Construire le nom du fichier de sortie
-            file_name = f"{test_name}_len_{pattern_length}_seq_{seq_index + 1}.cypher"
-            output_file = os.path.join(output_dir, file_name)
+        # Construire le nom du fichier de sortie
+        file_name = f"{test_name}_{p_value}_{f_value}_{g_value}_len_{pattern_length}_seq_{seq_index + 1}.cypher"
+        output_file = os.path.join(output_dir, file_name)
 
-            # Construire la commande
+        # Vérifier si le fichier existe déjà et le supprimer si nécessaire
+        if os.path.exists(output_file):
+            print(f"File {output_file} already exists. Deleting it.")
+            os.remove(output_file)
+
+        # Construire la commande
+        if with_transpose:
+            command = (f"python3 main_parser.py write -o {output_file} -p {p_value} -f {f_value} -g {g_value} -a 0.0 -t {formatted_pattern}")
+        else :
             command = (f"python3 main_parser.py write -o {output_file} -p {p_value} -f {f_value} -g {g_value} -a 0.0 {formatted_pattern}")
 
-            print(f"Running command: {command}")
-            subprocess.run(command, shell=True)
+        print(f"Running command: {command}")
+        subprocess.run(command, shell=True)
 
     print(f"Queries written to {output_dir}")
 
@@ -267,16 +275,31 @@ def execute_queries(dir_path, sequences, param_name, param_values, max_length):
                 print(f"Running command: {command}")
                 subprocess.run(command, shell=True)
 
-def execute_queries_fixed_params(test_name, sequences, max_length):
+def execute_queries_v2(test_name, sequences, p_value, f_value, g_value, pattern_length):
     dir_path = f"./test_queries/{test_name}/"
-    for pattern_length in range(1, max_length + 1):
-        for seq_index, sequence in enumerate(sequences):
-            query_file = f"{test_name}_len_{pattern_length}_seq_{seq_index + 1}.cypher"
-            command = f"python3 main_parser.py send -f -F {dir_path}{query_file}  > /dev/null"
-            print(f"Running command: {command}")
-            subprocess.run(command, shell=True)
+    for seq_index, sequence in enumerate(sequences):
+        query_file = f"{test_name}_{p_value}_{f_value}_{g_value}_len_{pattern_length}_seq_{seq_index + 1}.cypher"
+        command = f"python3 main_parser.py send -f -F {dir_path}{query_file}  > /dev/null"
+        print(f"Running command: {command}")
+        subprocess.run(command, shell=True)
 
-def process_and_generate_latex(csv_file, nb_sequences, param_values, max_length, file_name, label_title):
+def process_and_generate_latex(test_name, param_values, max_length, nb_sequences):
+    """
+    Génère du code LaTeX pour les temps totaux et les temps d'exécution à partir d'un fichier CSV.
+    
+    :param test_name: Nom du test utilisé pour les fichiers CSV et LaTeX.
+    :param param_values: Liste des valeurs pour le paramètre testé.
+    :param max_length: Longueur maximale des séquences.
+    :param nb_sequences: Nombre de séquences par test.
+    """
+    import csv
+    import numpy as np
+
+    # Déduire les noms des fichiers
+    csv_file = f"./CSV/{test_name}_log.csv"
+    file_name = test_name
+    label_title = test_name.capitalize()
+
     # Chargement des données depuis le CSV
     with open(csv_file, "r") as file:
         reader = csv.DictReader(file, delimiter=";")
@@ -287,7 +310,6 @@ def process_and_generate_latex(csv_file, nb_sequences, param_values, max_length,
     execution_times = {param: [[] for _ in range(max_length)] for param in param_values}
 
     # Remplissage des données
-    num_params = len(param_values)
     for param_idx, param_value in enumerate(param_values):
         for length in range(1, max_length + 1):
             base_idx = (param_idx * max_length + (length - 1)) * nb_sequences * 2
@@ -318,27 +340,75 @@ def process_and_generate_latex(csv_file, nb_sequences, param_values, max_length,
         return latex_code
 
     # Générer les deux figures
-    latex_code = generate_latex_curves(
+    latex_code_total = generate_latex_curves(
         avg_total_times,
-        labels=f"{label_title}"+" = {param}"
+        labels=f"{label_title} = {{param}}"
     )
 
-    # Écrire le code LaTeX dans un fichier
-    with open(f"./latex/{file_name}.tex", "w") as file:
-        file.write(latex_code)
-
-    print(f"LaTeX code written to './latex/{file_name}.tex")
-
-    latex_code = generate_latex_curves(
+    latex_code_execution = generate_latex_curves(
         avg_execution_deltas,
-        labels=f"{label_title}"+" = {param}"
+        labels=f"{label_title} = {{param}}"
     )
 
-    # Écrire le code LaTeX dans un fichier
+    # Écrire le code LaTeX dans des fichiers
+    with open(f"./latex/{file_name}.tex", "w") as file:
+        file.write(latex_code_total)
+    print(f"LaTeX code written to './latex/{file_name}.tex'")
+
     with open(f"./latex/{file_name}_surplus.tex", "w") as file:
+        file.write(latex_code_execution)
+    print(f"LaTeX code written to './latex/{file_name}_surplus.tex'")
+
+def generate_histogram_bar(csv_file, output_file, label, bar_color_total="blue", bar_color_execution="red"):
+    """
+    Génère un bâton d'histogramme LaTeX pour un fichier CSV donné.
+
+    Args:
+        csv_file (str): Chemin vers le fichier CSV contenant les données de test.
+        label (str): Étiquette de l'axe des abscisses pour ce bâton.
+        bar_color_total (str): Couleur de la barre représentant le temps total.
+        bar_color_execution (str): Couleur de la barre représentant le temps d'exécution uniquement.
+
+    Returns:
+        str: Code LaTeX pour le bâton d'histogramme.
+    """
+    # Charger les données depuis le CSV
+    total_times = []
+    execution_times = []
+
+    with open(csv_file, "r") as file:
+        reader = csv.DictReader(file, delimiter=";")
+        rows = list(reader)
+
+        for i, row in enumerate(rows):
+            duration = float(row["duration"])
+            if i % 2 == 0:  # Temps total (ligne paire)
+                total_times.append(duration)
+            else:  # Temps d'exécution uniquement (ligne impaire)
+                execution_times.append(duration)
+
+    # Calcul des moyennes
+    avg_total_time = np.mean(total_times)
+    avg_execution_time = np.mean(execution_times)
+    print(output_file, f'{avg_total_time:.2f}', f'{avg_execution_time:.2f}')
+
+    # Générer le code LaTeX pour le bâton
+    latex_code = f"""
+    \\addplot[ybar, bar width=0.5cm, fill={bar_color_total}] coordinates {{
+        ({label}, {avg_total_time:.2f})
+    }};
+    \\addplot[ybar, bar width=0.3cm, fill={bar_color_execution}] coordinates {{
+        ({label}, {avg_execution_time:.2f})
+    }};
+    """
+
+    # Écrire le code LaTeX dans un fichier
+    with open(f"./latex/{output_file}.tex", "w") as file:
         file.write(latex_code)
-    
-    print(f"LaTeX code written to './latex/{file_name}_surplus.tex")
+
+    print(f"LaTeX code written to './latex/{output_file}.tex")
+
+    return latex_code
 
 def generate_multiple_random_notes(n, num_notes=15, output_file="random_notes.txt"):
     """
@@ -384,7 +454,6 @@ def generate_multiple_random_notes(n, num_notes=15, output_file="random_notes.tx
             notes_list = ast.literal_eval(notes)
         except (SyntaxError, ValueError):
             raise ValueError("Failed to parse notes from command output.")
-        
         if len(notes_list) < num_extra_notes:
             raise ValueError(f"Partition {chosen_partition} does not have enough notes.")
 
@@ -398,161 +467,188 @@ def generate_multiple_random_notes(n, num_notes=15, output_file="random_notes.tx
 
     print(f"Generated notes saved to {output_file}")
 
-def process_and_generate_fixed_param_latex(csv_file, nb_sequences, max_length, file_name, label_title):
+def populate_500_score():
+
+        uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
+        user = "neo4j"                 # Default username
+        password = "12345678"          # Replace with your actual password
+        driver = connect_to_neo4j(uri, user, password)
+
+        with open("load_500_scores.cql", "r") as f:
+            query = f.read()
+
+        # Run the query
+        run_query(driver, query)
+
+def save_csv(test_name):
     """
-    Traite les données du fichier CSV et génère une courbe en LaTeX pour les temps totaux.
-
-    Args:
-        csv_file (str): Chemin vers le fichier CSV contenant les temps d'exécution.
-        nb_sequences (int): Nombre de séquences par longueur.
-        max_length (int): Longueur maximale des requêtes.
-        file_name (str): Nom du fichier LaTeX de sortie.
-        label_title (str): Titre du label pour la courbe.
+    Déplace le fichier performance_log.csv vers le dossier CSV avec un nom basé sur le test_name.
     """
-    # Chargement des données depuis le CSV
-    with open(csv_file, "r") as file:
-        reader = csv.DictReader(file, delimiter=";")
-        rows = list(reader)
-
-    # Initialisation des structures pour les données
-    total_times = [[] for _ in range(max_length)]
-
-    # Remplissage des données
-    for length in range(1, max_length + 1):
-        base_idx = (length - 1) * nb_sequences * 2  # Chaque longueur a nb_sequences * 2 lignes
-        for seq in range(nb_sequences):
-            total_time = float(rows[base_idx + seq * 2]["duration"])  # Temps total uniquement
-            total_times[length - 1].append(total_time)
-
-    # Calcul des moyennes
-    avg_total_times = [np.mean(times) for times in total_times]
-
-    # Génération du code LaTeX
-    def generate_latex_curves(data):
-        colors = ["blue"]
-        latex_code = f"""
-        \\addplot[color={colors[0]}, mark=*, thick] coordinates {{{" ".join(f"({i + 1}, {value:.4f})" for i, value in enumerate(data))}}};
-        \\addlegendentry{{{label_title}}}
-        """
-        return latex_code
-
-    latex_code = generate_latex_curves(avg_total_times)
-
-    # Écrire le code LaTeX dans un fichier
-    with open(f"./latex/{file_name}.tex", "w") as file:
-        file.write(latex_code)
-
-    print(f"LaTeX code written to './latex/{file_name}.tex'")
-
-
-def process_and_generate_fixed_param_latex(csv_file, nb_sequences, max_length, file_name, label_title):
-    """
-    Traite les données du fichier CSV et génère une courbe en LaTeX pour les temps totaux.
-
-    Args:
-        csv_file (str): Chemin vers le fichier CSV contenant les temps d'exécution.
-        nb_sequences (int): Nombre de séquences par longueur.
-        max_length (int): Longueur maximale des requêtes.
-        file_name (str): Nom du fichier LaTeX de sortie.
-        label_title (str): Titre du label pour la courbe.
-    """
-    # Chargement des données depuis le CSV
-    with open(csv_file, "r") as file:
-        reader = csv.DictReader(file, delimiter=";")
-        rows = list(reader)
-
-    # Initialisation des structures pour les données
-    total_times = [[] for _ in range(max_length)]
-
-    # Remplissage des données
-    for length in range(1, max_length + 1):
-        base_idx = (length - 1) * nb_sequences * 2  # Chaque longueur a nb_sequences * 2 lignes
-        for seq in range(nb_sequences):
-            total_time = float(rows[base_idx + seq * 2]["duration"])  # Temps total uniquement
-            total_times[length - 1].append(total_time)
-
-    # Calcul des moyennes
-    avg_total_times = [np.mean(times) for times in total_times]
-
-    # Génération du code LaTeX
-    def generate_latex_curves(data):
-        colors = ["blue"]
-        latex_code = f"""
-        \\addplot[color={colors[0]}, mark=*, thick] coordinates {{{" ".join(f"({i + 1}, {value:.4f})" for i, value in enumerate(data))}}};
-        \\addlegendentry{{{label_title}}}
-        """
-        return latex_code
-
-    latex_code = generate_latex_curves(avg_total_times)
-
-    # Écrire le code LaTeX dans un fichier
-    with open(f"./latex/{file_name}.tex", "w") as file:
-        file.write(latex_code)
-
-    print(f"LaTeX code written to './latex/{file_name}.tex'")
-
+    command = f"mv ./performance_log.csv ./CSV/{test_name}_log.csv"
+    print(f"Running command: {command}")
+    subprocess.run(command, shell=True)
 
 if __name__ == "__main__":
+    # for _ in range(12):
+    #     populate_500_score()
+
     # generate_multiple_random_notes(15, 15)
     sequences = []
     with open("random_notes.txt", "r") as f:
         sequences = ast.literal_eval(f.read())
-    # sequences = sequences[:10]
+        # sequences = [[[(note[0][0], note[0][1]), note[1]] for note in sequence] for sequence in sequences]
+    # sequences = sequences[:3]
     nb_sequences=len(sequences)
     max_length=15
 
-    db_id = "1"
-    test_name = f"db_size"
-    # generate_queries_v2(test_name, sequences, 2.0, 2.0, 0.125, max_length)
-    # execute_queries_fixed_params(test_name, sequences, max_length)
+    write_queries = False
+    execute_queries = True
+    write_latex = True
 
-    # command = f"mv ./performance_log.csv ./CSV/{test_name}_{db_id}_log.csv"
-    # print(f"Running command: {command}")
-    # subprocess.run(command, shell=True)
+    if os.path.exists("./performance_log.csv"):
+        print(f"File ./performance_log.csv already exists. Deleting it.")
+        os.remove("./performance_log.csv")
 
-    process_and_generate_fixed_param_latex(f"./CSV/{test_name}_{db_id}_log.csv", nb_sequences, max_length, test_name, db_id)
+    # # Tests pour le pitch V2
+    # pitch_values = [1.0, 2.0, 3.0]
+    # test_name = "pitch"
+    # for pitch_value in pitch_values:
+    #     for length in range(1, max_length + 1):
+    #         if write_queries:
+    #             generate_queries_v2(test_name, sequences, pitch_value, 1.0, 0.0, length, False)
+    #         if execute_queries:
+    #             execute_queries_v2(test_name, sequences, pitch_value, 1.0, 0.0, length)
 
-    # # Tests pour le pitch
-    # param_values=[0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
-    # param_name = "-p"
-    # dir_path = f"./test_queries/{param_name}_flex/"
+    # if execute_queries:
+    #     save_csv(test_name)
+    
+    # if write_latex:
+    #     try:
+    #         process_and_generate_latex(test_name, pitch_values, max_length, nb_sequences)
+    #     except Exception as e:
+    #         print(f"An error occurred while processing {test_name}: {e}")
 
-    # generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
+    # test_name = "pitch_transp"
+    # for pitch_value in pitch_values:
+    #     for length in range(1, max_length + 1):
+    #         if write_queries:
+    #             generate_queries_v2(test_name, sequences, pitch_value, 1.0, 0.0, length, True)
+    #         if execute_queries:
+    #             execute_queries_v2(test_name, sequences, pitch_value, 1.0, 0.0, length)
 
-    # execute_queries(dir_path, sequences, param_name, param_values, max_length)
+    # if execute_queries:
+    #     save_csv(test_name)
 
-    # command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
-    # print(f"Running command: {command}")
-    # subprocess.run(command, shell=True)
+    # if write_latex:
+    #     try:
+    #         process_and_generate_latex(test_name, pitch_values, max_length, nb_sequences)
+    #     except Exception as e:
+    #         print(f"An error occurred while processing {test_name}: {e}")
 
-    # process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name, "pitch flex.")
+    # # Tests pour la durée V2
+    # duration_values = [2.0, 4.0, 8.0]
+    # test_name = "duration"
 
-    # # Tests pour le duration
-    # param_values=[2.0, 4.0, 8.0]
-    # param_name = "-f"
-    # dir_path = f"./test_queries/{param_name}_flex/"
+    # for duration_value in duration_values:
+    #     for length in range(1, max_length + 1):
+    #         if write_queries:
+    #             generate_queries_v2(test_name, sequences, 0.0, duration_value, 0.0, length, False)
+    #         if execute_queries:
+    #             execute_queries_v2(test_name, sequences, 0.0, duration_value, 0.0, length)
 
-    # generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
+    # if execute_queries:
+    #     save_csv(test_name)
+    
+    # if write_latex:
+    #     try:
+    #         process_and_generate_latex(test_name, duration_values, max_length, nb_sequences)
+    #     except Exception as e:
+    #         print(f"An error occurred while processing {test_name}: {e}")
 
-    # execute_queries(dir_path, sequences, param_name, param_values, max_length)
 
-    # command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
-    # print(f"Running command: {command}")
-    # subprocess.run(command, shell=True)
+    # test_name = "duration_transp"
+    # for duration_value in duration_values:
+    #     for length in range(1, max_length + 1):
+    #         if write_queries:
+    #             generate_queries_v2(test_name, sequences, 0.0, duration_value, 0.0, length, True)
+    #         if execute_queries:
+    #             execute_queries_v2(test_name, sequences, 0.0, duration_value, 0.0, length)
 
-    # process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name, "dur. flex.")
+    # if execute_queries:
+    #     save_csv(test_name)
 
-    # Tests pour le gap
-    # param_values=[0.25, 0.1875, 0.125, 0.0625]
-    # param_name = "-g"
-    # dir_path = f"./test_queries/{param_name}_flex/"
+    # if write_latex:
+    #     try:
+    #         process_and_generate_latex(test_name, duration_values, max_length, nb_sequences)
+    #     except Exception as e:
+    #         print(f"An error occurred while processing {test_name}: {e}")
 
-    # generate_length_based_queries(dir_path, sequences, param_name, param_values, max_length)
+    # Tests pour le séquençage V2
+    # gap_values = [0.25, 0.125, 0.0625]
+    gap_values = [0.25, 0.125]
+    # test_name = "gap"
 
-    # execute_queries(dir_path, sequences, param_name, param_values, max_length)
+    # for gap_value in gap_values:
+    #     for length in range(1, max_length + 1):
+    #         if write_queries:
+    #             generate_queries_v2(test_name, sequences, 0.0, 1.0, gap_value, length, False)
+    #         if execute_queries:
+    #             execute_queries_v2(test_name, sequences, 0.0, 1.0, gap_value, length)
 
-    # command = f"mv ./performance_log.csv ./CSV/{param_name}_log.csv"
-    # print(f"Running command: {command}")
-    # subprocess.run(command, shell=True)
+    # if execute_queries:
+    #     save_csv(test_name)
 
-    # process_and_generate_latex(f"./CSV/{param_name}_log.csv", nb_sequences, param_values, max_length, param_name, "seq flex.")
+    # if write_latex:
+    #     try:
+    #         process_and_generate_latex(test_name, gap_values, max_length, nb_sequences)
+    #     except Exception as e:
+    #         print(f"An error occurred while processing {test_name}: {e}")
+
+    test_name = "gap_transp"
+    for gap_value in gap_values:
+        for length in range(1, max_length + 1):
+            if write_queries:
+                generate_queries_v2(test_name, sequences, 0.0, 1.0, gap_value, length, True)
+            if execute_queries:
+                execute_queries_v2(test_name, sequences, 0.0, 1.0, gap_value, length)
+
+    if execute_queries:
+        save_csv(test_name)
+
+    if write_latex:
+        try:
+            process_and_generate_latex(test_name, gap_values, max_length, nb_sequences)
+        except Exception as e:
+            print(f"An error occurred while processing {test_name}: {e}")
+
+    # # Tests taille de base
+    # test_name = f"db_size_6000"
+    # if write_queries:
+    #     generate_queries_v2("db_size", sequences, 1.0, 2.0, 0.0625, 6, False)
+    # if execute_queries:
+    #     execute_queries_v2("db_size", sequences, 1.0, 2.0, 0.0625, 6)
+
+    # if execute_queries:
+    #     save_csv(test_name)
+    
+    # if write_latex:
+    #     try:
+    #         generate_histogram_bar(f"./CSV/{test_name}_log.csv", test_name,"label")
+    #     except Exception as e:
+    #         print(f"An error occurred while processing {test_name}: {e}")
+
+    # # Tests taille de base avec transposition
+    # test_name = f"db_size_6000_t"
+    # if write_queries:
+    #     generate_queries_v2("db_size_t", sequences, 1.0, 2.0, 0.0625, 6, True)
+    # if execute_queries:
+    #     execute_queries_v2("db_size_t", sequences, 1.0, 2.0, 0.0625, 6)
+
+    # if execute_queries:
+    #     save_csv(test_name)
+    
+    # if write_latex:
+    #     try:
+    #         generate_histogram_bar(f"./CSV/{test_name}_log.csv", test_name,"label")
+    #     except Exception as e:
+    #         print(f"An error occurred while processing {test_name}: {e}")
