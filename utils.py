@@ -371,7 +371,7 @@ def calculate_intervals_dict(notes_dict: dict) -> list[float]:
     intervals = []
     for i in range(len(pitches) - 1):
 
-        if None in (pitches[i][0], pitches[i][1], pitches[i+1][0], pitches[i+1][1]):
+        if pitches[i] is None or pitches[i+1] is None or None in (pitches[i][0], pitches[i][1], pitches[i+1][0], pitches[i+1][1]):
             interval = None
         else:
             interval = calculate_pitch_interval(pitches[i][0], pitches[i][1], pitches[i+1][0], pitches[i+1][1])

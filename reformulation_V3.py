@@ -19,28 +19,36 @@ def make_duration_condition(duration_factor, duration, node_name, alpha):
     return res
 
 def make_interval_condition(interval, duration_gap, pitch_distance, idx, alpha):
-    if duration_gap > 0:
-        # Utiliser halfTonesFromA4 pour calculer les intervalles entre deux Fact nodes
-        if pitch_distance > 0:
-            interval_condition = (
-                f"{interval - pitch_distance * (1 - alpha)} <= "
-                f"toFloat(f{idx + 1}.halfTonesFromA4 - f{idx}.halfTonesFromA4)/2 AND "
-                f"toFloat(f{idx + 1}.halfTonesFromA4 - f{idx}.halfTonesFromA4)/2 <= "
-                f"{interval + pitch_distance * (1 - alpha)}"
-            )
+    if interval is None:
+        if duration_gap > 0:
+            interval_condition = f"(NOT EXISTS(f{idx}.halfTonesFromA4) OR NOT EXISTS(f{idx + 1}.halfTonesFromA4))"
         else:
-            interval_condition = (
-                f"toFloat(f{idx + 1}.halfTonesFromA4 - f{idx}.halfTonesFromA4)/2 = {interval}"
-            )
-    else:
-        # Construct interval conditions for direct connections
-        if pitch_distance > 0:
-            interval_condition = (
-                f"{interval - pitch_distance * (1 - alpha)} <= n{idx}.interval AND "
-                f"n{idx}.interval <= {interval + pitch_distance * (1 - alpha)}"
-            )
+            interval_condition = f"NOT EXISTS(n{idx}.interval)"
+    else :
+        if duration_gap > 0:
+            # Utiliser halfTonesFromA4 pour calculer les intervalles entre deux Fact nodes
+            if pitch_distance > 0:
+                interval_condition = (
+                    f"EXISTS(f{idx + 1}.halfTonesFromA4) AND EXISTS(f{idx}.halfTonesFromA4) AND "
+                    f"{interval - pitch_distance * (1 - alpha)} <= "
+                    f"toFloat(f{idx + 1}.halfTonesFromA4 - f{idx}.halfTonesFromA4)/2 AND "
+                    f"toFloat(f{idx + 1}.halfTonesFromA4 - f{idx}.halfTonesFromA4)/2 <= "
+                    f"{interval + pitch_distance * (1 - alpha)}"
+                )
+            else:
+                interval_condition = (
+                    f"EXISTS(f{idx + 1}.halfTonesFromA4) AND EXISTS(f{idx}.halfTonesFromA4) AND "
+                    f"toFloat(f{idx + 1}.halfTonesFromA4 - f{idx}.halfTonesFromA4)/2 = {interval}"
+                )
         else:
-            interval_condition = f"n{idx}.interval = {interval}"
+            # Construct interval conditions for direct connections
+            if pitch_distance > 0:
+                interval_condition = (
+                    f"{interval - pitch_distance * (1 - alpha)} <= n{idx}.interval AND "
+                    f"n{idx}.interval <= {interval + pitch_distance * (1 - alpha)}"
+                )
+            else:
+                interval_condition = f"n{idx}.interval = {interval}"
     return interval_condition
 
 def split_note_accidental(note):
@@ -355,7 +363,6 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
     where_clauses = []
     if allow_transposition:
         intervals = calculate_intervals_dict(notes_dict)
-
     # Extract Fact nodes (notes with durations)
     f_nodes = [node for node, attrs in notes_dict.items() if attrs.get('type') == 'Fact']
 

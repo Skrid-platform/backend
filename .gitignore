@@ -7,3 +7,6 @@ __pycache__/
 CSV/
 latex/
 *.csv
+load_500_scores.cql
+random_notes.json
+random_notes.json
