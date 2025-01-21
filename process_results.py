@@ -64,16 +64,16 @@ def get_ordered_results(result, query):
             pitch = record[f"pitch_{fact_nb}"]
             octave = record[f"octave_{fact_nb}"]
             duration = record[f"duration_{event_nb}"]
+            dots = record[f"dots_{event_nb}"]
             start = record[f"start_{event_nb}"]
             end = record[f"end_{event_nb}"]
             id_ = record[f"id_{event_nb}"]
 
-            note = Note(pitch, octave, duration, start, end, id_)
+            note = Note(pitch, octave, int(1/duration), dots, duration, start, end, id_)
             note_sequence.append(note)
 
             # fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
             fact_nb += 1
-
         note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
 
     sequence_details = []
@@ -84,7 +84,13 @@ def get_ordered_results(result, query):
         for idx, note in enumerate(note_sequence):
             query_note = query_notes[f'f{idx}']
             pitch_deg = pitch_degree(query_note['class'], query_note['octave'], note.pitch, note.octave, pitch_gap)
-            duration_deg = duration_degree_with_multiplicative_factor(query_note['dur'], note.duration, duration_factor)
+            if query_note['dur'] is not None:
+                expected_duration = 1.0/query_note['dur']
+                if query_note.get('dots', None):
+                    expected_duration = expected_duration * 1.5
+            else:
+                expected_duration = None
+            duration_deg = duration_degree_with_multiplicative_factor(expected_duration, note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             
             if idx > 0:  # Compute sequencing degree for the second and third notes
@@ -133,12 +139,12 @@ def get_ordered_results_with_transpose(result, query):
             pitch = record[f"pitch_{fact_nb}"]
             octave = record[f"octave_{fact_nb}"]
             duration = record[f"duration_{event_nb}"]
+            dots = record[f"dots_{event_nb}"]
             start = record[f"start_{event_nb}"]
             end = record[f"end_{event_nb}"]
             id_ = record[f"id_{event_nb}"]
 
-            note = Note(pitch, octave, duration, start, end, id_)
-            # note = Note(pitch, octave, duration, start, end)
+            note = Note(pitch, octave, int(1/duration), dots, duration, start, end, id_)
 
             if event_nb == 0:
                 interval = None
@@ -164,7 +170,13 @@ def get_ordered_results_with_transpose(result, query):
             else:
                 pitch_deg = pitch_degree_with_intervals(intervals[idx - 1], interval, pitch_gap)
 
-            duration_deg = duration_degree_with_multiplicative_factor(query_note['dur'], note.duration, duration_factor)
+            if query_note['dur'] is not None:
+                expected_duration = 1.0/query_note['dur']
+                if query_note.get('dots', None):
+                    expected_duration = expected_duration * 1.5
+            else:
+                expected_duration = None
+            duration_deg = duration_degree_with_multiplicative_factor(expected_duration, note.duration, duration_factor)
             sequencing_deg = 1.0  # Default sequencing degree
             
             if idx > 0:  # Compute sequencing degree for the second and third notes
@@ -223,10 +235,11 @@ def get_ordered_results_contours(result, query):
             pitch = record[f"pitch_{i}"]
             octave = record[f"octave_{i}"]
             duration = record[f"duration_{i}"]
+            dots = record[f"dots_{event_nb}"]
             start = record[f"start_{i}"]
             end = record[f"end_{i}"]
             id_ = record[f"id_{i}"]
-            note = Note(pitch, octave, duration, start, end, id_)
+            note = Note(pitch, octave, int(1/duration), dots, duration, start, end, id_)
             
 
             # Deal with first note

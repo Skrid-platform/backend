@@ -4,6 +4,7 @@ from degree_computation import convert_note_to_sharp
 from note import Note
 from refactor import move_attribute_values_to_where_clause
 
+
 def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, collections=None):
     '''
     Create a fuzzy query.
@@ -28,7 +29,6 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
         For example : `[[('c', 5), 4], [('b', 4), 8], [('b', 4), 8], [('a', 4), ('d', 5), 16]]`.
 
         duration is in the following format: 1 for whole, 2 for half, ...
-        float is allowed for dotted notes (e.g dotted half is 1/(1/2 + 1/4) = 4 / 3).
     '''
 
     match_clause = 'MATCH\n'
@@ -45,17 +45,25 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
     facts = []
     fact_nb = 0
     for i, note_or_chord in enumerate(notes):
-        duration = note_or_chord[-1]
+        if len(note_or_chord) > 2:
+            note = Note(note_or_chord[0][0], note_or_chord[0][1], note_or_chord[1], note_or_chord[2])
+        else:
+            note = Note(note_or_chord[0][0], note_or_chord[0][1], note_or_chord[1])
+        duration = note.duration
 
         # event = '(e{}:Event{{dur:{}}})'.format(i, duration)
         event = '(e{}:Event)'.format(i)
 
-        for note in note_or_chord[:-1]:
-            class_, octave = note
-            fact = "(e{})--(f{}:Fact{{class:'{}', octave:{}, dur:{}}})".format(i, fact_nb, class_, octave, duration)
+        # for note in note_or_chord[:-1]:
+        #     class_, octave = note
 
-            facts.append(fact)
-            fact_nb += 1
+        if note.dots:
+            fact = "(e{})--(f{}:Fact{{class:'{}', octave:{}, dur:{}, dots:{} }})".format(i, fact_nb, note.pitch, note.octave, note.dur, note.dots)
+        else:
+            fact = "(e{})--(f{}:Fact{{class:'{}', octave:{}, dur:{} }})".format(i, fact_nb, note.pitch, note.octave, note.dur)
+
+        facts.append(fact)
+        fact_nb += 1
 
         events.append(event)
     
@@ -240,7 +248,7 @@ def get_first_k_notes_of_each_score(k, source, driver):
     return_fields = []
     
     for i in range(1, k + 1):
-        return_fields.append(f"f{i}.class AS pitch_{i}, f{i}.octave AS octave_{i}, e{i}.duration AS duration_{i}")
+        return_fields.append(f"f{i}.class AS pitch_{i}, f{i}.octave AS octave_{i}, f{i}.dur AS dur_{i}, f{i}.duration AS duration_{i}, f{i}.dots AS dots_{i}")
     
     return_fields.append("e1.source AS source")
     
@@ -260,9 +268,12 @@ def get_first_k_notes_of_each_score(k, source, driver):
         for i in range(1, k + 1):
             pitch = record[f"pitch_{i}"]
             octave = record[f"octave_{i}"]
+            dur = record[f"dur_{i}"]
             duration = record[f"duration_{i}"]
-            note = [(pitch, octave), 1/duration]
+            dots = record[f"dots_{i}"]
+            note = Note(pitch, octave, dur, dots)
             sequence.append(note)
+        sequence = [note.to_list() for note in sequence]
         sequences.append(sequence)
     
     return sequences[0]

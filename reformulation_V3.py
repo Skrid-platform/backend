@@ -6,16 +6,22 @@ from utils import calculate_intervals_dict
 from degree_computation import convert_note_to_sharp
 from refactor import move_attribute_values_to_where_clause, refactor_variable_names
 
-def make_duration_condition(duration_factor, duration, node_name, alpha):
+def make_duration_condition(duration_factor, duration, node_name, alpha, dotted):
     if duration == None:
         return ''
 
+    # Before reforumation step, we use 'dur' attribute in the data model and in fuzzy query expression to be coherent
+    # 'dur' attribute is given in power of two (1, 2, 4, ...) and does not take dots into account
+    # 'duration' attribut is given in fraction (0.125, 0.325, ...) and takes dots into account
+    duration = 1.0/duration
+    if dotted:
+        duration = duration*1.5
+
     if duration_factor != 1:
         min_duration, max_duration = find_duration_range_multiplicative_factor_sym(duration, duration_factor, alpha)
-        res = f"{node_name}.dur >= {min_duration} AND {node_name}.dur <= {max_duration}"
+        res = f"{node_name}.duration >= {min_duration} AND {node_name}.duration <= {max_duration}"
     else:
-        duration = find_duration_range_multiplicative_factor_sym(duration, 1.0, alpha)[0]
-        res = f"{node_name}.dur = {duration}"
+        res = f"{node_name}.duration = {duration}"
     return res
 
 def make_interval_condition(interval, duration_gap, pitch_distance, idx, alpha):
@@ -105,7 +111,7 @@ def make_pitch_condition(pitch_distance, pitch, octave, name, alpha):
                     pitch_condition += f" AND ({name}.accid = '{accidental}' OR {name}.accid_ges = '{accidental}')"
                 else:
                     # No accidental, so accid is NULL or empty
-                    pitch_condition += f" AND NOT EXISTS({name}.accid) AND NOT EXISTS({name}.accid)"
+                    pitch_condition += f" AND NOT EXISTS({name}.accid)"
                 if octave is not None:
                     pitch_condition += f" AND {name}.octave = {octave}"
         else:
@@ -370,7 +376,7 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
         attrs = notes_dict[f_node]
         duration = attrs.get('dur')
         if duration is not None:
-            duration_condition = make_duration_condition(duration_factor, duration, f_node, alpha)
+            duration_condition = make_duration_condition(duration_factor, duration, f_node, alpha, attrs.get('dots'))
             if duration_condition:
                 where_clauses.append(duration_condition)
         
@@ -437,6 +443,7 @@ def create_return_clause(query, notes_dict, duration_gap=0., intervals=False):
     for idx, event_node_name in enumerate(event_nodes):
         return_clauses.extend([
             f"\n{event_node_name}.duration AS duration_{idx}",
+            f"{event_node_name}.dots AS dots_{idx}",
             f"{event_node_name}.start AS start_{idx}",
             f"{event_node_name}.end AS end_{idx}",
             f"{event_node_name}.id AS id_{idx}"

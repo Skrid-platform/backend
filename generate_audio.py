@@ -62,7 +62,7 @@ def generate_piano_like_note(frequency, duration_ms, sample_rate=44100):
     return audio_segment
 
 def generate_note_audio(note, bpm=60):
-    pitch, octave, dur = note.pitch, note.octave, note.duration
+    pitch, octave, dur = note.pitch, note.octave, note.dur
     
     if pitch is None or octave is None:
         # Generate silence for the duration of the rest
@@ -95,10 +95,10 @@ def generate_mp3(notes, file_name, bpm=60, overlap_ms=200, sample_rate=44100):
 
     # Process each note
     for idx, note in enumerate(notes):
-        pitch, octave, dur = note.pitch, note.octave, note.duration
+        pitch, octave, duration = note.pitch, note.octave, note.duration
         frequency = note_frequencies[pitch.lower()] * (2 ** (octave - 4))
         if frequency:
-            duration_ms = int(convert_duration_to_seconds(dur, bpm) * 1000)
+            duration_ms = int(convert_duration_to_seconds(duration, bpm) * 1000)
             note_audio = generate_piano_like_note(frequency, duration_ms + overlap_ms, sample_rate=sample_rate)
             
             # Append the note, overlapping the release with the previous note
@@ -121,5 +121,5 @@ def convert_duration_to_seconds(note_duration, bpm=60):
 
 if __name__ == "__main__":
     # Example usage
-    notes = [Note('c', 5, 1), Note('d', 5, 0.25), Note('e', 5, 0.125), Note('f', 5, 0.25), Note('g', 5, 1)]
+    notes = [Note('c', 5, 8), Note('d', 5, 4), Note('e', 5, 8), Note('f', 5, 4), Note('g', 5, 16)]
     generate_mp3(notes, "output.mp3", bpm=60)

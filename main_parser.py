@@ -94,7 +94,6 @@ def write_to_file(fn, content):
     with open(fn, 'w') as f:
         f.write(content)
 
-# def check_notes_input_format(notes_input: str) -> list[tuple[str, int, int|float] | list[tuple[str, int] | int|float]]:
 def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|None] | int|float|None]]:
     '''
     Ensure that `notes_input` is in the correct format (see below for a description of the format).
@@ -109,12 +108,12 @@ def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|
 
     Description for the format of `notes` :
         `notes` should be a list of `note`s.
-        A `note` is a list of the following format : `[(class_1, octave_1), ..., (class_n, octave_n), duration]`
+        A `note` is a list of the following format : `[(class_1, octave_1), ..., (class_n, octave_n), duration, dots (optional)]`
 
-        For example : `[[('c', 5), 4], [('b', 4), 8], [('b', 4), 8], [('a', 4), ('d', 5), 16]]`.
+        For example : `[[('c', 5), 4, 0], [('b', 4), 8, 1], [('b', 4), 8], [('a', 4), ('d', 5), 16, 2]]`.
 
         duration is in the following format: 1 for whole, 2 for half, ...
-        float is allowed for dotted notes (e.g dotted half is 1/(1/2 + 1/4) = 4 / 3).
+        dots is an optional integer representing the number of dots.
     '''
 
     #---Init (functions to test each part)
@@ -124,7 +123,7 @@ def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|
         return (
             class_ == None
             or (
-                type(class_ == str)
+                isinstance(class_, str)
                 and (
                     len(class_) == 1 or
                     (len(class_) == 2 and class_[1] in '#sbf')
@@ -144,7 +143,12 @@ def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|
 
         return isinstance(duration, (int, float, type(None)))
 
-    format_notes = 'Notes format: list of [(class, octave), duration]: [[(class, octave), ..., duration], ...]. E.g `[[(\'c\', 5), 4], [(\'b\', 4), 8], [(\'b\', 4), 8], [(\'a\', 4), (\'d\', 5), 16]]`.\nIt is possible to use "None" to ignore a criteria.'
+    def check_dots(dots: int|None) -> bool:
+        '''Return True iff `dots` is in correct format.'''
+
+        return isinstance(dots, (int, type(None))) and (dots is None or dots >= 0)
+
+    format_notes = "Notes format: list of [(class, octave), duration, dots]: [[(class, octave), ..., duration, dots], ...]. E.g `[[(\'c\', 5), 4, 0], [(\'b\', 4), 8, 1], [(\'b\', 4), 8], [(\'a\', 4), (\'d\', 5), 16, 2]]`. It is possible to use \"None\" to ignore a criteria. Dots are optinal, with default value of 0."
 
     #---Convert string to list
     notes_input = notes_input.replace("\\", "")
@@ -161,12 +165,20 @@ def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|
             raise argparse.ArgumentTypeError(f'error with note {i}: there should be at least two elements in the list, for example `[(\'c\', 5), 4]`, but "{note_or_chord}", with length {len(note_or_chord)} found !\n' + format_notes)
 
         #-Check the duration
-        duration = note_or_chord[-1]
+        duration = note_or_chord[1]
         if not check_duration(duration):
-            raise argparse.ArgumentTypeError(f'error with note {i}: "{note_or_chord}": "{note_or_chord[2]}" (duration) is not a float (or None)\n' + format_notes)
+            raise argparse.ArgumentTypeError(f'error with note {i}: "{note_or_chord}": "{duration}" (duration) is not a float (or None)\n' + format_notes)
+
+        #-Check the dots (if provided)
+        if len(note_or_chord) > 2:
+            dots = note_or_chord[-1]
+            if not check_dots(dots):
+                raise argparse.ArgumentTypeError(f'error with note {i}: "{note_or_chord}": "{dots}" (dots) is not a non-negative integer or None\n' + format_notes)
+        else:
+            dots = 0  # Default to 0 if dots are not provided
 
         #-Check each note
-        for j, note in enumerate(note_or_chord[:-1]):
+        for j, note in enumerate(note_or_chord[:-2]):
             #-Check type of note tuple
             if type(note) != tuple:
                 raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: should be a tuple (e.g `(\'c\', 5)`), but "{note}", of type {type(note)} found !\n' + format_notes)
@@ -183,8 +195,9 @@ def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|
             if not check_octave(note[1]):
                 raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: "{note}": "{note[1]}" (octave) is not an int, or a float, or None.\n' + format_notes)
 
-
     return notes
+
+
 
 def list_available_songs(driver, collection=None):
     '''
@@ -221,7 +234,7 @@ class Parser:
             \tcompile a query from file : python3 main_parser.py compile -F fuzzy_query.cypher -o crisp_query.cypher
             \tsend a query              : python3 main_parser.py send -F crisp_query.cypher -t result.txt
             \tsend a query 2            : python3 main_parser.py -u user -p pwd send -F -f fuzzy_query.cypher -t result.txt -m 6
-            \twrite a fuzzy query       : python3 main_parser.py write \"[[('c', 5), 1], [('d', 5), None]]\" -a 0.5 -t -o fuzzy_query.cypher
+            \twrite a fuzzy query       : python3 main_parser.py write \"[[('c', 5), 1, 1], [('d', 5), None]]\" -a 0.5 -t -o fuzzy_query.cypher
             \twrite a query from file   : python3 main_parser.py w \"$(python3 main_parser.py g \"10343_Avant_deux.mei\" 9)\" -p 2
             \tget notes from a song     : python3 main_parser.py get Air_n_83.mei 5 -o notes
             \tlist all songs            : python3 main_parser.py l
@@ -348,7 +361,7 @@ class Parser:
         self.parser_w.add_argument(
             'NOTES',
             # type=check_notes_input_format,
-            help='notes as a list of lists : [[(class_1, octave_1), duration_1], [(class_1, octave_1), duration_1], ...]. E.g \"[[(\'c\', 5), 1], [(\'d\', 5), 4]]\"'
+            help='notes as a list of lists : [[(class_1, octave_1), duration_1, dots_1], [(class_2, octave_2), duration_2, dots_2], ...]. E.g \"[[(\'c\', 5), 1, 0], [(\'d\', 5), 4, 1]]\"'
         )
 
         self.parser_w.add_argument(
@@ -577,7 +590,7 @@ class Parser:
             try:
                 notes = check_notes_input_format(notes_input)
             except (ValueError, SyntaxError):
-                self.parser_w.error("NOTES must be a valid list format. Example: \"[[(\'c\', 5), 1], [(\'d\', 5), 4]]\"")
+                self.parser_w.error("NOTES must be a valid list format. Example: \"[[(\'c\', 5), 1], [(\'d\', 5), 4, 1]]\"")
             query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition, args.contour_match, collections)
 
         if args.output == None:
@@ -591,7 +604,7 @@ class Parser:
         self.init_driver(args.URI, args.user, args.password)
 
         if args.NAME not in list_available_songs(self.driver):
-            self.close_driver();
+            self.close_driver()
             self.parser_g.error(f'NAME argument ("{args.NAME}") is not valid (check valid songs with `python3 main_parser.py list`)')
 
         res = get_first_k_notes_of_each_score(args.NUMBER, args.NAME, self.driver)
