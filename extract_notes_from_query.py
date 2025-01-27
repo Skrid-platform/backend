@@ -209,7 +209,7 @@ def extract_fuzzy_parameters(query):
         - query : the *fuzzy* query ;
 
     Out :
-        pitch_distance(float), duration_factor(float), duration_gap(float), alpha(float), allow_transposition(bool), contour(bool), fixed_notes(bool[]), collections(str[] | None)
+        pitch_distance(float), duration_factor(float), duration_gap(float), alpha(float), allow_transposition(bool), contour(bool), fixed_notes(bool[]), collection(str | None)
     '''
 
     # Extracting the parameters from the augmented query
@@ -227,24 +227,16 @@ def extract_fuzzy_parameters(query):
     allow_transposition = bool(re.search(r'ALLOW_TRANSPOSITION', query))
     contour = True if extract_fuzzy_membership_functions(query) else False
 
-    # Check for collections filter
-    collections_line_lst = re.compile(r'COLLECTIONS .*\n').findall(query)
-    filter_collections = len(collections_line_lst) > 0
-    if filter_collections:
-        # collections = [s.strip('"') for s in re.compile(r'".+"').findall(collections_line_lst[0])]
-        collections = []
-        for col in collections_line_lst[0].split('"'):
-            if col not in ('', ' ', 'COLLECTIONS ', '\n'):
-                collections.append(f'{col}')
-    else:
-        collections = None
+    # Check for collection
+    collection_re = re.search(r"tp\.collection\s*=\s*'(.*?)'", query)
+    collection = collection_re.group(1) if collection_re else None
 
     # Extract fixed notes information
     note_pattern = r"\{class:'(\w+|None)', octave:(\d+|None), dur:(\d+\.\d+|\d+|None)\}\)( FIXED)?"
     matches = re.findall(note_pattern, query)
     fixed_notes = [bool(fixed) for _, _, _, fixed in matches]
 
-    return pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour, fixed_notes, collections
+    return pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour, fixed_notes, collection
 
 def extract_fuzzy_membership_functions(query):
     '''

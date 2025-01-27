@@ -356,12 +356,12 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
                     conditions_str += f' {operator} '
                 conditions_str += condition
             # Add 'WHERE' keyword
-            new_where_clause = 'WHERE\n ' + conditions_str.strip()
+            preexisting_where_clause = conditions_str.strip()
         else:
             # No conditions left after filtering
-            new_where_clause = ''
+            preexisting_where_clause = ''
     else:
-        new_where_clause = ''
+        preexisting_where_clause = ''
 
     # Step 3: Extract notes and make conditions for each note
     notes_dict = extract_notes_from_query_dict(query)
@@ -416,7 +416,7 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
         if max_value != float('inf'):
             where_clauses.append(f"{node_name}.{attribute_name} <= {max_value}")
 
-    where_clause = '\nWHERE\n' + ' AND\n'.join(where_clauses)
+    where_clause = '\nWHERE\n' + preexisting_where_clause + ' AND\n' + ' AND\n'.join(where_clauses)
     return where_clause
 
 def create_return_clause(query, notes_dict, duration_gap=0., intervals=False):

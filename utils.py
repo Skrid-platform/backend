@@ -5,7 +5,7 @@ from note import Note
 from refactor import move_attribute_values_to_where_clause
 
 
-def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, collections=None):
+def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, collection=None):
     '''
     Create a fuzzy query.
 
@@ -17,7 +17,7 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
         - alpha (float)              : the `alpha` param ;
         - allow_transposition (bool) : the `allow_transposition` param ;
         - contour_match (bool)       : the `contour_match` param ;
-        - collections (str[] | None) : the collection filter.
+        - collection (str | None) : the collection filter.
 
     Out :
         a fuzzy query searching for the notes given in parameters.
@@ -35,11 +35,10 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
     if allow_transposition:
         match_clause += ' ALLOW_TRANSPOSITION\n'
 
-    match_clause += f' TOLERANT pitch={pitch_distance}, duration={duration_factor}, gap={duration_gap}\n ALPHA {alpha}\n'
+    match_clause += f' TOLERANT pitch={pitch_distance}, duration={duration_factor}, gap={duration_gap}\nALPHA {alpha}\n'
 
-    if collections != None:
-        match_clause += ' COLLECTIONS '
-        match_clause += '"' + '" "'.join(collections) + '"\n'
+    if collection != None:
+        match_clause += " (tp:TopRhythmic{{collection:'{}'}})-[:RHYTHMIC]->(m:Measure),\n (m)-[:HAS]->(e0:Event),\n".format(collection)
 
     events = []
     facts = []
@@ -51,7 +50,6 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
             note = Note(note_or_chord[0][0], note_or_chord[0][1], note_or_chord[1])
         duration = note.duration
 
-        # event = '(e{}:Event{{dur:{}}})'.format(i, duration)
         event = '(e{}:Event)'.format(i)
 
         # for note in note_or_chord[:-1]:
@@ -68,8 +66,9 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
         events.append(event)
     
     match_clause += " " + "".join(f"{events[i]}-[n{i}:NEXT]->" for i in range(len(events)-1)) + events[-1] + ",\n " + ",\n ".join(facts)
-    return_clause = "\nRETURN e0.source AS source, e0.start AS start"
     
+    return_clause = "\nRETURN e0.source AS source, e0.start AS start"
+
     query = match_clause + return_clause
     return move_attribute_values_to_where_clause(query)
 

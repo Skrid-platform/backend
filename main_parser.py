@@ -576,7 +576,8 @@ class Parser:
         if args.collections == None:
             collections = None
         else:
-            collections = args.collections.split(',')
+
+            collections = args.collections
         
         # Validate notes input based on contour_match flag
         if args.contour_match:
