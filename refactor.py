@@ -119,10 +119,14 @@ def move_attribute_values_to_where_clause(query):
             rest_after_where = ''
         # Combine existing WHERE clause with new conditions
         new_conditions = ' AND '.join(properties_to_add)
-        if existing_where_clause:
+        if existing_where_clause and new_conditions:
             new_where_clause = f"WHERE\n {existing_where_clause} AND\n {new_conditions}"
-        else:
+        elif existing_where_clause:
+            new_where_clause = f"WHERE\n {existing_where_clause}"
+        elif new_conditions:
             new_where_clause = f"WHERE\n {new_conditions}"
+        else:
+            new_where_clause = ""
     else:
         # No existing WHERE clause
         existing_where_clause = ''

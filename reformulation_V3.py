@@ -25,7 +25,10 @@ def make_duration_condition(duration_factor, duration, node_name, alpha, dotted)
     return res
 
 def make_interval_condition(interval, duration_gap, pitch_distance, idx, alpha):
-    if interval is None:
+    if interval == 'NA':
+        # No rest involved, but lack information for interval inference
+        interval_condition = ''
+    elif interval is None:
         if duration_gap > 0:
             interval_condition = f"(NOT EXISTS(f{idx}.halfTonesFromA4) OR NOT EXISTS(f{idx + 1}.halfTonesFromA4))"
         else:
@@ -162,17 +165,8 @@ def create_match_clause(query):
 
         nb_events = len(event_nodes)
 
-        # To give a higher bound to the number of intermediate notes, we suppose the shortest possible note has a duration of 0.125
-        max_intermediate_nodes = max(int(duration_gap / 0.125), 1)
-
-        # if allow_transposition:
-        #     # Create paths with variable length relationships using variable node names
-        #     event_paths = []
-        #     for idx in range(len(event_nodes) - 1):
-        #         path = f'p{idx} = (e{idx}:Event)-[:NEXT*1..{max_intermediate_nodes + 1}]->(e{idx+1})'
-        #         event_paths.append(path)
-        #     event_path = ',\n '.join(event_paths) + ','
-        # else:
+        # To give a higher bound to the number of intermediate notes, we suppose the shortest possible note has a duration of 0.0625
+        max_intermediate_nodes = max(int(duration_gap / 0.0625), 1)
 
         # Create a simplified path without intervals
         event_path = f'-[:NEXT*1..{max_intermediate_nodes + 1}]->'.join([f'({node}:Event)' for node in event_nodes]) + ','
@@ -209,18 +203,16 @@ def create_match_clause(query):
             # All nodes are event nodes
             return True
 
-        # Filter out the event chain patterns
+        # Replace the event chain patterns with event_path
         simplified_connections = [
-            p for p in patterns if not is_event_chain_pattern(p)
+            event_path if is_event_chain_pattern(p) else p for p in patterns
         ]
 
         # Reconstruct the simplified connections as a string
         simplified_connections_str = ',\n '.join(simplified_connections)
 
         #---Create MATCH clause
-        match_clause = 'MATCH\n ' + event_path
-        if simplified_connections_str:
-            match_clause += '\n ' + simplified_connections_str
+        match_clause = 'MATCH\n ' + simplified_connections_str
 
         return match_clause
     else:
@@ -295,14 +287,16 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
         where_clause = ''
         has_where_clause = False
 
-    # Step 2: Remove conditions that specify specific attribute values
+    # Extract attributes associated with membership functions
+    attributes_with_membership_functions = extract_attributes_with_membership_functions(query)
+
+    # Step 2: Remove conditions that specify specific attribute values or membership functions
     if has_where_clause:
         # Remove the 'WHERE' keyword
         where_conditions_str = where_clause[len('WHERE'):].strip()
 
         # Split conditions using 'AND' or 'OR', keeping the operators
-        tokens = re.split(r'(\bAND\b|\bOR\b)', where_conditions_str, flags=re.IGNORECASE)
-
+        tokens = re.split(r'(\bAND\b)', where_conditions_str, flags=re.IGNORECASE)
         # Build a list of conditions with their preceding operators
         conditions_with_operators = []
         i = 0
@@ -325,7 +319,7 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
         for idx, (operator, condition) in enumerate(conditions_with_operators):
             # Check if the condition matches the pattern to remove
             match = re.match(
-                r'\b\w+\.(class|octave|dur|interval)\s*(=)\s*.+',
+                r"\b\w+\.(class|octave|dur|interval)\s*=\s*[^\s]+",
                 condition,
                 re.IGNORECASE
             )
@@ -347,16 +341,21 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
                 # Condition does not match; keep it
                 filtered_conditions.append((operator, condition))
 
+        membership_function_names = [membership_function_name for node_name, attribute_name, membership_function_name in attributes_with_membership_functions]
+
         # Reconstruct the WHERE clause
         if filtered_conditions:
             # Build the conditions string
-            conditions_str = ''
+            conditions = []
             for operator, condition in filtered_conditions:
-                if operator:
-                    conditions_str += f' {operator} '
-                conditions_str += condition
-            # Add 'WHERE' keyword
-            preexisting_where_clause = conditions_str.strip()
+                # Filter out membership function condition in the where clause
+                if isinstance(condition, str) and " IS " in condition:
+                    _, y = map(str.strip, condition.split(" IS ", 1))
+                    if y not in membership_function_names:
+                        conditions.append(condition)
+                else:
+                    conditions.append(condition)
+            preexisting_where_clause = ' AND '.join(conditions)
         else:
             # No conditions left after filtering
             preexisting_where_clause = ''
@@ -365,7 +364,7 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
 
     # Step 3: Extract notes and make conditions for each note
     notes_dict = extract_notes_from_query_dict(query)
-    
+
     where_clauses = []
     if allow_transposition:
         intervals = calculate_intervals_dict(notes_dict)
@@ -397,9 +396,6 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
                     where_clauses.append(sequencing_condition)
 
     # Step 4: makes conditions for membership functions
-    # Extract attributes associated with membership functions
-    attributes_with_membership_functions = extract_attributes_with_membership_functions(query)
-
     # Extract support intervals of the membership functions
     support_intervals = extract_membership_function_support_intervals(query)
 
@@ -416,7 +412,9 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
         if max_value != float('inf'):
             where_clauses.append(f"{node_name}.{attribute_name} <= {max_value}")
 
-    where_clause = '\nWHERE\n' + preexisting_where_clause + ' AND\n' + ' AND\n'.join(where_clauses)
+    if preexisting_where_clause:
+        preexisting_where_clause = preexisting_where_clause + ' AND\n'
+    where_clause = '\nWHERE\n' + preexisting_where_clause  + ' AND\n'.join(where_clauses)
     return where_clause
 
 def create_return_clause(query, notes_dict, duration_gap=0., intervals=False):
@@ -435,6 +433,7 @@ def create_return_clause(query, notes_dict, duration_gap=0., intervals=False):
     # Extract event nodes and fact nodes from the notes dictionary
     event_nodes = [node_name for node_name, attrs in notes_dict.items() if attrs.get('type') == 'Event']
     fact_nodes = [node_name for node_name, attrs in notes_dict.items() if attrs.get('type') == 'Fact']
+    
 
     return_clauses = []
 
