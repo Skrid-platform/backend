@@ -361,31 +361,33 @@ def calculate_intervals_dict(notes_dict: dict) -> list[float]:
     Output: a list of intervals between consecutive notes.
     '''
     # Extract Fact nodes (notes) from the dictionary
-    fact_nodes = {node_name: attrs for node_name, attrs in notes_dict.items() if attrs.get('type') == 'Fact'}
+    fact_nodes = {node_name: attrs for node_name, attrs in notes_dict.items() if attrs.get('type') in ('Fact', 'rest') }
 
     # Initialize a list to hold pitches
     pitches = []
 
 
     for node_name, attrs in fact_nodes.items():
-        
         note_class = attrs.get('class')
         octave = attrs.get('octave')
-        if note_class is not None and octave is not None:
+        type_ = attrs.get('type')
+        if type_ == 'rest':
+            pitches.append(None)
+        elif note_class is not None and octave is not None:
             pitches.append([note_class, octave])
         else:
-            # If note class or octave is missing, append None
-            pitches.append(None)
+            # If note class or octave is missing, append 'NA'
+            pitches.append('NA')
 
     # Compute intervals between consecutive pitches
     intervals = []
     for i in range(len(pitches) - 1):
-
-        if pitches[i] is None or pitches[i+1] is None or None in (pitches[i][0], pitches[i][1], pitches[i+1][0], pitches[i+1][1]):
+        if pitches[i] is None or pitches[i+1] is None:
             interval = None
+        elif pitches[i] == 'NA' or pitches[i+1] == 'NA':
+            interval = 'NA'
         else:
             interval = calculate_pitch_interval(pitches[i][0], pitches[i][1], pitches[i+1][0], pitches[i+1][1])
-
         intervals.append(interval)
 
     return intervals
