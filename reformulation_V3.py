@@ -169,7 +169,7 @@ def create_match_clause(query):
         max_intermediate_nodes = max(int(duration_gap / 0.0625), 1)
 
         # Create a simplified path without intervals
-        event_path = f'-[:NEXT*1..{max_intermediate_nodes + 1}]->'.join([f'({node}:Event)' for node in event_nodes]) + ','
+        event_path = f'-[:NEXT*1..{max_intermediate_nodes + 1}]->'.join([f'({node}:Event)' for node in event_nodes])
 
         #---Extract the rest of the MATCH clause (non-event chain patterns) from the input query
         original_match_clause = extract_match_clause(query)
