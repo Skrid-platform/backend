@@ -95,12 +95,20 @@ def generate_mp3(notes, file_name, bpm=60, overlap_ms=200, sample_rate=44100):
 
     # Process each note
     for idx, note in enumerate(notes):
-        pitch, octave, duration = note.pitch, note.octave, note.duration
+        pitch, octave, duration = note.pitch, note.octave, note.dur
+
+        # Check if it's a rest
+        if pitch is None and octave is None and duration is not None:
+            duration_ms = int(convert_duration_to_seconds(duration, bpm) * 1000)
+            rest_audio = AudioSegment.silent(duration=duration_ms)
+            song = song.append(rest_audio, crossfade=0)  # Append rest without crossfade
+            continue
+
         frequency = note_frequencies[pitch.lower()] * (2 ** (octave - 4))
         if frequency:
             duration_ms = int(convert_duration_to_seconds(duration, bpm) * 1000)
             note_audio = generate_piano_like_note(frequency, duration_ms + overlap_ms, sample_rate=sample_rate)
-            
+
             # Append the note, overlapping the release with the previous note
             if idx == 0:
                 song = song.append(note_audio, crossfade=0)
@@ -112,6 +120,7 @@ def generate_mp3(notes, file_name, bpm=60, overlap_ms=200, sample_rate=44100):
     file_path = os.path.join(audio_dir, file_name)
     song.export(file_path, format="mp3")
     print(f"Generated MP3: {file_path}")
+
 
 # Helper function to convert duration from beats to seconds
 def convert_duration_to_seconds(note_duration, bpm=60):
