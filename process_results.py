@@ -69,7 +69,10 @@ def get_ordered_results(result, query):
             end = record[f"end_{event_nb}"]
             id_ = record[f"id_{event_nb}"]
 
-            note = Note(pitch, octave, int(1/duration), dots, duration, start, end, id_)
+            if dots and dots > 0:
+                note = Note(pitch, octave, int(1 / (duration/1.5)), dots, duration, start, end, id_)
+            else:
+                note = Note(pitch, octave, int(1 / duration), dots, duration, start, end, id_)
             note_sequence.append(note)
 
             # fact_nb += len(event) - 1 # -1 because event[-1] is duration and not a note
@@ -144,7 +147,10 @@ def get_ordered_results_with_transpose(result, query):
             end = record[f"end_{event_nb}"]
             id_ = record[f"id_{event_nb}"]
 
-            note = Note(pitch, octave, int(1/duration), dots, duration, start, end, id_)
+            if dots and dots > 0:
+                note = Note(pitch, octave, int(1 / (duration/1.5)), dots, duration, start, end, id_)
+            else:
+                note = Note(pitch, octave, int(1 / duration), dots, duration, start, end, id_)
 
             if event_nb == 0:
                 interval = None
@@ -206,6 +212,10 @@ def get_ordered_results_with_transpose(result, query):
     return sequence_details
 
 def get_ordered_results_contours(result, query):
+    # Extract the query notes and fuzzy parameters    
+    query_notes = extract_notes_from_query_dict(query)
+    query_notes = {node_name: attrs for node_name, attrs in query_notes.items() if attrs['type'] == 'Fact'}
+
     notes = extract_notes_from_query_dict(query)
     nb_facts = len([note_name for note_name, note in notes.items() if note['type'] == 'Fact'])
     
@@ -213,11 +223,7 @@ def get_ordered_results_contours(result, query):
     attributes_with_membership_functions = extract_attributes_with_membership_functions(query)
     
     # Step 2: Build the aliases used in the return clause for these attributes
-    # The aliases are constructed as: {attribute_name}_{node_name}_{membership_function_name}
-
-    # Special case for first note : membership degree is always 1.0
-    # 
-    attribute_aliases = [[None, None, None, None]]
+    attribute_aliases = []
     for node_name, attribute_name, membership_function_name in attributes_with_membership_functions:
         alias = f"{attribute_name}_{node_name}_{membership_function_name}"
         attribute_aliases.append((alias, node_name, attribute_name, membership_function_name))
@@ -228,40 +234,53 @@ def get_ordered_results_contours(result, query):
     # Step 4: Process each record in the result
     sequence_details = []
     for record in result:
-        note_sequence = []
-        # Collect degrees for this record and notes
-        degrees = []
-        for i, (alias, node_name, attribute_name, membership_function_name) in enumerate(attribute_aliases):
-            pitch = record[f"pitch_{i}"]
-            octave = record[f"octave_{i}"]
-            duration = record[f"duration_{i}"]
+        # Collect notes information
+        notes = []
+        for event_nb, event in enumerate(query_notes):
+            pitch = record[f"pitch_{event_nb}"]
+            octave = record[f"octave_{event_nb}"]
+            duration = record[f"duration_{event_nb}"]
             dots = record[f"dots_{event_nb}"]
-            start = record[f"start_{i}"]
-            end = record[f"end_{i}"]
-            id_ = record[f"id_{i}"]
-            note = Note(pitch, octave, int(1/duration), dots, duration, start, end, id_)
-            
+            start = record[f"start_{event_nb}"]
+            end = record[f"end_{event_nb}"]
+            id_ = record[f"id_{event_nb}"]
 
-            # Deal with first note
-            if i == 0:
-                degree = 1.0
+            if dots and dots > 0:
+                note = Note(pitch, octave, int(1 / (duration/1.5)), dots, duration, start, end, id_)
             else:
-                # Retrieve the attribute value from the record
-                attribute_value = record[alias]
-                # Get the membership function
-                membership_function = membership_functions[membership_function_name]
-                # Compute the degree
-                degree = membership_function(attribute_value)
+                note = Note(pitch, octave, int(1 / duration), dots, duration, start, end, id_)
+            notes.append(note)
 
-            # Collect the degree
-            degrees.append(degree)
+        # Collect degrees for each note
+        degrees = [1.0] * len(notes)  # Initialize all degrees to 1.0
+        for alias, node_name, attribute_name, membership_function_name in attribute_aliases:
+            # Retrieve the attribute value from the record
+            attribute_value = record[alias]
+            
+            # Get the membership function
+            membership_function = membership_functions[membership_function_name]
 
-            # Collect the note
-            note_sequence.append((note, degree))
-        
+            # Compute the degree
+            degree = membership_function(attribute_value)
+
+            # Determine the index of the note to associate the degree with
+            if node_name.startswith("n"):
+                # Interval: associate with note of index i + 1
+                idx = int(node_name[1:]) + 1
+            else:
+                # Note-related (f or e): associate with note of index i
+                idx = int(node_name[1:])
+
+            # Update the degree for the appropriate note
+            if 0 <= idx < len(degrees):
+                degrees[idx] = min(degrees[idx], degree)  # Use min to combine degrees if needed
+
+        # Pair notes with their degrees
+        note_sequence = [(note, degree) for note, degree in zip(notes, degrees)]
+
         # Step 5: Combine all degrees to get sequence_degree
-        sequence_degree = aggregate_degrees(average_aggregation, degrees)
-        
+        sequence_degree = aggregate_degrees(min_aggregation, degrees)
+
         # Step 6: Collect other record details (source, start, end)
         source = record.get('source', None)
         start = record.get('start', None)
