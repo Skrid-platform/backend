@@ -2,7 +2,7 @@ import os
 import shutil
 import json
 
-from extract_notes_from_query import extract_notes_from_query, extract_fuzzy_parameters, extract_attributes_with_membership_functions, extract_fuzzy_membership_functions, extract_notes_from_query_dict
+from extract_notes_from_query import extract_fuzzy_parameters, extract_attributes_with_membership_functions, extract_fuzzy_membership_functions, extract_notes_from_query_dict
 from note import Note
 from degree_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees, aggregate_degrees, pitch_degree_with_intervals, duration_degree_with_multiplicative_factor
 from generate_audio import generate_mp3

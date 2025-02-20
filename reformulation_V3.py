@@ -361,7 +361,6 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
             preexisting_where_clause = ''
     else:
         preexisting_where_clause = ''
-
     # Step 3: Extract notes and make conditions for each note
     notes_dict = extract_notes_from_query_dict(query)
 
@@ -370,14 +369,12 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
         intervals = calculate_intervals_dict(notes_dict)
     # Extract Fact nodes (notes with durations)
     f_nodes = [node for node, attrs in notes_dict.items() if attrs.get('type') == 'Fact']
-
     for idx, f_node in enumerate(f_nodes):
         attrs = notes_dict[f_node]
         duration = attrs.get('dur')
-        if duration is not None:
-            duration_condition = make_duration_condition(duration_factor, duration, f_node, alpha, attrs.get('dots'))
-            if duration_condition:
-                where_clauses.append(duration_condition)
+        duration_condition = make_duration_condition(duration_factor, duration, f_node, alpha, attrs.get('dots'))
+        if duration_condition:
+            where_clauses.append(duration_condition)
         
         if allow_transposition:
             if idx < len(f_nodes) - 1:
@@ -385,9 +382,9 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
                 if interval_condition:
                     where_clauses.append(interval_condition)
         else:
-            duration_condition = make_pitch_condition(pitch_distance, attrs.get('class'), attrs.get('octave'), f_node, alpha)
-            if duration_condition:
-                where_clauses.append(duration_condition)
+            pitch_condition = make_pitch_condition(pitch_distance, attrs.get('class'), attrs.get('octave'), f_node, alpha)
+            if pitch_condition:
+                where_clauses.append(pitch_condition)
         
         if duration_gap > 0:
             if idx < len(f_nodes) - 1:
