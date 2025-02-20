@@ -4,6 +4,7 @@ from degree_computation import convert_note_to_sharp
 from note import Note
 from refactor import move_attribute_values_to_where_clause
 
+import os
 
 def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, collection=None):
     '''
@@ -74,150 +75,90 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
 
 def create_query_from_contour(contour):
     """
-    Constructs a fuzzy contour query based on the provided contour string.
+    Constructs a fuzzy contour query based on the provided contour dictionary.
 
     Parameters:
-        contour (str): A string representing a sequence of contour steps.
-            Symbols:
-                '*D' : extremely down
-                'D'  : leap down
-                'd'  : step down
-                'R'  : repeat
-                'u'  : step up
-                'U'  : leap up
-                '*U' : extremely up
+        contour (dict): A dictionary with 'rhythmic' and 'melodic' lists representing rhythmic and melodic contours.
 
     Returns:
         str: A fuzzy contour query string.
     """
+    rhythmic_contours = contour['rhythmic']
+    melodic_contours = contour['melodic']
+
     # Mapping of contour symbols to membership function names and definitions
     membership_functions = {}
-    # List to keep track of unique membership functions added to the query
     membership_definitions = []
-    # List of interval conditions in the WHERE clause
-    interval_conditions = []
+    conditions = []
 
     # Helper function to define membership functions
     def add_membership_function(symbol):
         if symbol in membership_functions:
-            return  # Already defined
+            return
 
-        a_minus, a, b, b_plus = 0.0, 0.5, 1.0, 1.5
-        strong_support_length = abs(b - a)
-        desc_length = abs(b_plus - b)
-        asc_length = abs(a - a_minus)
+        # 'X' is for absence of constraint on an interval or note duration
+        if symbol == 'X' or symbol == 'x':
+            return
 
-        # if symbol == 'u':
-        #     # Define stepUp
-        #     membership_functions[symbol] = f'DEFINETRAP stepUp AS ({a_minus}, {a}, {b}, {b_plus})'
-        #     membership_definitions.append(membership_functions[symbol])
-        # elif symbol == 'U':
-        #     # Define leapUp based on stepUp
-        #     membership_functions[symbol] = f'DEFINETRAP leapUp AS ({b}, {b_plus}, {b_plus + strong_support_length}, {b_plus + strong_support_length + asc_length})'
-        #     membership_definitions.append(membership_functions[symbol])
-        # elif symbol == '*U':
-        #     # Define extremelyUp based on leapUp
-        #     membership_functions[symbol] = f'DEFINEASC extremelyUp AS ({b_plus + strong_support_length}, {b_plus + strong_support_length + asc_length})'
-        #     membership_definitions.append(membership_functions[symbol])
-        # elif symbol == 'R':
-        #     # Define repeat based on stepUp
-        #     membership_functions[symbol] = f'DEFINETRAP repeat AS ({-asc_length}, {-a_minus}, {a_minus}, {asc_length})'
-        #     membership_definitions.append(membership_functions[symbol])
-        # elif symbol == 'd':
-        #     # Define stepDown based on stepUp
-        #     membership_functions[symbol] = f'DEFINETRAP stepDown AS ({-b_plus}, {-b}, {-a}, {-a_minus})'
-        #     membership_definitions.append(membership_functions[symbol])
-        # elif symbol == 'D':
-        #     # Define leapDown based on stepUp
-        #     membership_functions[symbol] = f'DEFINETRAP leapDown AS ({-b_plus - strong_support_length - asc_length}, {-b_plus - strong_support_length}, {-b_plus}, {-b})'
-        #     membership_definitions.append(membership_functions[symbol])
-        # elif symbol == '*D':
-        #     # Define extremelyDown based on stepUp
-        #     membership_functions[symbol] = f'DEFINEDESC extremelyDown AS ({-b_plus - strong_support_length - asc_length}, {-b_plus - strong_support_length})'
-        #     membership_definitions.append(membership_functions[symbol])
-
-        if symbol == 'u':
-            membership_functions[symbol] = f'DEFINETRAP stepUp AS (0.0, 0.5, 0.5, 1.25)'
-            membership_definitions.append(membership_functions[symbol])
-        elif symbol == 'U':
-            membership_functions[symbol] = f'DEFINETRAP leapUp AS (0.25, 1, 1.5, 2.25)'
-            membership_definitions.append(membership_functions[symbol])
-        elif symbol == '*U':
-            membership_functions[symbol] = f'DEFINEASC extremelyUp AS (1.25, 2)'
-            membership_definitions.append(membership_functions[symbol])
-        elif symbol == 'R':
-            membership_functions[symbol] = f'DEFINETRAP repeat AS (-0.75, 0.0, 0.0, 0.75)'
-            membership_definitions.append(membership_functions[symbol])
-        elif symbol == 'd':
-            membership_functions[symbol] = f'DEFINETRAP stepDown AS (-1.25, -0.5, -0.5, 0.0)'
-            membership_definitions.append(membership_functions[symbol])
-        elif symbol == 'D':
-            membership_functions[symbol] = f'DEFINETRAP leapDown AS (-2.25, -1.5, -1, -0.25)'
-            membership_definitions.append(membership_functions[symbol])
-        elif symbol == '*D':
-            membership_functions[symbol] = f'DEFINEDESC extremelyDown AS (-2, -1.25)'
-            membership_definitions.append(membership_functions[symbol])
-
-    # Normalize the contour string into a list of symbols
-    # Handle symbols like '*D', '*U'
-    i = 0
-    symbols = []
-    while i < len(contour):
-        if contour[i] == '*':
-            symbol = contour[i] + contour[i + 1]
-            i += 2
-        else:
-            symbol = contour[i]
-            i += 1
-        symbols.append(symbol)
-
-    # Build the MATCH and WHERE clauses
-    for idx, symbol in enumerate(symbols):
-        add_membership_function(symbol)
-
-        # Determine the membership function name for the interval
-        if symbol == 'd':
-            mf_name = 'stepDown'
-        elif symbol == 'D':
-            mf_name = 'leapDown'
-        elif symbol == '*D':
-            mf_name = 'extremelyDown'
+        if symbol == 'S':
+            membership_functions[symbol] = 'shortDuration'
+            membership_definitions.append('DEFINEDESC shortDuration AS (0.0625, 0.25)')
+        elif symbol == 'M':
+            membership_functions[symbol] = 'mediumDuration'
+            membership_definitions.append('DEFINETRAP mediumDuration AS (0.0, 0.25, 0.25, 0.5)')
+        elif symbol == 'L':
+            membership_functions[symbol] = 'longDuration'
+            membership_definitions.append('DEFINEASC longDuration AS (0.25, 0.5)')
         elif symbol == 'u':
-            mf_name = 'stepUp'
+            membership_functions[symbol] = 'stepUp'
+            membership_definitions.append('DEFINETRAP stepUp AS (0.0, 0.5, 1.0, 2)')
         elif symbol == 'U':
-            mf_name = 'leapUp'
+            membership_functions[symbol] = 'leapUp'
+            membership_definitions.append('DEFINETRAP leapUp AS (0.5, 1.0, 2.0, 3.0)')
         elif symbol == '*U':
-            mf_name = 'extremelyUp'
+            membership_functions[symbol] = 'extremelyUp'
+            membership_definitions.append('DEFINEASC extremelyUp AS (1, 2)')
         elif symbol == 'R':
-            mf_name = 'repeat'
-        else:
-            raise ValueError(f"Unknown symbol '{symbol}' in contour.")
+            membership_functions[symbol] = 'repeat'
+            membership_definitions.append('DEFINETRAP repeat AS (-1, 0.0, 0.0, 1)')
+        elif symbol == 'd':
+            membership_functions[symbol] = 'stepDown'
+            membership_definitions.append('DEFINETRAP stepDown AS (-2, -1.0, -0.5, 0.0)')
+        elif symbol == 'D':
+            membership_functions[symbol] = 'leapDown'
+            membership_definitions.append('DEFINETRAP leapDown AS (-3.0, -2.0, -1.0, -0.5)')
+        elif symbol == '*D':
+            membership_functions[symbol] = 'extremelyDown'
+            membership_definitions.append('DEFINEDESC extremelyDown AS (-2, -1)')
 
-        interval_conditions.append(f'n{idx}.interval IS {mf_name}')
+    # Add membership functions and conditions for rhythmic contours
+    for idx, symbol in enumerate(rhythmic_contours):
+        if symbol != 'X' and symbol != 'x':
+            add_membership_function(symbol)
+            conditions.append(f'f{idx}.duration IS {membership_functions[symbol]}')
 
-    fact_nodes = [f'(e{idx})--(f{idx}:Fact)' for idx in range(len(symbols) + 1)]
-
-    # Construct the query parts
-    query_parts = []
-
-    # Add membership function definitions
-    query_parts.extend(membership_definitions)
+    # Add membership functions and conditions for melodic contours
+    for idx, symbol in enumerate(melodic_contours):
+        if symbol != 'X' and symbol != 'x':
+            add_membership_function(symbol)
+            conditions.append(f'n{idx}.interval IS {membership_functions[symbol]}')
 
     # Build the MATCH clause
-    num_intervals = len(interval_conditions)
+    num_intervals = len(melodic_contours)
     events_chain = ''.join(f'(e{i}:Event)-[n{i}:NEXT]->' for i in range(num_intervals)) + f'(e{num_intervals}:Event)'
-    match_clause = 'MATCH\n  '+ events_chain + ',\n  ' + ',\n  '.join(fact_nodes)
+    fact_nodes = [f'(e{i})--(f{i}:Fact)' for i in range(len(rhythmic_contours))]
+    match_clause = 'MATCH \n ' + events_chain + ',\n ' + ',\n '.join(fact_nodes)
 
     # Build the WHERE clause
     where_clause = ''
-    if interval_conditions:
-        where_clause = 'WHERE\n  ' + ' AND\n  '.join(interval_conditions)
+    if conditions:
+        where_clause = 'WHERE \n ' + ' AND\n '.join(conditions)
 
     # Build the RETURN clause
-    return_clause = f'RETURN e0.source AS source, e0.start AS start'
+    return_clause = 'RETURN e0.source AS source, e0.start AS start'
 
     # Combine all parts into the final query
-    query = '\n'.join(query_parts) + '\n' + match_clause
+    query = '\n'.join(membership_definitions) + '\n' + match_clause
     if where_clause:
         query += '\n' + where_clause
     query += '\n' + return_clause
@@ -392,7 +333,53 @@ def calculate_intervals_dict(notes_dict: dict) -> list[float]:
 
     return intervals
 
+def execute_cypher_dumps(directory_path: str, uri: str, user: str, password: str, verbose: bool = False):
+    '''
+    Executes all .cypher dump files in the specified directory one by one.
+
+    - directory_path : path to the directory containing .cypher files;
+    - uri            : Neo4j database URI (e.g., "bolt://localhost:7687");
+    - user           : database username;
+    - password       : database password;
+    - verbose        : if True, prints execution logs.
+    '''
+
+    # Check if the directory exists
+    if not os.path.isdir(directory_path):
+        raise ValueError(f"The directory '{directory_path}' does not exist.")
+
+    # List all .cypher or .cql files in the directory, sorted for consistency
+    cypher_files = sorted([f for f in os.listdir(directory_path) if f.endswith('.cypher') or f.endswith('.cql')])
+
+    if not cypher_files:
+        print("No .cypher files found in the directory.")
+        return
+
+    # Connect to the Neo4j database
+    driver = connect_to_neo4j(uri, user, password)
+
+    # Execute each Cypher dump file
+    for cypher_file in cypher_files:
+        file_path = os.path.join(directory_path, cypher_file)
+
+        try:
+            with open(file_path, 'r') as file:
+                cypher_query = file.read()
+            print(f'Executing {cypher_file}')
+            # Execute the Cypher query using run_query
+            results = run_query(driver, cypher_query)
+
+            if verbose:
+                print(f'Successfully executed: {cypher_file}')
+        except Exception as e:
+            print(f'Error executing {cypher_file}: {e}')
+
+    print("All Cypher dump files have been executed successfully.")
+
+
 if __name__ == "__main__":
-    contour = 'URRUdD'
-    query = create_query_from_contour(contour)
-    print(query)
+    # Set up a driver just to clear the cache
+    uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
+    user = "neo4j"                 # Default username
+    password = "12345678"          # Replace with your actual password
+    execute_cypher_dumps('/home/adel/Bureau/these/implem/SKRIDPlatform/assets/data/Musypher/load_all_chorals', uri, user, password, True)

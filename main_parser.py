@@ -410,7 +410,7 @@ class Parser:
         self.parser_w.add_argument(
             '-C', '--contour-match',
             action='store_true',
-            help='Match only the contour of the melody, i.e the sign of the intervals between notes (e.g for c5 b4 b4 g4 b4 a4, the contour is down, equal, down, up, down.)'
+            help='Match only the contour of the melody, i.e the general shape of melodic and rythmic intervals between notes'
         )
 
     def create_get(self):
@@ -581,10 +581,37 @@ class Parser:
         
         # Validate notes input based on contour_match flag
         if args.contour_match:
-            # Contour match mode: Validate that the input is a valid DRU string
-            if not re.match(r'^(\*?[UD]|[ud]|R)+$', notes_input):
-                self.parser_w.error("When using `-C`, NOTES must be a string containing only '*U', 'U', 'u', 'R', 'd', 'D', and '*D'. Example: '*URRudD'.")
-            contour = notes_input
+            # Contour match mode: Validate that the input is in the correct alternating format
+            pattern = r'^(([LSMX]|\*?[UDRudX])(-([LSMX]|\*?[UDRudX]))*)$'
+            if not re.match(pattern, notes_input):
+                self.parser_w.error("When using `-C`, NOTES must be a string containing rhythmic symbols ('L', 'M', 'S', 'X') and melodic contour symbols ('*U', 'U', 'u', 'R', 'd', 'D', '*D', 'X'), separated by '-'. Example: 'L-X-M-d-S'.")
+
+            # Split the input into components
+            contour_elements = notes_input.split('-')
+            # Separate 'X' for interval (changed to 'x') and for note duration 
+            contour_elements = ['x' if i % 2 == 1 and element == 'X' else element for (i, element) in enumerate(contour_elements)]
+
+            # Separate rhythmic and melodic contours
+            rhythmic_contours = []
+            melodic_contours = []
+
+            for element in contour_elements:
+                if re.match(r'^[LSMX]$', element):
+                    rhythmic_contours.append(element)
+                elif re.match(r'^\*?[UDRudx]$', element):
+                    melodic_contours.append(element)
+                else:
+                    self.parser_w.error(f"Invalid contour element: '{element}'.")
+
+            # Ensure there are n rhythmic symbols for n-1 melodic symbols
+            if len(rhythmic_contours) != len(melodic_contours) + 1:
+                self.parser_w.error("The contour format requires n rhythmic symbols for n-1 melodic contour symbols. Example: 'L-d-M-R-S'.")
+
+            contour = {
+                'rhythmic': rhythmic_contours,
+                'melodic': melodic_contours
+            }
+
             query = create_query_from_contour(contour)
         else:
             # Normal mode: Validate that the input is a list of notes
