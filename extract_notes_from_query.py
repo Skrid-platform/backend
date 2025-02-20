@@ -1,70 +1,6 @@
 import re
 import numpy as np
 
-def extract_notes_from_query(query: str) -> list[list[tuple[str|None, int|None] | int|float|None]]:
-    '''
-    Extract the notes from a given query.
-
-    Input :
-        - query : the fuzzy query.
-
-    Ouput :
-        notes in the following format :
-        `[[(class_1, octave_1), ..., (class_n, octave_n), duration], ...]`
-
-        For example : `[[('c', 5), 0.25], [('b', 4), 0.125], [('b', 4), 0.125], [('a', 4), ('d', 5), 0.0125]]`.
-    '''
-
-    #---Regex to find note details within the query
-    # note_pattern = re.compile(r"\{class:'(\w+|None)', octave:(\d+|None), dur:(\d+\.\d+|\d+|None)\}\)")
-    note_pattern = re.compile(r"\(e(\d+)\)--\(f(\d+)\{class:'(\w+|None)', octave:(\d+|None), dur:(\d+\.\d+|\d+|None)\}\)")
-
-    # Extract all matches
-    matches = note_pattern.findall(query)
-
-    #---Convert extracted values into a list of [(class, octave), ..., (class, octave), duration] (for each note / chord)
-    notes = []
-    current_event_nb = -1 # Will also correspond to len(notes) - 1
-    last_duration = None
-
-    for match in matches:
-        event_nb, fact_nb, class_, octave, duration = match
-
-        event_nb = int(event_nb)
-        fact_nb = int(fact_nb)
-
-        if current_event_nb < event_nb:
-            current_event_nb = event_nb
-            notes.append([])
-
-            if event_nb > 0: # Adding duration for previous event (note / chord)
-                notes[event_nb - 1].append(last_duration)
-
-        if class_ == 'None':
-            class_ = None
-        else:
-            class_ = class_.lower()
-
-        if octave == 'None':
-            octave = None
-        else:
-            octave = int(octave)
-
-        if duration == 'None':
-            duration = None
-        else:
-            duration = 1 / float(duration)
-
-        note = (class_, octave)
-        notes[event_nb].append(note)
-        last_duration = duration
-
-    # Adding last duration
-    if len(notes) > 0:
-        notes[-1].append(last_duration)
-
-    return notes
-
 def extract_notes_from_query_dict(query: str) -> dict:
     '''
     Extract nodes and their attributes from a given query, including node types.
@@ -83,7 +19,7 @@ def extract_notes_from_query_dict(query: str) -> dict:
             'f0': {'type': 'Fact', 'class': 'c', 'octave': 5, 'dur': 1},
             'f1': {'type': 'Fact', 'class': 'd', 'octave': 5, 'dur': 1},
             'f2': {'type': 'Fact', 'class': 'e', 'octave': 5, 'dur': 2},
-            't0': {'type': 'NEXT', 'interval': 'leapUp'},
+            't0': {'type': 'NEXT', 'interval': 1},
             't1': {'type': 'NEXT'},
             ...
         }
@@ -189,12 +125,14 @@ def extract_notes_from_query_dict(query: str) -> dict:
             if value == "None":
                 value = None
 
-            # Add the attribute to the node_attributes dictionary
-            if var in node_attributes:
-                node_attributes[var][attr] = value
-            else:
-                # Variable not found in the MATCH clause; add it anyway with unknown type
-                node_attributes[var] = {attr: value}
+            # Only keep (value, attribute) pairs when its an equality in the original query
+            if operator == '=':
+                # Add the attribute to the node_attributes dictionary
+                if var in node_attributes:
+                    node_attributes[var][attr] = value
+                else:
+                    # Variable not found in the MATCH clause; add it anyway with unknown type
+                    node_attributes[var] = {attr: value}
         else:
             # Condition not matching the expected pattern; you may handle other patterns here
             pass
