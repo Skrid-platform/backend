@@ -3,6 +3,7 @@ from generate_audio import generate_mp3
 from degree_computation import convert_note_to_sharp
 from note import Note
 from refactor import move_attribute_values_to_where_clause
+from audio_parser import extract_notes
 
 import os
 
@@ -163,6 +164,46 @@ def create_query_from_contour(contour):
         query += '\n' + where_clause
     query += '\n' + return_clause
 
+    return query
+
+def create_query_from_audio(audio_path, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, collection=None, sr=16000, fmin=65, fmax=300):
+    """
+    Create a fuzzy query directly from an audio file.
+    
+    In:
+        - audio_path (str)          : Path to the audio file.
+        - pitch_distance (float)     : The `pitch distance` (fuzzy param).
+        - duration_factor (float)    : The `duration factor` (fuzzy param).
+        - duration_gap (float)       : The `duration gap` (fuzzy param).
+        - alpha (float)              : The `alpha` param.
+        - allow_transposition (bool) : The `allow_transposition` param.
+        - contour_match (bool)       : The `contour_match` param.
+        - collection (str | None)    : The collection filter.
+        - sr (int)                   : Sampling rate for audio processing.
+        - fmin (float)               : Minimum frequency for pitch detection.
+        - fmax (float)               : Maximum frequency for pitch detection.
+    
+    Out:
+        - A fuzzy query searching for the extracted notes.
+    """
+    # Extract notes from the audio file
+    notes = extract_notes(audio_path, sr=sr, fmin=fmin, fmax=fmax)
+    
+    # Convert notes to query format
+    notes_list = [[(note.pitch, note.octave), note.dur] for note in notes]
+    
+    # Generate the query
+    query = create_query_from_list_of_notes(
+        notes_list,
+        pitch_distance,
+        duration_factor,
+        duration_gap,
+        alpha,
+        allow_transposition,
+        contour_match,
+        collection
+    )
+    
     return query
 
 def get_first_k_notes_of_each_score(k, source, driver):
@@ -378,8 +419,11 @@ def execute_cypher_dumps(directory_path: str, uri: str, user: str, password: str
 
 
 if __name__ == "__main__":
-    # Set up a driver just to clear the cache
-    uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
-    user = "neo4j"                 # Default username
-    password = "12345678"          # Replace with your actual password
-    execute_cypher_dumps('/home/adel/Bureau/these/implem/SKRIDPlatform/assets/data/Musypher/load_all_chorals', uri, user, password, True)
+    # # Set up a driver just to clear the cache
+    # uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
+    # user = "neo4j"                 # Default username
+    # password = "12345678"          # Replace with your actual password
+    # execute_cypher_dumps('/home/adel/Bureau/these/implem/SKRIDPlatform/assets/data/Musypher/load_all_chorals', uri, user, password, True)
+
+    query = create_query_from_audio("../upload/10361_Belle_nous_irons_dans_tes_verts_prs.mei_0_1_1.0.wav", 0.0, 1.0, 0.0, 0.0, True, False)
+    print(query)
