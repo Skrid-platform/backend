@@ -1,13 +1,20 @@
 import librosa
 import numpy as np
 import argparse
+import scipy.signal
 
 from note import Note
 from utils import create_query_from_list_of_notes
 
+def smooth_f0(f0, window_size=3):
+    """Apply median filtering to remove frequency outliers."""
+    smoothed_f0 = scipy.signal.medfilt(f0, kernel_size=window_size)
+    smoothed_f0 = [freq if freq > 0.0 else None for freq in smoothed_f0]
+    return smoothed_f0
+
 def frequency_to_note(freq):
     """Convert a frequency to the closest musical note (pitch, octave)."""
-    if np.isnan(freq):
+    if freq is None:
         return None, None  # Silence or unvoiced region
     
     note_str = librosa.hz_to_note(freq, octave=True)
@@ -60,10 +67,11 @@ def determine_note_durations(f0, sr):
 
     return note_durations, sixteenth_note_samples * 16  # Return beat length in samples
 
-def extract_notes(path, sr=16000, fmin=65, fmax=300):
+def extract_notes(path, sr=16000, fmin=65, fmax=900):
     """Convert WAV audio to a sequence of Note objects with proper rhythmic values."""
     audio, sr = librosa.load(path, sr=sr)
     f0, _, _ = librosa.pyin(audio, sr=sr, fmin=fmin, fmax=fmax, n_thresholds=30)
+    f0 = smooth_f0(f0)
 
     # Get durations and reference beat length
     note_durations, beat_samples = determine_note_durations(f0, sr)
@@ -156,7 +164,10 @@ def main():
     args = parser.parse_args()
     
     query = create_query_from_audio(
+        # "../uploads/audio.wav",
         "./uploads/audio.wav",
+        # "./10361_Belle_nous_irons_dans_tes_verts_prs.mei_0_1_1.0.wav",
+        # "./SolSiRe.wav",
         args.pitch_distance,
         args.duration_factor,
         args.duration_gap,
@@ -170,9 +181,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# if __name__ == "__main__":
-#     # Example usage
-#     path = "10361_Belle_nous_irons_dans_tes_verts_prs.mei_0_1_1.0.wav"
-#     notes = extract_notes(path)
-#     print([note.to_list() for note in notes])
+    # # Example usage
+    # path = "SolSiRe.wav"
+    # notes = extract_notes(path)
+    # print([note.to_list() for note in notes])
