@@ -64,7 +64,7 @@ def get_ordered_results_2(result, query):
     # Extract the query notes and fuzzy parameters
     query_notes = extract_notes_from_query_dict(query)
     query_notes = {node_name: attrs for node_name, attrs in query_notes.items() if attrs['type'] == 'Fact'}
-    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, _, _, _ = extract_fuzzy_parameters(query)
+    pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, allow_homothety = extract_fuzzy_parameters(query)
     
     # Extract membership functions and their associated attributes
     attributes_with_membership_functions = extract_attributes_with_membership_functions(query)
@@ -256,8 +256,6 @@ def process_results_to_dict(result, query):
     - query  : the *fuzzy* query (to extract info from it).
     '''
 
-    _, _, _, _, allow_transpose, contour, _, _ = extract_fuzzy_parameters(query)
-
     sequence_details = get_ordered_results_2(result, query)
     
     res = []
@@ -302,34 +300,25 @@ def process_results_to_text(result, query):
     - query  : the *fuzzy* query (to extract info from it).
     '''
 
-    _, _, _, _, allow_transpose, contour, _, _ = extract_fuzzy_parameters(query)
-
     sequence_details = get_ordered_results_2(result, query)
 
     res = ''
     for source, start, end, sequence_degree, note_details in sequence_details:
         res += f"Source: {source}, Start: {start}, End: {end}, Overall Degree: {sequence_degree}\n"
 
-        if not contour:
-            for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg) in enumerate(note_details):
-                res += f"  Note {idx + 1}: {note}\n"
-                res += f"    Pitch Degree: {pitch_deg}\n"
-                res += f"    Duration Degree: {duration_deg}\n"
-                res += f"    Sequencing Degree: {sequencing_deg}\n"
-                res += f"    Aggregated Note Degree: {note_deg}\n"
+        for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg) in enumerate(note_details):
+            res += f"  Note {idx + 1}: {note}\n"
+            res += f"    Pitch Degree: {pitch_deg}\n"
+            res += f"    Duration Degree: {duration_deg}\n"
+            res += f"    Sequencing Degree: {sequencing_deg}\n"
+            res += f"    Aggregated Note Degree: {note_deg}\n"
 
-            res += "\n" # Add a blank line between sequences
-        else:
-            for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg) in enumerate(note_details):
-                res += f"  Note {idx + 1}: {note}\n"
-                res += f"    Contour Degree: {note_deg}\n"
-            res += "\n" # Add a blank line between sequences
+        res += "\n" # Add a blank line between sequences
 
     return res
 
 
 def process_results_to_mp3(result, query, max_files, driver):
-    _, _, _, _, allow_transpose, contour, _, _ = extract_fuzzy_parameters(query)
 
     sequence_details = get_ordered_results_2(result, query)
 

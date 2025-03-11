@@ -152,7 +152,7 @@ def create_match_clause(query):
     - query        : the entire query string;
     '''
 
-    _, _, duration_gap, _, allow_transposition, _, _, _ = extract_fuzzy_parameters(query)
+    _, _, duration_gap, _, allow_transposition, _ = extract_fuzzy_parameters(query)
 
     if duration_gap > 0:
         # Proceed to create the MATCH clause as per current code
@@ -216,7 +216,7 @@ def create_match_clause(query):
 
         return match_clause
     else:
-        # duration_gap <= 0
+        # duration_gap = 0
         # Extract the MATCH clause from the query
         match_clause = extract_match_clause(query)
 
@@ -497,7 +497,7 @@ def reformulate_fuzzy_query(query):
 
     #------Init
     #---Extract the parameters from the augmented query
-    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, fixed_notes, collections = extract_fuzzy_parameters(query)
+    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, _ = extract_fuzzy_parameters(query)
 
     #---Extract notes using the new function
     notes = extract_notes_from_query_dict(query)

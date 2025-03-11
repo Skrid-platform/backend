@@ -287,39 +287,6 @@ def refactor_variable_names(query):
 
     return new_query
 
-def validate_fuzzy_query(query):
-    """
-    Validates a fuzzy query by checking for incoherent combinations of functionalities.
-    
-    Parameters:
-        query (str): The fuzzy query to validate.
-    
-    Raises:
-        ValueError: If an incoherent combination of functionalities is detected.
-    
-    Currently, the function checks:
-        - If duration_gap > 0 and a contour search is specified, which is not allowed.
-    
-    The function can be extended to include more checks in the future.
-    """
-    # Extract parameters from the query
-    _, _, duration_gap, _, _, _, _, _ = extract_fuzzy_parameters(query)
-    
-    # Extract membership functions from the query
-    membership_functions = extract_fuzzy_membership_functions(query)
-    
-    # For now, we check if duration_gap > 0 and there is a contour search specified
-    if duration_gap > 0 and membership_functions:
-        raise ValueError("Incoherent query: duration_gap > 0 is not compatible with contour search.")
-    
-    # Leave room for more checks in the future
-    # For example:
-    # if some_other_condition:
-    #     raise ValueError("Incoherent query: ...")
-    
-    # If no incoherence is detected, the query is considered valid
-    return True
-
 if __name__ == "__main__":
     with open('fuzzy_query.cypher', 'r') as file:
         fuzzy_query = file.read()

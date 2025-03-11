@@ -147,7 +147,7 @@ def extract_fuzzy_parameters(query):
         - query : the *fuzzy* query ;
 
     Out :
-        pitch_distance(float), duration_factor(float), duration_gap(float), alpha(float), allow_transposition(bool), contour(bool), fixed_notes(bool[]), collection(str | None)
+        pitch_distance(float), duration_factor(float), duration_gap(float), alpha(float), allow_transposition(bool), allow_homothety(bool)
     '''
 
     # Extracting the parameters from the augmented query
@@ -163,18 +163,11 @@ def extract_fuzzy_parameters(query):
 
     # Check for the ALLOW_TRANSPOSITION keyword
     allow_transposition = bool(re.search(r'ALLOW_TRANSPOSITION', query))
-    contour = True if extract_fuzzy_membership_functions(query) else False
 
-    # Check for collection
-    collection_re = re.search(r"tp\.collection\s*=\s*'(.*?)'", query)
-    collection = collection_re.group(1) if collection_re else None
+    # Check for the ALLOW_HOMOTHETY keyword
+    allow_homothety = bool(re.search(r'ALLOW_HOMOTHETY', query))
 
-    # Extract fixed notes information
-    note_pattern = r"\{class:'(\w+|None)', octave:(\d+|None), dur:(\d+\.\d+|\d+|None)\}\)( FIXED)?"
-    matches = re.findall(note_pattern, query)
-    fixed_notes = [bool(fixed) for _, _, _, fixed in matches]
-
-    return pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour, fixed_notes, collection
+    return pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, allow_homothety
 
 def extract_fuzzy_membership_functions(query):
     '''
