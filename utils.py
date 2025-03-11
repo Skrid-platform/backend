@@ -419,11 +419,7 @@ def execute_cypher_dumps(directory_path: str, uri: str, user: str, password: str
 
 
 if __name__ == "__main__":
-    # # Set up a driver just to clear the cache
-    # uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
-    # user = "neo4j"                 # Default username
-    # password = "12345678"          # Replace with your actual password
-    # execute_cypher_dumps('/home/adel/Bureau/these/implem/SKRIDPlatform/assets/data/Musypher/load_all_chorals', uri, user, password, True)
-
-    query = create_query_from_audio("../upload/10361_Belle_nous_irons_dans_tes_verts_prs.mei_0_1_1.0.wav", 0.0, 1.0, 0.0, 0.0, True, False)
-    print(query)
+    # Set up a driver just to clear the cache
+    uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
+    user = "neo4j"                 # Default username
+    password = "12345678"          # Replace with your actual password

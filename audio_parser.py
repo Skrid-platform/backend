@@ -2,6 +2,7 @@ import librosa
 import numpy as np
 import argparse
 import scipy.signal
+import re
 
 from note import Note
 from utils import create_query_from_list_of_notes
@@ -12,103 +13,99 @@ def smooth_f0(f0, window_size=3):
     smoothed_f0 = [freq if freq > 0.0 else None for freq in smoothed_f0]
     return smoothed_f0
 
+def average_aggregate_f0(f0, samples_per_sec=100, target_samples_per_sec=20):
+    """Reduce the number of samples in f0 by averaging over aggregation groups."""
+    aggregation_size = samples_per_sec // target_samples_per_sec  # Determine group size
+    num_groups = len(f0) // aggregation_size
+    
+    aggregated_f0 = [np.nanmean(f0[i * aggregation_size: (i + 1) * aggregation_size]) for i in range(num_groups)]
+    
+    return np.array(aggregated_f0)
+
 def frequency_to_note(freq):
-    """Convert a frequency to the closest musical note (pitch, octave)."""
+    """Convert frequency to a musical note with cents deviation using regex."""
     if freq is None:
-        return None, None  # Silence or unvoiced region
+        return None, None, None  # Silence or unvoiced region
     
-    note_str = librosa.hz_to_note(freq, octave=True)
-    pitch, octave = note_str[:-1], int(note_str[-1])
-    return pitch.lower(), octave
-
-def determine_note_durations(f0, sr):
-    """Determine rhythmic duration from sample counts."""
-    note_durations = []
-    note_values = [1, 2, 4, 8, 16, 32]  # Whole, half, quarter, eighth, sixteenth, thirty-second
-    note_time_ratios = np.array([1.0 / val for val in note_values])
+    note_str = librosa.hz_to_note(freq, cents=True)
     
-    # Count consecutive samples per note
-    durations = []
-    prev_pitch, prev_octave = None, None
-    start_idx = None
+    match = re.match(r"([A-Ga-g#♯♭]+)(-?\d+)([+-]?\d+)?", note_str)
+    
+    if match:
+        pitch = match.group(1)  # Extract pitch name
+        octave = int(match.group(2))  # Extract octave
+        cents = int(match.group(3)) if match.group(3) else 0  # Extract cents deviation (default 0)
+        return pitch, octave, cents
 
-    for i, freq in enumerate(f0):
-        pitch, octave = frequency_to_note(freq)
-        
-        if pitch is None:  # Silence or unvoiced region
-            if prev_pitch is not None:
-                duration_samples = i - start_idx
-                durations.append(duration_samples)
-                prev_pitch, prev_octave, start_idx = None, None, None
+    return None, None, None  # Fallback in case of unexpected format
+
+
+def map_frequencies_to_pitches(f0, cents_threshold=50):
+    """Convert frequencies to sticky pitches, tracking sequence lengths."""
+    pitches = []
+    sequence_lengths = []
+    prev_pitch, prev_octave, prev_cents = None, None, None
+    count = 0
+
+    print([frequency_to_note(freq) for freq in f0], len(f0))
+    for freq in f0:
+        pitch, octave, cents = frequency_to_note(freq)
+
+        if prev_pitch is not None:
+            # Check if transitioning from a note to its sharp variant
+            if prev_pitch + "#" == pitch and prev_cents is not None and cents is not None:
+                if prev_cents > cents_threshold and cents < -cents_threshold:
+                    # Treat it as the same note (sticky behavior)
+                    count += 1
+                    continue
+
+        # If new pitch is detected, store the previous one
+        if pitch == prev_pitch:
+            count += 1
         else:
-            if prev_pitch is None:  # Start of a new note
-                start_idx = i
-            elif (pitch, octave) != (prev_pitch, prev_octave):  # Note change
-                duration_samples = i - start_idx
-                durations.append(duration_samples)
-                start_idx = i  # New note starts
-                
-            prev_pitch, prev_octave = pitch, octave
+            if prev_pitch is not None:
+                pitches.append((prev_pitch, prev_octave))
+                sequence_lengths.append(count)
+            prev_pitch, prev_octave, prev_cents = pitch, octave, cents
+            count = 1
 
-    # Handle last note if it extends to the end
+    # Store last note
     if prev_pitch is not None:
-        duration_samples = len(f0) - start_idx
-        durations.append(duration_samples)
+        pitches.append((prev_pitch, prev_octave))
+        sequence_lengths.append(count)
 
-    # Infer the basic unit (sixteenth note duration in samples)
-    min_duration = min(durations)  # Smallest detected note duration
-    sixteenth_note_samples = min_duration  # Assume the shortest detected note is a sixteenth note
+    return pitches, sequence_lengths
 
-    # Convert each duration to a rhythmic value
-    for dur_samples in durations:
-        dur_whole_note = dur_samples / (sixteenth_note_samples * 16)  # Convert to whole note units
-        closest_dur = note_values[np.argmin(np.abs(note_time_ratios - dur_whole_note))]
-        note_durations.append(closest_dur)
-
-    return note_durations, sixteenth_note_samples * 16  # Return beat length in samples
+def assign_durations(sequence_lengths):
+    """Compute relative durations and assign closest musical note fractions."""
+    max_length = max(sequence_lengths)
+    relative_durations = [length / max_length for length in sequence_lengths]
+    
+    # Define eligible musical durations (including dotted notes)
+    eligible_durations = {1, 1/2, 1/4, 1/8, 1/16, 3/4, 3/8, 3/16}
+    
+    # Assign nearest eligible fraction
+    durations = [min(eligible_durations, key=lambda x: abs(x - dur)) for dur in relative_durations]
+    return durations
 
 def extract_notes(path, sr=16000, fmin=65, fmax=900):
     """Convert WAV audio to a sequence of Note objects with proper rhythmic values."""
     audio, sr = librosa.load(path, sr=sr)
     f0, _, _ = librosa.pyin(audio, sr=sr, fmin=fmin, fmax=fmax, n_thresholds=30)
     f0 = smooth_f0(f0)
-
-    # Get durations and reference beat length
-    note_durations, beat_samples = determine_note_durations(f0, sr)
-
+    f0 = average_aggregate_f0(f0)
+    print(f0, len(f0),'f0')
+    pitches, sequence_lengths = map_frequencies_to_pitches(f0)
+    durations = assign_durations(sequence_lengths)
+    
     notes = []
-    prev_pitch, prev_octave = None, None
-    start_idx = None
     cumulative_duration = 0.0  # Start time in whole notes
-    note_index = 0
-
-    for i, freq in enumerate(f0):
-        pitch, octave = frequency_to_note(freq)
-
-        if pitch is None:  # Silence or unvoiced part
-            if prev_pitch is not None:
-                duration = note_durations[note_index]  # Get computed rhythmic value
-                notes.append(Note(prev_pitch, prev_octave, duration, start=cumulative_duration))
-                cumulative_duration += 1.0 / duration  # Move start time forward
-                note_index += 1
-                prev_pitch, prev_octave, start_idx = None, None, None
-        else:
-            if prev_pitch is None:
-                start_idx = i
-            elif (pitch, octave) != (prev_pitch, prev_octave):
-                duration = note_durations[note_index]
-                notes.append(Note(prev_pitch, prev_octave, duration, start=cumulative_duration))
-                cumulative_duration += 1.0 / duration
-                start_idx = i
-                note_index += 1
-
-            prev_pitch, prev_octave = pitch, octave
-
-    # Handle last note if it extends to the end
-    if prev_pitch is not None and note_index < len(note_durations):
-        duration = note_durations[note_index]
-        notes.append(Note(prev_pitch, prev_octave, duration, start=cumulative_duration))
-
+    
+    for (pitch, octave), duration in zip(pitches, durations):
+        if pitch is not None:
+            notes.append(Note(pitch, octave, duration, start=cumulative_duration))
+            cumulative_duration += duration
+    
     return notes
 
 def create_query_from_audio(audio_path, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, collection=None, sr=16000, fmin=65, fmax=300):
@@ -180,8 +177,11 @@ def main():
     print(query)
 
 if __name__ == "__main__":
-    main()
+    # main()
     # # Example usage
     # path = "SolSiRe.wav"
     # notes = extract_notes(path)
     # print([note.to_list() for note in notes])
+
+    res = extract_notes("./audio/input/10361_Belle_nous_irons_dans_tes_verts_prs.mei_0_1_1.0.mp3", sr=48000)
+    print(res, len(res))

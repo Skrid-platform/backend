@@ -6,6 +6,7 @@
 __pycache__/
 CSV/
 latex/
+queries/
+test_queries/
+audio/
 *.csv
-load_500_scores.cql
-random_notes.json
