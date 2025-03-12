@@ -7,7 +7,7 @@ from refactor import move_attribute_values_to_where_clause
 
 import os
 
-def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, allow_homothety, collection=None):
+def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, allow_homothety, incipit_only, collection=None):
     '''
     Create a fuzzy query.
 
@@ -19,7 +19,8 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
         - alpha (float)              : the `alpha` param ;
         - allow_transposition (bool) : the `allow_transposition` param ;
         - allow_homothety (bool)     : the `allow_homothety` param ;
-        - collection (str | None) : the collection filter.
+        - incipit_only (bool)        : restricts search to the incipit ;
+        - collection (str | None)    : the collection filter.
 
     Out :
         a fuzzy query searching for the notes given in parameters.
@@ -41,9 +42,12 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
 
     match_clause += f' TOLERANT pitch={pitch_distance}, duration={duration_factor}, gap={duration_gap}\n ALPHA {alpha}\n'
 
-    if collection != None:
+    if collection is not None:
         match_clause += " (tp:TopRhythmic{{collection:'{}'}})-[:RHYTHMIC]->(m:Measure),\n (m)-[:HAS]->(e0:Event),\n".format(collection)
-
+    
+    if incipit_only:
+        match_clause += " (v:Voice)-[:timeSeries]->(e0:Event),\n"
+    
     events = []
     facts = []
     fact_nb = 0

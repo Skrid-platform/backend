@@ -413,6 +413,11 @@ class Parser:
             help='Allow time homothety: match on duration ratio instead of duration'
         )
         self.parser_w.add_argument(
+            '-io', '--incipit-only',
+            action='store_true',
+            help='Restrict the search to the start of musical scores'
+        )
+        self.parser_w.add_argument(
             '-C', '--contour-match',
             action='store_true',
             help='Match only the contour of the melody, i.e the general shape of melodic and rythmic intervals between notes'
@@ -624,7 +629,7 @@ class Parser:
                 notes = check_notes_input_format(notes_input)
             except (ValueError, SyntaxError):
                 self.parser_w.error("NOTES must be a valid list format. Example: \"[[(\'c\', 5), 1], [(\'d\', 5), 4, 1]]\"")
-            query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition, args.allow_homothety, collections)
+            query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition, args.allow_homothety, args.incipit_only, collections)
 
         if args.output == None:
             print(query)
