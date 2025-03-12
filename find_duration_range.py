@@ -32,11 +32,13 @@ def find_duration_range_multiplicative_factor_sym(duration, factor, alpha = 0.0)
     if not (0 <= alpha <= 1):
         raise ValueError("Alpha must be between 0 and 1.")
 
-    # Compute the distances between the peak and bounds
+
     if factor < 1:
-        low_distance = duration - (duration * factor)
-        high_distance = (duration * (1 / factor)) - duration
-    elif factor > 1:
+        factor = 1.0 /factor
+    
+    # Compute the distances between the peak and bounds
+    if factor != 1:
+        factor = (factor - 1) * (1 - alpha) + 1
         low_distance = duration - (duration * (1 / factor))
         high_distance = (duration * factor) - duration
     else:

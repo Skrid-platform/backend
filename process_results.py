@@ -194,7 +194,7 @@ def get_ordered_results_2(result, query):
         sequence_degree = aggregate_degrees(min_aggregation, aggregated_degrees)
         
         if sequence_degree >= alpha:
-            note_details = [(note_data if not allow_transpose else note_data[0], pitch_deg, duration_deg, sequencing_deg, deg) for note_data, deg, (pitch_deg, duration_deg, sequencing_deg) in zip(note_sequence, aggregated_degrees, p_d_g_note_degrees)]
+            note_details = [(note_data[0], pitch_deg, duration_deg, sequencing_deg, deg) for note_data, deg, (pitch_deg, duration_deg, sequencing_deg) in zip(note_sequence, aggregated_degrees, p_d_g_note_degrees)]
             sequence_details.append([source, start, end, sequence_degree, note_details])
     
     # Sort the sequences by their overall degree in descending order
@@ -254,7 +254,6 @@ def process_crisp_results_to_json(result):
     return json.dumps(process_crisp_results_to_dict(result))
 
 def process_results_to_dict(result, query):
-    # Obsolete
     '''
     Process the results of the query and return a sorted list of dictionaries.
     Each dictionary represent a song.

@@ -94,24 +94,7 @@ def duration_degree(duration1, duration2, max_duration_distance):
 def duration_degree_with_multiplicative_factor(expected_duration, duration, factor):
     if factor == 1.0 or expected_duration is None:
         return 1.0
-
-    # # lower_bound = expected_duration / factor*0.9
-    # # upper_bound = expected_duration * factor*1.1
-    # lower_bound = expected_duration / factor
-    # upper_bound = expected_duration * factor
-
-    # # If the duration is outside the acceptable range, return 0
-    # if duration < lower_bound or duration > upper_bound:
-    #     return 0.0
-
-    # # Linear interpolation when duration is less than or equal to expected_duration
-    # if duration <= expected_duration:
-    #     return (duration - lower_bound) / (expected_duration - lower_bound)
-
-    # # Linear interpolation when duration is greater than expected_duration
-    # return (upper_bound - duration) / (upper_bound - expected_duration)
-
-    # quick dirty change
+    
     a = -1 / (factor - 1)
     b = 1 - a
 

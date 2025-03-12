@@ -7,7 +7,7 @@ from refactor import move_attribute_values_to_where_clause
 
 import os
 
-def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, collection=None):
+def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, allow_homothety, collection=None):
     '''
     Create a fuzzy query.
 
@@ -18,7 +18,7 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
         - duration_gap (float)       : the `duration gap` (fuzzy param) ;
         - alpha (float)              : the `alpha` param ;
         - allow_transposition (bool) : the `allow_transposition` param ;
-        - contour_match (bool)       : the `contour_match` param ;
+        - allow_homothety (bool)     : the `allow_homothety` param ;
         - collection (str | None) : the collection filter.
 
     Out :
@@ -36,8 +36,10 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
     match_clause = 'MATCH\n'
     if allow_transposition:
         match_clause += ' ALLOW_TRANSPOSITION\n'
+    if allow_homothety:
+        match_clause += ' ALLOW_HOMOTHETY\n'
 
-    match_clause += f' TOLERANT pitch={pitch_distance}, duration={duration_factor}, gap={duration_gap}\nALPHA {alpha}\n'
+    match_clause += f' TOLERANT pitch={pitch_distance}, duration={duration_factor}, gap={duration_gap}\n ALPHA {alpha}\n'
 
     if collection != None:
         match_clause += " (tp:TopRhythmic{{collection:'{}'}})-[:RHYTHMIC]->(m:Measure),\n (m)-[:HAS]->(e0:Event),\n".format(collection)
@@ -50,12 +52,8 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
             note = Note(note_or_chord[0][0], note_or_chord[0][1], note_or_chord[1], note_or_chord[2])
         else:
             note = Note(note_or_chord[0][0], note_or_chord[0][1], note_or_chord[1])
-        duration = note.duration
 
         event = '(e{}:Event)'.format(i)
-
-        # for note in note_or_chord[:-1]:
-        #     class_, octave = note
 
         if note.dots:
             fact = "(e{})--(f{}:Fact{{class:'{}', octave:{}, dur:{}, dots:{} }})".format(i, fact_nb, note.pitch, note.octave, note.dur, note.dots)
@@ -165,46 +163,6 @@ def create_query_from_contour(contour):
     query += '\n' + return_clause
 
     return query
-
-# def create_query_from_audio(audio_path, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, collection=None, sr=16000, fmin=65, fmax=300):
-#     """
-#     Create a fuzzy query directly from an audio file.
-    
-#     In:
-#         - audio_path (str)          : Path to the audio file.
-#         - pitch_distance (float)     : The `pitch distance` (fuzzy param).
-#         - duration_factor (float)    : The `duration factor` (fuzzy param).
-#         - duration_gap (float)       : The `duration gap` (fuzzy param).
-#         - alpha (float)              : The `alpha` param.
-#         - allow_transposition (bool) : The `allow_transposition` param.
-#         - contour_match (bool)       : The `contour_match` param.
-#         - collection (str | None)    : The collection filter.
-#         - sr (int)                   : Sampling rate for audio processing.
-#         - fmin (float)               : Minimum frequency for pitch detection.
-#         - fmax (float)               : Maximum frequency for pitch detection.
-    
-#     Out:
-#         - A fuzzy query searching for the extracted notes.
-#     """
-#     # Extract notes from the audio file
-#     notes = extract_notes(audio_path, sr=sr, fmin=fmin, fmax=fmax)
-    
-#     # Convert notes to query format
-#     notes_list = [[(note.pitch, note.octave), note.dur] for note in notes]
-    
-#     # Generate the query
-#     query = create_query_from_list_of_notes(
-#         notes_list,
-#         pitch_distance,
-#         duration_factor,
-#         duration_gap,
-#         alpha,
-#         allow_transposition,
-#         contour_match,
-#         collection
-#     )
-    
-#     return query
 
 def get_first_k_notes_of_each_score(k, source, driver):
     # In : an integer, a driver for the DB

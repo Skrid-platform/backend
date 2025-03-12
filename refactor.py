@@ -139,7 +139,7 @@ def move_attribute_values_to_where_clause(query):
     prefix = query[:match_match.start()].strip()
 
     # Reconstruct the query
-    new_query = f"{prefix}\nMATCH\n{modified_match_clause}\n{new_where_clause}\n{rest_after_where}"
+    new_query = f"{prefix}\nMATCH\n {modified_match_clause}\n{new_where_clause}\n{rest_after_where}"
 
     return new_query
 

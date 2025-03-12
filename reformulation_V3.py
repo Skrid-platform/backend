@@ -28,9 +28,12 @@ def make_duration_ratio_condition(duration_ratio, duration_gap, duration_factor,
     if duration_ratio is None:
         return ''
 
+    if duration_factor < 1:
+        duration_factor = 1.0/duration_factor
+    
+    min_ratio, max_ratio = find_duration_range_multiplicative_factor_sym(duration_ratio, duration_factor, alpha)
     if duration_gap > 0:
         if duration_factor > 1:
-            min_ratio, max_ratio = find_duration_range_multiplicative_factor_sym(duration_ratio, duration_factor, alpha)
             duration_ratio_condition = (
                 f"EXISTS(f{idx}.duration) AND EXISTS(f{idx + 1}.duration) AND "
                 f"{min_ratio} <= f{idx + 1}.duration / f{idx}.duration AND "
@@ -43,7 +46,6 @@ def make_duration_ratio_condition(duration_ratio, duration_gap, duration_factor,
             )
     else:
         if duration_factor > 1:
-            min_ratio, max_ratio = find_duration_range_multiplicative_factor_sym(duration_ratio, duration_factor, alpha)
             duration_ratio_condition = (
                 f"{min_ratio} <= n{idx}.duration_ratio AND n{idx}.duration_ratio <= {max_ratio}"
             )
