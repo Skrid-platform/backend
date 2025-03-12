@@ -6,7 +6,7 @@ from extract_notes_from_query import extract_fuzzy_parameters, extract_attribute
 from note import Note
 from degree_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees, aggregate_degrees, pitch_degree_with_intervals, duration_degree_with_multiplicative_factor
 from generate_audio import generate_mp3
-from utils import get_notes_from_source_and_time_interval, calculate_pitch_interval, calculate_intervals_dict
+from utils import get_notes_from_source_and_time_interval, calculate_pitch_interval, calculate_intervals_list, calculate_dur_ratios_list
 from neo4j_connection import connect_to_neo4j, run_query
 
 def min_aggregation(*degrees):
@@ -76,17 +76,16 @@ def get_ordered_results_2(result, query):
         alias = f"{attribute_name}_{node_name}_{membership_function_name}"
         attribute_aliases.append((alias, node_name, attribute_name, membership_function_name))
 
-    # Determine if we use pitch or interval comparisons
-    use_intervals = allow_transpose
-    if use_intervals:
-        intervals = calculate_intervals_dict(query_notes)
-    
+    if allow_transpose:
+        intervals = calculate_intervals_list(query_notes)
+    if allow_homothety:
+        duration_ratios = calculate_dur_ratios_list(query_notes)
+
     note_sequences = []
     stored_attribute_values = []  # To store attribute values for membership function computation
     
     for record in result:
         note_sequence = []
-        degrees_per_note = [[] for _ in range(len(query_notes))]  # List of lists to store degrees per note
         
         fact_nb = 0  # Corresponds to the index of the first fact for the current event
         attribute_values = {}  # Store attribute values for this record
@@ -105,15 +104,17 @@ def get_ordered_results_2(result, query):
             else:
                 note = Note(pitch, octave, int(1 / duration), dots, duration, start, end, id_)
 
-            if use_intervals:
-                if event_nb == 0:
-                    interval = None
-                else:
+            # Retrieve interval and duration ratio
+            interval, duration_ratio = None, None
+            if allow_transpose:
+                if event_nb > 0:
                     interval = record[f"interval_{event_nb - 1}"]
-                note_sequence.append((note, interval))
-            else:
-                note_sequence.append(note)
+
+            if allow_homothety:
+                if event_nb > 0:
+                    duration_ratio = record[f"duration_ratio_{event_nb - 1}"]
             
+            note_sequence.append((note, interval, duration_ratio))
             fact_nb += 1  # Would be used for chords
         
             # Store membership function attribute values
@@ -130,14 +131,15 @@ def get_ordered_results_2(result, query):
         p_d_g_note_degrees = [[] for _ in range(len(note_sequence))] # Store pitch, duration and gap degrees for rendering purposes
         
         for idx, note_data in enumerate(note_sequence):
-            note = note_data if not use_intervals else note_data[0]
-            interval = None if not use_intervals else note_data[1]
+            note = note_data[0]
+            interval = note_data[1]
+            duration_ratio = note_data[2]
             query_note = query_notes[f'f{idx}']
             pitch_deg, duration_deg, sequencing_deg = 1.0, 1.0, 1.0 # Values for rendering
 
             # Compute pitch or interval degree
             if pitch_gap > 0:
-                if use_intervals:
+                if allow_transpose:
                     if idx > 0:  # Skip first note for interval comparison
                         pitch_deg = pitch_degree_with_intervals(intervals[idx - 1], interval, pitch_gap)
                         interval_degrees[idx - 1].append(pitch_deg)
@@ -152,13 +154,18 @@ def get_ordered_results_2(result, query):
                     expected_duration = 1.0 / query_note['dur']
                     if query_note.get('dots', None):
                         expected_duration *= 1.5
-                    duration_deg = duration_degree_with_multiplicative_factor(expected_duration, note.duration, duration_factor)
-                    note_degrees[idx].append(duration_deg)
+                    if allow_homothety:
+                        if idx > 0:  # Skip first note 
+                            duration_deg = duration_degree_with_multiplicative_factor(duration_ratios[idx - 1], duration_ratio, duration_factor)
+                            note_degrees[idx].append(duration_deg)
+                    else:
+                        duration_deg = duration_degree_with_multiplicative_factor(expected_duration, note.duration, duration_factor)
+                        note_degrees[idx].append(duration_deg) 
             
             # Compute sequencing degree
             if sequencing_gap > 0:
                 if idx > 0:
-                    prev_note = note_sequence[idx - 1] if not use_intervals else note_sequence[idx - 1][0]
+                    prev_note = note_sequence[idx - 1] if not allow_transpose else note_sequence[idx - 1][0]
                     sequencing_deg = sequencing_degree(prev_note.end, note.start, sequencing_gap)
                     note_degrees[idx].append(sequencing_deg)
             
@@ -187,7 +194,7 @@ def get_ordered_results_2(result, query):
         sequence_degree = aggregate_degrees(min_aggregation, aggregated_degrees)
         
         if sequence_degree >= alpha:
-            note_details = [(note_data if not use_intervals else note_data[0], pitch_deg, duration_deg, sequencing_deg, deg) for note_data, deg, (pitch_deg, duration_deg, sequencing_deg) in zip(note_sequence, aggregated_degrees, p_d_g_note_degrees)]
+            note_details = [(note_data if not allow_transpose else note_data[0], pitch_deg, duration_deg, sequencing_deg, deg) for note_data, deg, (pitch_deg, duration_deg, sequencing_deg) in zip(note_sequence, aggregated_degrees, p_d_g_note_degrees)]
             sequence_details.append([source, start, end, sequence_degree, note_details])
     
     # Sort the sequences by their overall degree in descending order
@@ -327,7 +334,8 @@ def process_results_to_mp3(result, query, max_files, driver):
         sequence_details = sequence_details[:max_files]
 
     # Clear previous results in audio directory
-    audio_dir = os.path.join(os.getcwd(), "audio")
+    audio_dir = os.path.join(os.getcwd(), "audio/output")
+    print(audio_dir)
     if os.path.exists(audio_dir):
         shutil.rmtree(audio_dir)
     os.makedirs(audio_dir)
@@ -336,7 +344,7 @@ def process_results_to_mp3(result, query, max_files, driver):
     for idx, (source, start, end, sequence_degree, note_details) in enumerate(sequence_details):
         notes = get_notes_from_source_and_time_interval(driver, source, start, end)
         file_name = f"{source}_{start}_{end}_{round(sequence_degree, 2)}.mp3"
-        generate_mp3(notes, file_name, bpm=60)
+        generate_mp3(notes, file_name, audio_dir, bpm=60)
 
 if __name__ == "__main__":
     pass

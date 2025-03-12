@@ -334,7 +334,7 @@ def calculate_intervals(notes: list[list[tuple[str|None, int|None] | int|float|N
 
     return intervals
 
-def calculate_intervals_dict(notes_dict: dict) -> list[float]:
+def calculate_intervals_list(notes_dict: dict) -> list[float]:
     '''
     Compute the list of intervals between consecutive notes.
 
@@ -373,6 +373,35 @@ def calculate_intervals_dict(notes_dict: dict) -> list[float]:
         intervals.append(interval)
 
     return intervals
+
+def calculate_dur_ratios_list(notes_dict: dict) -> list[float]:
+    '''
+    Compute the list of duration ratios between consecutive notes.
+
+    - notes_dict : a dictionary of nodes with their attributes, as returned by `extract_notes_from_query`.
+
+    Output: a list of duration ratios between consecutive notes.
+    '''
+    # Extract Fact nodes
+    fact_nodes = {node_name: attrs for node_name, attrs in notes_dict.items() if attrs.get('type') in ('Fact', 'rest') }
+    
+    # Retrieve durations
+    durations = [1.0/notes_dict[node].get('dur', None) for node in fact_nodes]
+    dots = [notes_dict[node].get('dots', None) for node in fact_nodes]
+    for idx, dot in enumerate(dots):
+        if dot is not None:
+            durations[idx] = durations[idx]*1.5
+    
+    # Compute duration ratios between consecutive events
+    dur_ratios = []
+    for i in range(len(durations) - 1):
+        if durations[i] is None or durations[i+1] is None or durations[i] == 0:
+            dur_ratio = None
+        else:
+            dur_ratio = durations[i+1] / durations[i]
+        dur_ratios.append(dur_ratio)
+    
+    return dur_ratios
 
 def execute_cypher_dumps(directory_path: str, uri: str, user: str, password: str, verbose: bool = False):
     '''

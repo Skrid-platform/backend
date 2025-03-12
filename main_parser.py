@@ -492,11 +492,12 @@ class Parser:
         else:
             query = args.QUERY
 
-        try:
-            res = reformulate_fuzzy_query(query)
-        except:
-            print('parse_compile: error: query may not be correctly formulated')
-            return
+        res = reformulate_fuzzy_query(query)
+        # try:
+        #     res = reformulate_fuzzy_query(query)
+        # except:
+        #     print('parse_compile: error: query may not be correctly formulated')
+        #     return
 
         if args.output == None:
             print(res)

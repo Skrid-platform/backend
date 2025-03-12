@@ -77,20 +77,7 @@ def generate_note_audio(note, bpm=60):
         sine_wave = generate_piano_like_note(frequency, duration_in_seconds * 1000)
         return sine_wave
 
-# Function to generate MP3 file from note sequence
-# def generate_mp3(notes, file_name, bpm=60):
-#     song = AudioSegment.silent(duration=0)
-#     for note in notes:
-#         note_audio = generate_note_audio(note, bpm)
-#         song += note_audio
-    
-#     audio_dir = os.path.join(os.getcwd(), "audio")
-#     os.makedirs(audio_dir, exist_ok=True)
-#     file_path = os.path.join(audio_dir, file_name)
-#     song.export(file_path, format="mp3")
-#     print(f"Generated MP3: {file_path}")
-
-def generate_mp3(notes, file_name, bpm=60, overlap_ms=200, sample_rate=44100):
+def generate_mp3(notes, file_name, audio_dir, bpm=60, overlap_ms=200, sample_rate=44100):
     song = AudioSegment.silent(duration=0)  # Initialize an empty song
 
     # Process each note
@@ -115,8 +102,6 @@ def generate_mp3(notes, file_name, bpm=60, overlap_ms=200, sample_rate=44100):
             else:
                 song = song.append(note_audio, crossfade=overlap_ms)
 
-    audio_dir = os.path.join(os.getcwd(), "audio")
-    os.makedirs(audio_dir, exist_ok=True)
     file_path = os.path.join(audio_dir, file_name)
     song.export(file_path, format="mp3")
     print(f"Generated MP3: {file_path}")

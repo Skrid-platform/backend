@@ -2,7 +2,7 @@ import re
 from find_nearby_pitches import find_frequency_bounds, find_nearby_pitches
 from extract_notes_from_query import extract_notes_from_query_dict, extract_fuzzy_parameters, extract_match_clause, extract_where_clause, extract_attributes_with_membership_functions, extract_membership_function_support_intervals
 from find_duration_range import find_duration_range_decimal, find_duration_range_multiplicative_factor_sym
-from utils import calculate_intervals_dict
+from utils import calculate_intervals_list, calculate_dur_ratios_list
 from degree_computation import convert_note_to_sharp
 from refactor import move_attribute_values_to_where_clause, refactor_variable_names
 
@@ -23,6 +23,34 @@ def make_duration_condition(duration_factor, duration, node_name, alpha, dotted)
     else:
         res = f"{node_name}.duration = {duration}"
     return res
+
+def make_duration_ratio_condition(duration_ratio, duration_gap, duration_factor, idx, alpha):
+    if duration_ratio is None:
+        return ''
+
+    if duration_gap > 0:
+        if duration_factor > 1:
+            min_ratio, max_ratio = find_duration_range_multiplicative_factor_sym(duration_ratio, duration_factor, alpha)
+            duration_ratio_condition = (
+                f"EXISTS(f{idx}.duration) AND EXISTS(f{idx + 1}.duration) AND "
+                f"{min_ratio} <= f{idx + 1}.duration / f{idx}.duration AND "
+                f"f{idx + 1}.duration / f{idx}.duration <= {max_ratio}"
+            )
+        else:
+            duration_ratio_condition = (
+                f"EXISTS(f{idx}.duration) AND EXISTS(f{idx + 1}.duration) AND "
+                f"f{idx + 1}.duration / f{idx}.duration = {duration_ratio}"
+            )
+    else:
+        if duration_factor > 1:
+            min_ratio, max_ratio = find_duration_range_multiplicative_factor_sym(duration_ratio, duration_factor, alpha)
+            duration_ratio_condition = (
+                f"{min_ratio} <= n{idx}.duration_ratio AND n{idx}.duration_ratio <= {max_ratio}"
+            )
+        else:
+            duration_ratio_condition = f"n{idx}.duration_ratio = {duration_ratio}"
+    
+    return duration_ratio_condition
 
 def make_interval_condition(interval, duration_gap, pitch_distance, idx, alpha):
     if interval == 'NA':
@@ -253,31 +281,7 @@ def create_match_clause(query):
 
         return match_clause
 
-def create_with_clause_interval(nb_events, duration_gap):
-    return ''
-    '''
-    Create the WITH clause for the compilated query that need intervals (so with `allow_transposition` or `contour`).
-
-    - nb_events    : the number of Events ;
-    - duration_gap : the duration gap.
-    '''
-
-    with_clause = ""
-    if duration_gap > 0:
-        # Construct interval conditions for paths with intermediate nodes
-        interval_conditions = []
-
-        for idx in range(nb_events - 1): # nb of intervals
-            interval_condition = f"reduce(totalInterval = 0, rel IN relationships(p{idx}) | totalInterval + rel.interval) AS totalInterval_{idx}"
-            interval_conditions.append(interval_condition)
-
-        # Adding the interval clauses if duration_gap is specified
-        variables = ' ' + ', '.join([f"e{idx}" for idx in range(nb_events)]) + ',\n ' + ', '.join([f"f{idx}" for idx in range(nb_events)])
-        with_clause = 'WITH\n' + variables + ',\n ' + ',\n '.join(interval_conditions) + ' '
-
-    return with_clause
-
-def create_where_clause(query, allow_transposition, pitch_distance, duration_factor, duration_gap, alpha = 0.0):
+def create_where_clause(query, allow_transposition, allow_homothety, pitch_distance, duration_factor, duration_gap, alpha = 0.0):
     # Step 1: Extract the WHERE clause from the query
     try:
         where_clause = extract_where_clause(query)
@@ -319,7 +323,7 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
         for idx, (operator, condition) in enumerate(conditions_with_operators):
             # Check if the condition matches the pattern to remove
             match = re.match(
-                r"\b\w+\.(class|octave|dur|interval)\s*=\s*[^\s]+",
+                r"\b\w+\.(class|octave|dur|interval|dots)\s*=\s*[^\s]+",
                 condition,
                 re.IGNORECASE
             )
@@ -366,15 +370,24 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
 
     where_clauses = []
     if allow_transposition:
-        intervals = calculate_intervals_dict(notes_dict)
+        intervals = calculate_intervals_list(notes_dict)
+    if allow_homothety:
+        dur_ratios = calculate_dur_ratios_list(notes_dict)
     # Extract Fact nodes (notes with durations)
     f_nodes = [node for node, attrs in notes_dict.items() if attrs.get('type') == 'Fact']
     for idx, f_node in enumerate(f_nodes):
         attrs = notes_dict[f_node]
         duration = attrs.get('dur')
-        duration_condition = make_duration_condition(duration_factor, duration, f_node, alpha, attrs.get('dots'))
-        if duration_condition:
-            where_clauses.append(duration_condition)
+
+        if allow_homothety:
+            if idx < len(f_nodes) - 1:
+                duration_ratio_condition = make_duration_ratio_condition(dur_ratios[idx], duration_gap, duration_factor, idx, alpha)
+                if duration_ratio_condition:
+                    where_clauses.append(duration_ratio_condition)
+        else:
+            duration_condition = make_duration_condition(duration_factor, duration, f_node, alpha, attrs.get('dots'))
+            if duration_condition:
+                where_clauses.append(duration_condition)
         
         if allow_transposition:
             if idx < len(f_nodes) - 1:
@@ -386,6 +399,8 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
             if pitch_condition:
                 where_clauses.append(pitch_condition)
         
+
+
         if duration_gap > 0:
             if idx < len(f_nodes) - 1:
                 sequencing_condition = make_sequencing_condition(duration_gap, f'e{idx}', f'e{idx+1}', alpha)
@@ -414,7 +429,7 @@ def create_where_clause(query, allow_transposition, pitch_distance, duration_fac
     where_clause = '\nWHERE\n' + preexisting_where_clause  + ' AND\n'.join(where_clauses)
     return where_clause
 
-def create_return_clause(query, notes_dict, duration_gap=0., intervals=False):
+def create_return_clause(query, notes_dict, duration_gap, intervals, allow_homothety):
     '''
     Create the RETURN clause for the compiled query.
 
@@ -423,7 +438,8 @@ def create_return_clause(query, notes_dict, duration_gap=0., intervals=False):
         - duration_gap : the duration gap. Used only when `intervals` is True.
         - intervals    : indicates if the return clause is for a query that allows transposition or contour match.
                          If so, it will also add `interval_{idx}` to the clause.
-
+        - allow_homothety : indicates if duration homothety (proportional duration relationships) is allowed.
+    
     The function uses the actual names of the nodes in the RETURN clause but keeps the aliases (e.g., `AS pitch_0`) consistent with the indexing for processing.
     '''
 
@@ -431,11 +447,9 @@ def create_return_clause(query, notes_dict, duration_gap=0., intervals=False):
     event_nodes = [node_name for node_name, attrs in notes_dict.items() if attrs.get('type') == 'Event']
     fact_nodes = [node_name for node_name, attrs in notes_dict.items() if attrs.get('type') == 'Fact']
     
-
     return_clauses = []
 
     # Map events to their corresponding facts based on indices
-    # Assuming that for each event, there is at least one corresponding fact
     for idx, event_node_name in enumerate(event_nodes):
         return_clauses.extend([
             f"\n{event_node_name}.duration AS duration_{idx}",
@@ -449,15 +463,20 @@ def create_return_clause(query, notes_dict, duration_gap=0., intervals=False):
             if duration_gap > 0:
                 return_clauses.append(f"toFloat(f{idx + 1}.halfTonesFromA4 - f{idx}.halfTonesFromA4)/2 AS interval_{idx}")
             else:
-                # Assuming relationships are named based on indices
                 return_clauses.append(f"n{idx}.interval AS interval_{idx}")
-
+        
+        if allow_homothety and idx < len(event_nodes) - 1:
+            if duration_gap > 0:
+                return_clauses.append(f"toFloat(f{idx + 1}.duration) / toFloat(f{idx}.duration) AS duration_ratio_{idx}")
+            else:
+                return_clauses.append(f"n{idx}.duration_ratio AS duration_ratio_{idx}")
+    
     for idx, fact_node_name in enumerate(fact_nodes):
         return_clauses.extend([
             f"\n{fact_node_name}.octave AS octave_{idx}",
             f"{fact_node_name}.class AS pitch_{idx}"
         ])
-
+    
     # Add source, start, and end from the first and last events
     first_event_node_name = event_nodes[0]
     last_event_node_name = event_nodes[-1]
@@ -466,24 +485,22 @@ def create_return_clause(query, notes_dict, duration_gap=0., intervals=False):
         f"{first_event_node_name}.start AS start",
         f"{last_event_node_name}.end AS end"
     ])
-
+    
     # Extract attributes associated with membership functions
     attributes_with_membership_functions = extract_attributes_with_membership_functions(query)
-
+    
     # Collect existing return items to prevent duplicates
     existing_return_items = set(return_clauses)
-
+    
     # For each attribute, add it to the return clause with appropriate alias
     for node_name, attribute_name, membership_function_name in attributes_with_membership_functions:
-        # Construct the return clause item
         return_item = f"\n{node_name}.{attribute_name} AS {attribute_name}_{node_name}_{membership_function_name}"
-        # Check if the item is already in the return_clauses
         if return_item not in existing_return_items:
             return_clauses.append(return_item)
             existing_return_items.add(return_item)
-
+    
     return_clause = '\nRETURN' + ', '.join(return_clauses)
-
+    
     return return_clause
 
 def reformulate_fuzzy_query(query):
@@ -497,35 +514,23 @@ def reformulate_fuzzy_query(query):
 
     #------Init
     #---Extract the parameters from the augmented query
-    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, _ = extract_fuzzy_parameters(query)
+    pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, allow_homothety = extract_fuzzy_parameters(query)
 
     #---Extract notes using the new function
     notes = extract_notes_from_query_dict(query)
-
-    nb_events = len([note_name for note_name, note in notes.items() if note['type'] == 'Event'])
-    nb_facts = len([note_name for note_name, note in notes.items() if note['type'] == 'Fact'])
     
     #------Construct the MATCH clause
     match_clause = create_match_clause(query)
 
-    #------Construct WITH clause
-    if allow_transposition:
-        with_clause = create_with_clause_interval(nb_events, duration_gap)
-    else:
-        with_clause = ''
-
     #------Construct the WHERE clause
-    where_clause = create_where_clause(query, allow_transposition, pitch_distance, duration_factor, duration_gap, alpha)
-
-    # #------Construct the collection filter
-    # col_clause = create_collection_clause(collections, nb_events, nb_facts, duration_gap, allow_transposition or contour_match)
+    where_clause = create_where_clause(query, allow_transposition, allow_homothety, pitch_distance, duration_factor, duration_gap, alpha)
 
     #------Construct the return clause
-    return_clause = create_return_clause(query, notes, duration_gap, allow_transposition)
+    return_clause = create_return_clause(query, notes, duration_gap, allow_transposition, allow_homothety)
     
     # ------Construct the final query
     # new_query = match_clause + '\n' + with_clause + where_clause + col_clause + '\n' + return_clause
-    new_query = match_clause + with_clause + where_clause + return_clause
+    new_query = match_clause  + where_clause + return_clause
     return new_query.strip('\n')
 
 if __name__ == '__main__':
