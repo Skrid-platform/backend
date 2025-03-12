@@ -165,7 +165,7 @@ def get_ordered_results_2(result, query):
             # Compute sequencing degree
             if sequencing_gap > 0:
                 if idx > 0:
-                    prev_note = note_sequence[idx - 1] if not allow_transpose else note_sequence[idx - 1][0]
+                    prev_note = note_sequence[idx - 1][0]
                     sequencing_deg = sequencing_degree(prev_note.end, note.start, sequencing_gap)
                     note_degrees[idx].append(sequencing_deg)
             
