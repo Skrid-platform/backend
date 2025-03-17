@@ -591,38 +591,43 @@ class Parser:
         
         # Validate notes input based on contour_match flag
         if args.contour_match:
-            # Contour match mode: Validate that the input is in the correct alternating format
-            pattern = r'^(([LSMX]|\*?[UDRudX])(-([LSMX]|\*?[UDRudX]))*)$'
+            # Contour match mode: Validate that the input is in the correct dual-batch format
+            pattern = r'^(([*UDRudX]*)(-)([XLSMls]*))$'
             if not re.match(pattern, notes_input):
-                self.parser_w.error("When using `-C`, NOTES must be a string containing rhythmic symbols ('L', 'M', 'S', 'X') and melodic contour symbols ('*U', 'U', 'u', 'R', 'd', 'D', '*D', 'X'), separated by '-'. Example: 'L-X-M-d-S'.")
+                self.parser_w.error("When using `-C`, NOTES must be a string containing a rhythmic sequence ('L', 'M', 'l', 'S', 's', 'X') "
+                                    "and a melodic contour sequence ('*U', 'U', 'u', 'R', 'd', 'D', '*D', 'X'), separated by '-'. Example: 'URdU*-LMl'.")
 
-            # Split the input into components
-            contour_elements = notes_input.split('-')
-            # Separate 'X' for interval (changed to 'x') and for note duration 
-            contour_elements = ['x' if i % 2 == 1 and element == 'X' else element for (i, element) in enumerate(contour_elements)]
+            # Split the input into rhythmic and melodic components
+            melodic_part, rhythmic_part = notes_input.split('-')
 
-            # Separate rhythmic and melodic contours
-            rhythmic_contours = []
+            # Convert into lists of individual symbols
+            rhythmic_contours = list(rhythmic_part)
             melodic_contours = []
 
-            for element in contour_elements:
-                if re.match(r'^[LSMX]$', element):
-                    rhythmic_contours.append(element)
-                elif re.match(r'^\*?[UDRudx]$', element):
-                    melodic_contours.append(element)
+            # Process melodic contour sequence while handling '*U' and '*D' properly
+            i = 0
+            while i < len(melodic_part):
+                if melodic_part[i] == '*':  
+                    if i + 1 < len(melodic_part) and melodic_part[i + 1] in "UD":
+                        melodic_contours.append(melodic_part[i]+melodic_part[i+1])
+                        i += 2
+                    else:
+                        self.parser_w.error(f"Invalid contour element: '{melodic_part[i:]}' (Expected '*U' or '*D').")
                 else:
-                    self.parser_w.error(f"Invalid contour element: '{element}'.")
+                    melodic_contours.append(melodic_part[i])
+                    i += 1
 
-            # Ensure there are n rhythmic symbols for n-1 melodic symbols
-            if len(rhythmic_contours) != len(melodic_contours) + 1:
-                self.parser_w.error("The contour format requires n rhythmic symbols for n-1 melodic contour symbols. Example: 'L-d-M-R-S'.")
+            # Ensure both lists have the same length
+            if len(rhythmic_contours) != len(melodic_contours):
+                self.parser_w.error("Both rhythmic and melodic contours must have the same length. Example: 'URd*U-LMl'.")
 
+            # Store contour as structured data
             contour = {
                 'rhythmic': rhythmic_contours,
                 'melodic': melodic_contours
             }
 
-            query = create_query_from_contour(contour)
+            query = create_query_from_contour(contour, args.incipit_only)
         else:
             # Normal mode: Validate that the input is a list of notes
             try:

@@ -76,12 +76,13 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
     query = match_clause + return_clause
     return move_attribute_values_to_where_clause(query)
 
-def create_query_from_contour(contour):
+def create_query_from_contour(contour, incipit_only):
     """
     Constructs a fuzzy contour query based on the provided contour dictionary.
 
     Parameters:
-        contour (dict): A dictionary with 'rhythmic' and 'melodic' lists representing rhythmic and melodic contours.
+        - contour (dict): A dictionary with 'rhythmic' and 'melodic' lists representing rhythmic and melodic contours.
+        - incipit_only (bool)        : restricts search to the incipit.
 
     Returns:
         str: A fuzzy contour query string.
@@ -103,15 +104,21 @@ def create_query_from_contour(contour):
         if symbol == 'X' or symbol == 'x':
             return
 
+        if symbol == 's':
+            membership_functions[symbol] = 'shorterDuration'
+            membership_definitions.append('DEFINETRAP shorterDuration AS (0.0, 0.5, 0.75, 1)')
         if symbol == 'S':
-            membership_functions[symbol] = 'shortDuration'
-            membership_definitions.append('DEFINEDESC shortDuration AS (0.0625, 0.25)')
+            membership_functions[symbol] = 'muchShorterDuration'
+            membership_definitions.append('DEFINEDESC muchShorterDuration AS (025, 1.0)')
         elif symbol == 'M':
-            membership_functions[symbol] = 'mediumDuration'
-            membership_definitions.append('DEFINETRAP mediumDuration AS (0.0, 0.25, 0.25, 0.5)')
+            membership_functions[symbol] = 'sameDuration'
+            membership_definitions.append('DEFINETRAP sameDuration AS (0.5, 1.0, 1.0, 2.0)')
+        elif symbol == 'l':
+            membership_functions[symbol] = 'longerDuration'
+            membership_definitions.append('DEFINETRAP longerDuration AS (1.0, 1.5, 2.0, 4.0)')
         elif symbol == 'L':
-            membership_functions[symbol] = 'longDuration'
-            membership_definitions.append('DEFINEASC longDuration AS (0.25, 0.5)')
+            membership_functions[symbol] = 'muchLongerDuration'
+            membership_definitions.append('DEFINEASC muchLongerDuration AS (1.0, 4.0)')
         elif symbol == 'u':
             membership_functions[symbol] = 'stepUp'
             membership_definitions.append('DEFINETRAP stepUp AS (0.0, 0.5, 1.0, 2)')
@@ -134,23 +141,27 @@ def create_query_from_contour(contour):
             membership_functions[symbol] = 'extremelyDown'
             membership_definitions.append('DEFINEDESC extremelyDown AS (-2, -1)')
 
-    # Add membership functions and conditions for rhythmic contours
-    for idx, symbol in enumerate(rhythmic_contours):
-        if symbol != 'X' and symbol != 'x':
-            add_membership_function(symbol)
-            conditions.append(f'f{idx}.duration IS {membership_functions[symbol]}')
-
     # Add membership functions and conditions for melodic contours
     for idx, symbol in enumerate(melodic_contours):
         if symbol != 'X' and symbol != 'x':
             add_membership_function(symbol)
             conditions.append(f'n{idx}.interval IS {membership_functions[symbol]}')
 
+    # Add membership functions and conditions for rhythmic contours
+    for idx, symbol in enumerate(rhythmic_contours):
+        if symbol != 'X' and symbol != 'x':
+            add_membership_function(symbol)
+            conditions.append(f'n{idx}.duration_ratio IS {membership_functions[symbol]}')
+
     # Build the MATCH clause
     num_intervals = len(melodic_contours)
     events_chain = ''.join(f'(e{i}:Event)-[n{i}:NEXT]->' for i in range(num_intervals)) + f'(e{num_intervals}:Event)'
-    fact_nodes = [f'(e{i})--(f{i}:Fact)' for i in range(len(rhythmic_contours))]
-    match_clause = 'MATCH \n ' + events_chain + ',\n ' + ',\n '.join(fact_nodes)
+    fact_nodes = [f'(e{i})--(f{i}:Fact)' for i in range(num_intervals + 1)]
+
+    if incipit_only:
+        match_clause = 'MATCH \n ' + "(v:Voice)-[:timeSeries]->(e0:Event),\n " + events_chain + ',\n ' + ',\n '.join(fact_nodes)
+    else:
+        match_clause = 'MATCH \n ' + events_chain + ',\n ' + ',\n '.join(fact_nodes)
 
     # Build the WHERE clause
     where_clause = ''
