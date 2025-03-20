@@ -42,11 +42,11 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
 
     match_clause += f' TOLERANT pitch={pitch_distance}, duration={duration_factor}, gap={duration_gap}\n ALPHA {alpha}\n'
 
-    if collection is not None:
-        match_clause += " (tp:TopRhythmic{{collection:'{}'}})-[:RHYTHMIC]->(m:Measure),\n (m)-[:HAS]->(e0:Event),\n".format(collection)
-    
     if incipit_only:
         match_clause += " (v:Voice)-[:timeSeries]->(e0:Event),\n"
+    
+    if collection is not None:
+        match_clause += " (tp:TopRhythmic{{collection:'{}'}})-[:RHYTHMIC]->(m:Measure),\n (m)-[:HAS]->(e0:Event),\n".format(collection)
     
     events = []
     facts = []
@@ -159,9 +159,9 @@ def create_query_from_contour(contour, incipit_only):
     fact_nodes = [f'(e{i})--(f{i}:Fact)' for i in range(num_intervals + 1)]
 
     if incipit_only:
-        match_clause = 'MATCH \n ' + "(v:Voice)-[:timeSeries]->(e0:Event),\n " + events_chain + ',\n ' + ',\n '.join(fact_nodes)
+        match_clause = 'MATCH\n ' + "(v:Voice)-[:timeSeries]->(e0:Event),\n " + events_chain + ',\n ' + ',\n '.join(fact_nodes)
     else:
-        match_clause = 'MATCH \n ' + events_chain + ',\n ' + ',\n '.join(fact_nodes)
+        match_clause = 'MATCH\n ' + events_chain + ',\n ' + ',\n '.join(fact_nodes)
 
     # Build the WHERE clause
     where_clause = ''
@@ -239,17 +239,17 @@ def generate_mp3_from_source_and_time_interval(driver, source, start_time, end_t
 
 def get_notes_from_source_and_time_interval(driver, source, start_time, end_time):
     # In : driver for DB, a source to identify one score, a starting and ending time
-    # Out : a list of notes (in class, octave, duration triples)
+    # Out : a list of notes
 
     query = f"""
-    MATCH (e:Event)-[]->(f:Fact)
+    MATCH (e:Event)-[:IS]->(f:Fact)
     WHERE e.start >= {start_time} AND e.end <= {end_time} AND e.source = '{source}'
-    RETURN f.class AS class, f.octave AS octave, e.duration AS duration, e.start as start, e.end as end
+    RETURN f.class AS class, f.octave AS octave, e.dur AS dur, e.dots as dots, e.start as start, e.end as end
     ORDER BY e.start
     """  
 
     results = run_query(driver, query)
-    notes = [Note(record['class'], record['octave'], record['duration'], record['start'], record['end']) for record in results]
+    notes = [Note(record['class'], record['octave'], record['dur'], record['dots'], None, record['start'], record['end']) for record in results]
 
     return notes
 

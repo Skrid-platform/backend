@@ -188,10 +188,10 @@ def get_ordered_results_2(result, query):
                 note_degrees[idx].extend(interval_degrees[idx - 1])
         
         # Aggregate all degrees per note
-        aggregated_degrees = [aggregate_degrees(min_aggregation, degrees) if degrees else 1.0 for degrees in note_degrees]
+        aggregated_degrees = [aggregate_degrees(average_aggregation, degrees) if degrees else 1.0 for degrees in note_degrees]
         
         # Compute sequence degree
-        sequence_degree = aggregate_degrees(min_aggregation, aggregated_degrees)
+        sequence_degree = aggregate_degrees(average_aggregation, aggregated_degrees)
         
         if sequence_degree >= alpha:
             note_details = [(note_data[0], pitch_deg, duration_deg, sequencing_deg, deg) for note_data, deg, (pitch_deg, duration_deg, sequencing_deg) in zip(note_sequence, aggregated_degrees, p_d_g_note_degrees)]

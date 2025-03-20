@@ -82,7 +82,7 @@ def generate_mp3(notes, file_name, audio_dir, bpm=60, overlap_ms=200, sample_rat
 
     # Process each note
     for idx, note in enumerate(notes):
-        pitch, octave, duration = note.pitch, note.octave, note.dur
+        pitch, octave, duration = note.pitch, note.octave, note.duration
 
         # Check if it's a rest
         if pitch is None and octave is None and duration is not None:
@@ -116,4 +116,4 @@ def convert_duration_to_seconds(note_duration, bpm=60):
 if __name__ == "__main__":
     # Example usage
     notes = [Note('c', 5, 8), Note('d', 5, 4), Note('e', 5, 8), Note('f', 5, 4), Note('g', 5, 16)]
-    generate_mp3(notes, "output.mp3", bpm=60)
+    generate_mp3(notes, "output.mp3", "./audio/output/", bpm=60)
