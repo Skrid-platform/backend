@@ -3,11 +3,18 @@ import numpy as np
 import argparse
 import scipy.signal
 import re
+from math import log
 
 from note import Note
 from utils import create_query_from_list_of_notes
+from generate_audio import generate_mp3
 
-def smooth_f0(f0, window_size=3):
+semitones_from_c = {
+    'c': 0, 'c#': 1, 'd': 2, 'd#': 3, 'e': 4, 'f': 5, 'f#': 6, 
+    'g': 7, 'g#': 8, 'a': 9, 'a#': 10, 'b': 11
+}
+
+def smooth_f0(f0, window_size=5):
     """Apply median filtering to remove frequency outliers."""
     smoothed_f0 = scipy.signal.medfilt(f0, kernel_size=window_size)
     smoothed_f0 = [freq if freq > 0.0 else None for freq in smoothed_f0]
@@ -108,6 +115,129 @@ def extract_notes(path, sr=16000, fmin=65, fmax=900):
     
     return notes
 
+def normalize_intervals(intervals):
+    """Normalize frequency differences to semitones and duration ratios to musical values."""
+    # Define possible duration ratios (powers of 2 and dotted values)
+    powers_of_two = [2**n for n in range(-3, 4)]  # 2^-3 to 2^3
+    dotted_values = [x * 1.5 for x in powers_of_two]  # 2^n * 1.5
+    possible_durations = sorted(powers_of_two + dotted_values)  # Combine and sort
+    
+    normalized_intervals = []
+    for demi_ton_diff, duration_ratio in intervals:
+        rounded_semi_tone = round(demi_ton_diff)
+        closest_duration = min(possible_durations, key=lambda x: abs(x - duration_ratio))
+        normalized_intervals.append((rounded_semi_tone, closest_duration))
+    
+    return normalized_intervals
+
+def generate_notes_from_intervals(intervals, base_pitch, base_octave):
+    """Generate a sequence of Notes from a list of (semitone_diff, duration_ratio) tuples."""
+    notes = []
+    
+    notes.append(Note(base_pitch.lower(), base_octave, 8))  # First note is an eighth note
+    
+    for semi_tone_diff, duration_ratio in intervals:
+        prev_note = notes[-1]
+        prev_semitone = semitones_from_c[prev_note.pitch.lower()] + (prev_note.octave * 12)
+        next_semitone = prev_semitone + semi_tone_diff
+        
+        next_pitch_class = next(filter(lambda k: semitones_from_c[k] == next_semitone % 12, semitones_from_c))
+        next_octave = next_semitone // 12
+        
+        next_duration_raw = prev_note.dur / duration_ratio
+        possible_durations = {1, 2, 4, 8, 16, 32}  # Only powers of two
+        possible_dotted = {x * 1.5 for x in possible_durations}
+        possible_durations.update(possible_dotted)
+        
+        closest_duration = min(possible_durations, key=lambda x: abs(x - next_duration_raw))
+        
+        if closest_duration in possible_dotted:
+            dur = int(closest_duration / 1.5)
+            dots = 1
+        else:
+            dur = int(closest_duration)
+            dots = 0
+        
+        notes.append(Note(next_pitch_class, next_octave, dur, dots))
+    
+    return notes
+
+def extract_contour(path, sr=16000, fmin=65, fmax=900, freq_tolerance=5):
+    """Extract a high-level contour representation from an audio file."""
+    audio, sr = librosa.load(path, sr=sr)
+    f0, _, _ = librosa.pyin(audio, sr=sr, fmin=fmin, fmax=fmax, n_thresholds=30)
+    f0 = smooth_f0(f0)
+    
+    # Remove transition periods (NaNs)
+    f0 = [freq for freq in f0 if freq is not None]
+
+    # Construct list of (freq, cardinal)
+    contour = []
+    prev_freq = None
+    count = 0
+    
+    for freq in f0:
+        if prev_freq is None:
+            prev_freq = freq
+            count = 1
+        elif abs(prev_freq - freq) <= freq_tolerance:
+            count += 1
+        else:
+            contour.append((prev_freq, count))
+            prev_freq = freq
+            count = 1
+    
+    if prev_freq is not None:
+        contour.append((prev_freq, count))
+    
+    # Adjust single-cardinal values
+    i = 0
+    while i < len(contour):
+        freq, cardinal = contour[i]
+        if cardinal == 1:
+            left_idx, right_idx = None, None
+            
+            # Find first valid tuple before and after
+            for j in range(i - 1, -1, -1):
+                if contour[j][1] > 1:
+                    left_idx = j
+                    break
+            for j in range(i + 1, len(contour)):
+                if contour[j][1] > 1:
+                    right_idx = j
+                    break
+            
+            # Choose the closest valid frequency
+            if left_idx is not None and right_idx is not None:
+                if abs(contour[left_idx][0] - freq) <= abs(contour[right_idx][0] - freq):
+                    contour[left_idx] = (contour[left_idx][0], contour[left_idx][1] + 1)
+                else:
+                    contour[right_idx] = (contour[right_idx][0], contour[right_idx][1] + 1)
+            elif left_idx is not None:
+                contour[left_idx] = (contour[left_idx][0], contour[left_idx][1] + 1)
+            elif right_idx is not None:
+                contour[right_idx] = (contour[right_idx][0], contour[right_idx][1] + 1)
+            
+            # Remove the single-cardinal tuple
+            contour.pop(i)
+        else:
+            i += 1
+    print("contour = ", contour)
+    # Compute intervals and duration ratios
+    intervals = []
+    for i in range(len(contour) - 1):
+        # freq_diff = contour[i + 1][0] - contour[i][0]
+        demi_ton_diff = 12*log(contour[i + 1][0]/contour[i][0])/log(2)
+        duration_ratio = contour[i + 1][1] / contour[i][1]
+        intervals.append((float(demi_ton_diff), duration_ratio))
+        # intervals.append((float(demi_ton_diff), float(duration_ratio)))
+    
+    normalized_intervals = normalize_intervals(intervals)
+    print("normalized_intervals = ", normalized_intervals)
+    # Generate notes from the intervals
+    base_pitch, base_octave = librosa.hz_to_note(contour[0][0], octave=True)[:-1], int(librosa.hz_to_note(contour[0][0], octave=True)[-1])
+    return generate_notes_from_intervals(normalized_intervals, base_pitch, base_octave)
+
 def create_query_from_audio(audio_path, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, contour_match, collection=None, sr=16000, fmin=65, fmax=300):
     """
     Create a fuzzy query directly from an audio file.
@@ -178,10 +308,7 @@ def main():
 
 if __name__ == "__main__":
     # main()
-    # # Example usage
-    # path = "SolSiRe.wav"
-    # notes = extract_notes(path)
-    # print([note.to_list() for note in notes])
 
-    res = extract_notes("./audio/input/10361_Belle_nous_irons_dans_tes_verts_prs.mei_0_1_1.0.mp3", sr=48000)
-    print(res, len(res))
+    res = extract_contour("./audio/input/pour-premier-texte-cropped.wav")
+    print(res)
+    generate_mp3(res, "output.mp3", "./audio/output/", bpm=600)
