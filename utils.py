@@ -109,7 +109,7 @@ def create_query_from_contour(contour, incipit_only):
             membership_definitions.append('DEFINETRAP shorterDuration AS (0.0, 0.5, 0.75, 1)')
         if symbol == 'S':
             membership_functions[symbol] = 'muchShorterDuration'
-            membership_definitions.append('DEFINEDESC muchShorterDuration AS (025, 1.0)')
+            membership_definitions.append('DEFINEDESC muchShorterDuration AS (0.25, 1.0)')
         elif symbol == 'M':
             membership_functions[symbol] = 'sameDuration'
             membership_definitions.append('DEFINETRAP sameDuration AS (0.5, 1.0, 1.0, 2.0)')
