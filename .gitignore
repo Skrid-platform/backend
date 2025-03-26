@@ -9,4 +9,5 @@ latex/
 queries/
 test_queries/
 audio/
+tests/
 *.csv

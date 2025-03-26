@@ -10,6 +10,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import ast
 
 from neo4j_connection import connect_to_neo4j, run_query
+from utils import calculate_pitch_interval, create_query_from_contour
 
 class PerformanceLogger:
     _instance = None
@@ -275,10 +276,13 @@ def execute_queries(dir_path, sequences, param_name, param_values, max_length):
                 print(f"Running command: {command}")
                 subprocess.run(command, shell=True)
 
-def execute_queries_v2(test_name, sequences, p_value, f_value, g_value, pattern_length):
-    dir_path = f"./test_queries/{test_name}/"
+def execute_queries_v2(test_name, sequences, pattern_length, suffix=None):
+    dir_path = f"./queries/test_queries/{test_name}/"
     for seq_index, sequence in enumerate(sequences):
-        query_file = f"{test_name}_{p_value}_{f_value}_{g_value}_len_{pattern_length}_seq_{seq_index + 1}.cypher"
+        if suffix:
+            query_file = f"{test_name}_{suffix}_len_{pattern_length}_seq_{seq_index + 1}.cypher"
+        else:
+            query_file = f"{test_name}_len_{pattern_length}_seq_{seq_index + 1}.cypher"
         command = f"python3 main_parser.py send -f -F {dir_path}{query_file}  > /dev/null"
         print(f"Running command: {command}")
         subprocess.run(command, shell=True)
@@ -488,26 +492,143 @@ def save_csv(test_name):
     print(f"Running command: {command}")
     subprocess.run(command, shell=True)
 
-if __name__ == "__main__":
+def extract_contour_from_notes(notes):
+    """
+    Extracts the melodic and rhythmic contour from a sequence of notes.
+
+    Parameters:
+        notes (list): A list of notes, where each note is in the format `[('pitch', octave), duration]`.
+
+    Returns:
+        tuple: A tuple containing (melodic_contour, rhythmic_contour), both as lists of contour symbols.
+    """
+    
+    def get_melodic_symbol(interval):
+        """Maps a pitch interval to a contour symbol."""
+        if interval > 2:
+            return '*U'
+        elif interval > 1:
+            return 'U'
+        elif interval > 0:
+            return 'u'
+        elif interval == 0:
+            return 'R'
+        elif interval < -2:
+            return '*D'
+        elif interval < -1:
+            return 'D'
+        else:
+            return 'd'
+
+    def get_rhythmic_symbol(ratio):
+        """Maps a duration ratio to a contour symbol."""
+        if ratio >= 4.0:
+            return 'L'
+        elif ratio >= 1.5:
+            return 'l'
+        elif ratio == 1.0:
+            return 'M'
+        elif ratio <= 0.25:
+            return 'S'
+        else:
+            return 's'
+
+    melodic_contour = []
+    rhythmic_contour = []
+
+    for i in range(len(notes) - 1):
+        # Extract pitch and octave
+        (pitch1, octave1), duration1 = notes[i]
+        (pitch2, octave2), duration2 = notes[i + 1]
+
+        # Compute pitch interval
+        if pitch1 is None or pitch2 is None:
+            melodic_contour.append('X')
+        else:
+            interval = calculate_pitch_interval(pitch1, octave1, pitch2, octave2)
+            melodic_contour.append(get_melodic_symbol(interval))
+
+        # Compute duration ratio
+        if duration1 is None or duration2 is None:
+            melodic_contour.append('X')
+        else:
+            ratio = duration1 / duration2
+            rhythmic_contour.append(get_rhythmic_symbol(ratio))
+
+    return ''.join(melodic_contour), ''.join(rhythmic_contour)
+
+def generate_contour_queries(test_name, contour_file, with_interval, with_duration_ratio, length):
+    output_dir = f"./queries/test_queries/{test_name}/"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Charger les contours depuis le fichier
+    with open(contour_file, "r") as file:
+        contours = [line.strip() for line in file if line.strip()]
+
+    if not contours:
+        raise ValueError("No contours found in the file.")
+
+    # Générer les requêtes pour chaque contour
+    for idx, contour in enumerate(contours):      
+        melodic_part, rhythmic_part = contour.split("-")
+
+        # Convert into lists of individual symbols
+        rhythmic_contours = list(rhythmic_part)
+        melodic_contours = []
+
+        # Process melodic contour sequence while handling '*U' and '*D' properly
+        i = 0
+        while i < len(melodic_part):
+            if melodic_part[i] == '*':  
+                    melodic_contours.append(melodic_part[i]+melodic_part[i+1])
+                    i += 2
+            else:
+                melodic_contours.append(melodic_part[i])
+                i += 1
+
+        # Générer les contours
+        new_melodic = melodic_contours[:length] if with_interval else ["X" for _ in range(length)]
+        new_rhythmic = rhythmic_contours[:length] if with_duration_ratio else ["X" for _ in range(length)]
+        new_contour = f"{new_melodic}-{new_rhythmic}"
+
+        new_contour = {
+            'rhythmic': new_rhythmic,
+            'melodic': new_melodic
+        }
+
+        query = create_query_from_contour(new_contour, False)
+
+        # Déterminer le nom du fichier de sortie
+        query_name = f"{test_name}_{with_interval}_{with_duration_ratio}_len_{length}_seq_{idx+1}.cypher"
+        output_file = os.path.join(output_dir, query_name)
+
+        # Écrire la requête dans un fichier
+        with open(output_file, "w") as f:
+                f.write(query + "\n")
+                print(f"Generated query {output_file}")
+
+
+# if __name__ == "__main__":
     # for _ in range(12):
     #     populate_500_score()
 
     # generate_multiple_random_notes(15, 15)
-    sequences = []
-    with open("random_notes.txt", "r") as f:
-        sequences = ast.literal_eval(f.read())
+    # sequences = []
+    # with open("random_notes.txt", "r") as f:
+    #     sequences = ast.literal_eval(f.read())
         # sequences = [[[(note[0][0], note[0][1]), note[1]] for note in sequence] for sequence in sequences]
     # sequences = sequences[:3]
-    nb_sequences=len(sequences)
-    max_length=15
+    # nb_sequences=len(sequences)
+    # max_length=15
 
-    write_queries = False
-    execute_queries = True
-    write_latex = True
+    # write_queries = False
+    # execute_queries = True
+    # write_latex = True
 
-    if os.path.exists("./performance_log.csv"):
-        print(f"File ./performance_log.csv already exists. Deleting it.")
-        os.remove("./performance_log.csv")
+    # if os.path.exists("./performance_log.csv"):
+    #     print(f"File ./performance_log.csv already exists. Deleting it.")
+    #     os.remove("./performance_log.csv")
 
     # # Tests pour le pitch V2
     # pitch_values = [1.0, 2.0, 3.0]
@@ -585,7 +706,7 @@ if __name__ == "__main__":
 
     # Tests pour le séquençage V2
     # gap_values = [0.25, 0.125, 0.0625]
-    gap_values = [0.25, 0.125]
+    # gap_values = [0.25, 0.125]
     # test_name = "gap"
 
     # for gap_value in gap_values:
@@ -604,22 +725,22 @@ if __name__ == "__main__":
     #     except Exception as e:
     #         print(f"An error occurred while processing {test_name}: {e}")
 
-    test_name = "gap_transp"
-    for gap_value in gap_values:
-        for length in range(1, max_length + 1):
-            if write_queries:
-                generate_queries_v2(test_name, sequences, 0.0, 1.0, gap_value, length, True)
-            if execute_queries:
-                execute_queries_v2(test_name, sequences, 0.0, 1.0, gap_value, length)
+    # test_name = "gap_transp"
+    # for gap_value in gap_values:
+    #     for length in range(1, max_length + 1):
+    #         if write_queries:
+    #             generate_queries_v2(test_name, sequences, 0.0, 1.0, gap_value, length, True)
+    #         if execute_queries:
+    #             execute_queries_v2(test_name, sequences, 0.0, 1.0, gap_value, length)
 
-    if execute_queries:
-        save_csv(test_name)
+    # if execute_queries:
+    #     save_csv(test_name)
 
-    if write_latex:
-        try:
-            process_and_generate_latex(test_name, gap_values, max_length, nb_sequences)
-        except Exception as e:
-            print(f"An error occurred while processing {test_name}: {e}")
+    # if write_latex:
+    #     try:
+    #         process_and_generate_latex(test_name, gap_values, max_length, nb_sequences)
+    #     except Exception as e:
+    #         print(f"An error occurred while processing {test_name}: {e}")
 
     # # Tests taille de base
     # test_name = f"db_size_6000"
@@ -643,6 +764,63 @@ if __name__ == "__main__":
     #     generate_queries_v2("db_size_t", sequences, 1.0, 2.0, 0.0625, 6, True)
     # if execute_queries:
     #     execute_queries_v2("db_size_t", sequences, 1.0, 2.0, 0.0625, 6)
+
+    # if execute_queries:
+    #     save_csv(test_name)
+    
+    # if write_latex:
+    #     try:
+    #         generate_histogram_bar(f"./CSV/{test_name}_log.csv", test_name,"label")
+    #     except Exception as e:
+    #         print(f"An error occurred while processing {test_name}: {e}")
+
+if __name__ == "__main__":
+    sequences = []
+    contour_file="./tests/contours.txt"
+    with open(contour_file, "r") as file:
+        sequences = [line.strip() for line in file if line.strip()]
+    nb_sequences=len(sequences)
+    max_length=14
+
+    # sequences = sequences[:3]
+    # nb_sequences=3
+    # max_length=4
+
+    write_queries = True
+    execute_queries = True
+    write_latex = True
+
+    if os.path.exists("./performance_log.csv") and execute_queries:
+        print(f"File ./performance_log.csv already exists. Deleting it.")
+        os.remove("./performance_log.csv")
+
+    # ====================================================================== #
+    # Tests longueurs contour (tous)
+    chosen_attributes = [(True, True), (True, False), (False, True)]
+    test_name = "contour_2"
+    for with_interval, with_dur_ratio in chosen_attributes:
+        for length in range(1, max_length + 1):
+            if write_queries:
+                generate_contour_queries(test_name, contour_file, with_interval, with_dur_ratio, length)
+            if execute_queries:
+                execute_queries_v2(test_name, sequences, length, f"{with_interval}_{with_dur_ratio}")
+
+    if execute_queries:
+        save_csv(test_name)
+    
+    if write_latex:
+        try:
+            process_and_generate_latex(test_name, chosen_attributes, max_length, nb_sequences)
+        except Exception as e:
+            print(f"An error occurred while processing {test_name}: {e}")
+
+    # # ====================================================================== #
+    # # Tests taille de base
+    # test_name = f"contour_db_size_2000"
+    # if write_queries:
+    #     generate_contour_queries("contour_db_size", contour_file, True, True, 6)
+    # if execute_queries:
+    #     execute_queries_v2("contour_db_size", sequences, 6, "True_True")
 
     # if execute_queries:
     #     save_csv(test_name)
