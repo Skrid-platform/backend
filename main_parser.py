@@ -583,11 +583,6 @@ class Parser:
             notes_input = get_file_content(args.NOTES, self.parser_w)
         else:
             notes_input = args.NOTES
-
-        if args.collections == None:
-            collections = None
-        else:
-            collections = args.collections
         
         # Validate notes input based on contour_match flag
         if args.contour_match:
@@ -627,14 +622,14 @@ class Parser:
                 'melodic': melodic_contours
             }
 
-            query = create_query_from_contour(contour, args.incipit_only)
+            query = create_query_from_contour(contour, args.incipit_only, args.collections)
         else:
             # Normal mode: Validate that the input is a list of notes
             try:
                 notes = check_notes_input_format(notes_input)
             except (ValueError, SyntaxError):
                 self.parser_w.error("NOTES must be a valid list format. Example: \"[[(\'c\', 5), 1], [(\'d\', 5), 4, 1]]\"")
-            query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition, args.allow_homothety, args.incipit_only, collections)
+            query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition, args.allow_homothety, args.incipit_only, args.collections)
 
         if args.output == None:
             print(query)

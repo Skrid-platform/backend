@@ -76,13 +76,14 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
     query = match_clause + return_clause
     return move_attribute_values_to_where_clause(query)
 
-def create_query_from_contour(contour, incipit_only):
+def create_query_from_contour(contour, incipit_only, collection=None):
     """
     Constructs a fuzzy contour query based on the provided contour dictionary.
 
     Parameters:
         - contour (dict): A dictionary with 'rhythmic' and 'melodic' lists representing rhythmic and melodic contours.
         - incipit_only (bool)        : restricts search to the incipit.
+        - collection (str | None)    : the collection filter.
 
     Returns:
         str: A fuzzy contour query string.
@@ -158,10 +159,15 @@ def create_query_from_contour(contour, incipit_only):
     events_chain = ''.join(f'(e{i}:Event)-[n{i}:NEXT]->' for i in range(num_intervals)) + f'(e{num_intervals}:Event)'
     fact_nodes = [f'(e{i})--(f{i}:Fact)' for i in range(num_intervals + 1)]
 
+    match_clause = 'MATCH\n'
+
     if incipit_only:
-        match_clause = 'MATCH\n ' + "(v:Voice)-[:timeSeries]->(e0:Event),\n " + events_chain + ',\n ' + ',\n '.join(fact_nodes)
-    else:
-        match_clause = 'MATCH\n ' + events_chain + ',\n ' + ',\n '.join(fact_nodes)
+        match_clause += " (v:Voice)-[:timeSeries]->(e0:Event),\n"
+    
+    if collection is not None:
+        match_clause += " (tp:TopRhythmic{{collection:'{}'}})-[:RHYTHMIC]->(m:Measure),\n (m)-[:HAS]->(e0:Event),\n".format(collection)
+
+    match_clause += events_chain + ',\n ' + ',\n '.join(fact_nodes)
 
     # Build the WHERE clause
     where_clause = ''
@@ -177,7 +183,7 @@ def create_query_from_contour(contour, incipit_only):
         query += '\n' + where_clause
     query += '\n' + return_clause
 
-    return query
+    return move_attribute_values_to_where_clause(query)
 
 def get_first_k_notes_of_each_score(k, source, driver):
     # In : an integer, a driver for the DB
