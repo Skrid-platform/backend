@@ -420,11 +420,11 @@ def create_where_clause(query, allow_transposition, allow_homothety, pitch_dista
 
         # Add condition for minimum value if it's greater than negative infinity
         if min_value != float('-inf'):
-            where_clauses.append(f"{node_name}.{attribute_name} >= {min_value}")
+            where_clauses.append(f"{node_name}.{attribute_name} > {min_value}")
 
         # Add condition for maximum value if it's less than positive infinity
         if max_value != float('inf'):
-            where_clauses.append(f"{node_name}.{attribute_name} <= {max_value}")
+            where_clauses.append(f"{node_name}.{attribute_name} < {max_value}")
 
     if preexisting_where_clause:
         preexisting_where_clause = preexisting_where_clause + ' AND\n'

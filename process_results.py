@@ -173,28 +173,33 @@ def get_ordered_results_2(result, query):
             
         # Compute degrees from membership functions
         attribute_values = stored_attribute_values[seq_idx]
+        membership_function_degrees = [[] for _ in range(len(note_sequence))]
         for alias, node_name, attribute_name, membership_function_name in attribute_aliases:
             attribute_value = attribute_values[alias]
             membership_function = membership_functions[membership_function_name]
             degree = membership_function(attribute_value)
+            
             idx = int(node_name[1:])
             if node_name.startswith("n"):  # Interval-based
                 interval_degrees[idx].append(degree)
+                membership_function_degrees[idx+1].append(f'{membership_function_name}-> {round(degree, 3)}')
             else:  # Note-based (f or e)
                 note_degrees[idx].append(degree)
-        
+                membership_function_degrees[idx].append(f'{membership_function_name}-> {round(degree, 3)}')
+        membership_function_degrees = ["| ".join(mem_degs) for mem_degs in membership_function_degrees]
+
         for idx in range(len(note_degrees)):
             if idx > 0:
                 note_degrees[idx].extend(interval_degrees[idx - 1])
         
         # Aggregate all degrees per note
-        aggregated_degrees = [aggregate_degrees(average_aggregation, degrees) if degrees else 1.0 for degrees in note_degrees]
+        aggregated_degrees = [aggregate_degrees(min_aggregation, degrees) if degrees else 1.0 for degrees in note_degrees]
         
         # Compute sequence degree
-        sequence_degree = aggregate_degrees(average_aggregation, aggregated_degrees)
+        sequence_degree = aggregate_degrees(min_aggregation, aggregated_degrees)
         
         if sequence_degree >= alpha:
-            note_details = [(note_data[0], pitch_deg, duration_deg, sequencing_deg, deg) for note_data, deg, (pitch_deg, duration_deg, sequencing_deg) in zip(note_sequence, aggregated_degrees, p_d_g_note_degrees)]
+            note_details = [(note_data[0], pitch_deg, duration_deg, sequencing_deg, deg, mem_degs) for note_data, deg, (pitch_deg, duration_deg, sequencing_deg), mem_degs in zip(note_sequence, aggregated_degrees, p_d_g_note_degrees, membership_function_degrees)]
             sequence_details.append([source, start, end, sequence_degree, note_details])
     
     # Sort the sequences by their overall degree in descending order
@@ -263,26 +268,27 @@ def process_results_to_dict(result, query):
     '''
 
     sequence_details = get_ordered_results_2(result, query)
-    
+
     res = []
-    for seq_detail in sequence_details:
+    
+    for source, start, end, sequence_degree, note_details in sequence_details:
         seq_dict = {}
-        seq_dict['source'] = seq_detail[0]
-        seq_dict['start'] = seq_detail[1]
-        seq_dict['end'] = seq_detail[2]
-        seq_dict['overall_degree'] = seq_detail[3]
+        seq_dict['source'] = source
+        seq_dict['start'] = start
+        seq_dict['end'] = end
+        seq_dict['overall_degree'] = sequence_degree
 
         seq_dict['notes'] = []
-        for note_details in seq_detail[4]:
+        for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg, membership_functions_degrees) in enumerate(note_details):
             note_dict = {}
-            note_dict['note'] = note_details[0].__dict__
-            note_dict['pitch_deg'] = note_details[1]
-            note_dict['duration_deg'] = note_details[2]
-            note_dict['sequencing_deg'] = note_details[3]
-            note_dict['note_deg'] = note_details[4]
-
+            note_dict['note'] = note.__dict__
+            note_dict['pitch_deg'] = pitch_deg
+            note_dict['duration_deg'] = duration_deg
+            note_dict['sequencing_deg'] = sequencing_deg
+            note_dict['note_deg'] = note_deg
+            if membership_functions_degrees:
+                note_dict['membership_functions_degrees'] = membership_functions_degrees
             seq_dict['notes'].append(note_dict)
-
         res.append(seq_dict)
 
     return res
@@ -312,11 +318,16 @@ def process_results_to_text(result, query):
     for source, start, end, sequence_degree, note_details in sequence_details:
         res += f"Source: {source}, Start: {start}, End: {end}, Overall Degree: {sequence_degree}\n"
 
-        for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg) in enumerate(note_details):
+        for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg, membership_functions_degrees) in enumerate(note_details):
             res += f"  Note {idx + 1}: {note}\n"
             res += f"    Pitch Degree: {pitch_deg}\n"
             res += f"    Duration Degree: {duration_deg}\n"
             res += f"    Sequencing Degree: {sequencing_deg}\n"
+
+            if membership_functions_degrees:
+                membership_functions_degrees_str = membership_functions_degrees
+                res += f"    Fuzzy Fuctions Degrees: {membership_functions_degrees_str}\n"
+            
             res += f"    Aggregated Note Degree: {note_deg}\n"
 
         res += "\n" # Add a blank line between sequences

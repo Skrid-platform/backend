@@ -108,9 +108,9 @@ def create_query_from_contour(contour, incipit_only, collection=None):
         if symbol == 's':
             membership_functions[symbol] = 'shorterDuration'
             membership_definitions.append('DEFINETRAP shorterDuration AS (0.0, 0.5, 0.75, 1)')
-        if symbol == 'S':
+        elif symbol == 'S':
             membership_functions[symbol] = 'muchShorterDuration'
-            membership_definitions.append('DEFINEDESC muchShorterDuration AS (0.25, 1.0)')
+            membership_definitions.append('DEFINEDESC muchShorterDuration AS (0.25, 0.5)')
         elif symbol == 'M':
             membership_functions[symbol] = 'sameDuration'
             membership_definitions.append('DEFINETRAP sameDuration AS (0.5, 1.0, 1.0, 2.0)')
@@ -119,16 +119,16 @@ def create_query_from_contour(contour, incipit_only, collection=None):
             membership_definitions.append('DEFINETRAP longerDuration AS (1.0, 1.5, 2.0, 4.0)')
         elif symbol == 'L':
             membership_functions[symbol] = 'muchLongerDuration'
-            membership_definitions.append('DEFINEASC muchLongerDuration AS (1.0, 4.0)')
+            membership_definitions.append('DEFINEASC muchLongerDuration AS (2.0, 4.0)')
         elif symbol == 'u':
             membership_functions[symbol] = 'stepUp'
             membership_definitions.append('DEFINETRAP stepUp AS (0.0, 0.5, 1.0, 2)')
         elif symbol == 'U':
             membership_functions[symbol] = 'leapUp'
-            membership_definitions.append('DEFINETRAP leapUp AS (0.5, 1.0, 2.0, 3.0)')
-        elif symbol == '*U':
-            membership_functions[symbol] = 'extremelyUp'
-            membership_definitions.append('DEFINEASC extremelyUp AS (1, 2)')
+            membership_definitions.append('DEFINEASC leapUp AS (0.5, 2.0)')
+        # elif symbol == '*U':
+        #     membership_functions[symbol] = 'extremelyUp'
+        #     membership_definitions.append('DEFINEASC extremelyUp AS (1, 2)')
         elif symbol == 'R':
             membership_functions[symbol] = 'repeat'
             membership_definitions.append('DEFINETRAP repeat AS (-1, 0.0, 0.0, 1)')
@@ -137,10 +137,12 @@ def create_query_from_contour(contour, incipit_only, collection=None):
             membership_definitions.append('DEFINETRAP stepDown AS (-2, -1.0, -0.5, 0.0)')
         elif symbol == 'D':
             membership_functions[symbol] = 'leapDown'
-            membership_definitions.append('DEFINETRAP leapDown AS (-3.0, -2.0, -1.0, -0.5)')
-        elif symbol == '*D':
-            membership_functions[symbol] = 'extremelyDown'
-            membership_definitions.append('DEFINEDESC extremelyDown AS (-2, -1)')
+            membership_definitions.append('DEFINEDESC leapDown AS (-2.0, -0.5)')
+        # elif symbol == '*D':
+        #     membership_functions[symbol] = 'extremelyDown'
+        #     membership_definitions.append('DEFINEDESC extremelyDown AS (-2, -1)')
+        else:
+            raise Exception(f'{symbol} not accepted.')
 
     # Add membership functions and conditions for melodic contours
     for idx, symbol in enumerate(melodic_contours):
