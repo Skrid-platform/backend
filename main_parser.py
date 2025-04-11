@@ -5,8 +5,6 @@
 #---General
 import argparse
 from os.path import exists
-from ast import literal_eval # safer than eval
-import re
 
 # import neo4j.exceptions.CypherSyntaxError
 import neo4j
@@ -15,7 +13,7 @@ import neo4j
 from reformulation_V3 import reformulate_fuzzy_query
 from neo4j_connection import connect_to_neo4j, run_query
 from process_results import process_results_to_text, process_results_to_mp3, process_results_to_json, process_crisp_results_to_json
-from utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes, create_query_from_contour
+from utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes, create_query_from_contour, check_notes_input_format, check_contour_input_format
 
 #---Performance tests
 from testing_utilities import PerformanceLogger
@@ -93,109 +91,6 @@ def write_to_file(fn, content):
 
     with open(fn, 'w') as f:
         f.write(content)
-
-def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|None] | int|float|None]]:
-    '''
-    Ensure that `notes_input` is in the correct format (see below for a description of the format).
-    If not, raise an argparse.ArgumentTypeError.
-
-    Input :
-        - notes_input : the user input (a string, not a list).
-
-    Output :
-        - a list of (char, int, int)  if the format is right ;
-        - argparse.ArgumentTypeError  otherwise.
-
-    Description for the format of `notes` :
-        `notes` should be a list of `note`s.
-        A `note` is a list of the following format : `[(class_1, octave_1), ..., (class_n, octave_n), duration, dots (optional)]`
-
-        For example : `[[('c', 5), 4, 0], [('b', 4), 8, 1], [('b', 4), 8], [('a', 4), ('d', 5), 16, 2]]`.
-
-        duration is in the following format: 1 for whole, 2 for half, ...
-        dots is an optional integer representing the number of dots.
-    '''
-
-    #---Init (functions to test each part)
-    def check_class(class_: str|None) -> bool:
-        '''Return True iff `class_` is in correct format.'''
-
-        return (
-            class_ == None
-            or (
-                isinstance(class_, str)
-                and (
-                    len(class_) == 1 or
-                    (len(class_) == 2 and class_[1] in '#sbf')
-                )
-                and
-                class_[0] in 'abcdefgr'
-            )
-        )
-
-    def check_octave(octave: int|None) -> bool:
-        '''Return True iff `octave` is in correct format.'''
-
-        return isinstance(octave, (int, type(None)))
-
-    def check_duration(duration: int|float|None) -> bool:
-        '''Return True iff `duration` is in correct format.'''
-
-        return isinstance(duration, (int, float, type(None)))
-
-    def check_dots(dots: int|None) -> bool:
-        '''Return True iff `dots` is in correct format.'''
-
-        return isinstance(dots, (int, type(None))) and (dots is None or dots >= 0)
-
-    format_notes = "Notes format: list of [(class, octave), duration, dots]: [[(class, octave), ..., duration, dots], ...]. E.g `[[(\'c\', 5), 4, 0], [(\'b\', 4), 8, 1], [(\'b\', 4), 8], [(\'a\', 4), (\'d\', 5), 16, 2]]`. It is possible to use \"None\" to ignore a criteria. Dots are optinal, with default value of 0."
-
-    #---Convert string to list
-    notes_input = notes_input.replace("\\", "")
-    notes = literal_eval(notes_input)
-
-    #---Check
-    for i, note_or_chord in enumerate(notes):
-        #-Check type of the current note/chord (e.g [('c', 5), 8])
-        if type(note_or_chord) != list:
-            raise argparse.ArgumentTypeError(f'error with note {i}: should be a a list, but "{note_or_chord}", of type {type(note_or_chord)} found !\n' + format_notes)
-
-        #-Check the length of the current note/chord (e.g [('c', 5), 8])
-        if len(note_or_chord) < 2:
-            raise argparse.ArgumentTypeError(f'error with note {i}: there should be at least two elements in the list, for example `[(\'c\', 5), 4]`, but "{note_or_chord}", with length {len(note_or_chord)} found !\n' + format_notes)
-
-        #-Check the duration
-        duration = note_or_chord[1]
-        if not check_duration(duration):
-            raise argparse.ArgumentTypeError(f'error with note {i}: "{note_or_chord}": "{duration}" (duration) is not a float (or None)\n' + format_notes)
-
-        #-Check the dots (if provided)
-        if len(note_or_chord) > 2:
-            dots = note_or_chord[-1]
-            if not check_dots(dots):
-                raise argparse.ArgumentTypeError(f'error with note {i}: "{note_or_chord}": "{dots}" (dots) is not a non-negative integer or None\n' + format_notes)
-        else:
-            dots = 0  # Default to 0 if dots are not provided
-
-        #-Check each note
-        for j, note in enumerate(note_or_chord[:-2]):
-            #-Check type of note tuple
-            if type(note) != tuple:
-                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: should be a tuple (e.g `(\'c\', 5)`), but "{note}", of type {type(note)} found !\n' + format_notes)
-
-            #-Check length of note tuple
-            if len(note) != 2:
-                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: note tuple should have 2 elements (class, octave), but {len(note_or_chord)} found !\n' + format_notes)
-
-            #-Check note class
-            if not check_class(note[0]):
-                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: "{note}": "{note[0]}" is not a note class.\n' + format_notes)
-
-            #-Check note octave
-            if not check_octave(note[1]):
-                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: "{note}": "{note[1]}" (octave) is not an int, or a float, or None.\n' + format_notes)
-
-    return notes
 
 
 
@@ -587,40 +482,9 @@ class Parser:
         # Validate notes input based on contour_match flag
         if args.contour_match:
             # Contour match mode: Validate that the input is in the correct dual-batch format
-            pattern = r'^(([*UDRudX]*)(-)([XLSMls]*))$'
-            if not re.match(pattern, notes_input):
-                self.parser_w.error("When using `-C`, NOTES must be a string containing a rhythmic sequence ('L', 'M', 'l', 'S', 's', 'X') "
-                                    "and a melodic contour sequence ('*U', 'U', 'u', 'R', 'd', 'D', '*D', 'X'), separated by '-'. Example: 'URdU*-LMl'.")
+            contour = check_contour_input_format(notes_input)
+            print(contour)
 
-            # Split the input into rhythmic and melodic components
-            melodic_part, rhythmic_part = notes_input.split('-')
-
-            # Convert into lists of individual symbols
-            rhythmic_contours = list(rhythmic_part)
-            melodic_contours = []
-
-            # Process melodic contour sequence while handling '*U' and '*D' properly
-            i = 0
-            while i < len(melodic_part):
-                if melodic_part[i] == '*':  
-                    if i + 1 < len(melodic_part) and melodic_part[i + 1] in "UD":
-                        melodic_contours.append(melodic_part[i]+melodic_part[i+1])
-                        i += 2
-                    else:
-                        self.parser_w.error(f"Invalid contour element: '{melodic_part[i:]}' (Expected '*U' or '*D').")
-                else:
-                    melodic_contours.append(melodic_part[i])
-                    i += 1
-
-            # Ensure both lists have the same length
-            if len(rhythmic_contours) != len(melodic_contours):
-                self.parser_w.error("Both rhythmic and melodic contours must have the same length. Example: 'URd*U-LMl'.")
-
-            # Store contour as structured data
-            contour = {
-                'rhythmic': rhythmic_contours,
-                'melodic': melodic_contours
-            }
 
             query = create_query_from_contour(contour, args.incipit_only, args.collections)
         else:
