@@ -31,7 +31,7 @@ def generate_query():
             query = create_query_from_contour(
                 contour,
                 data.get('incipit_only', False),
-                data.get('collections')
+                data.get('collection')
             )
         else:
             notes = data['notes']
@@ -49,7 +49,7 @@ def generate_query():
                 data.get('allow_transposition', False),
                 data.get('allow_homothety', False),
                 data.get('incipit_only', False),
-                data.get('collections')
+                data.get('collection')
             )
         return jsonify({'query': query})
     except Exception as e:
