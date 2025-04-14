@@ -78,15 +78,30 @@ def execute_query():
         crispQuery = reformulate_fuzzy_query(fuzzyQuery)
 
         result = run_query(driver, crispQuery)
-        output_format = data.get('text', 'json')
-        print(output_format)
-
-        if output_format == 'text':
-            output = process_results_to_text(result, fuzzyQuery)
-        else:
-            output = process_results_to_json(result, fuzzyQuery)
+        
+        output = process_results_to_json(result, fuzzyQuery)
 
         return jsonify({'result': output})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/execute-crisp-query', methods=['POST'])
+def execute_crisp_query():
+    data = request.get_json()
+    try:
+        query = data.get('query')
+        uri = data.get('uri')
+        user = data.get('user')
+        password = data.get('password')
+
+        driver = connect_to_neo4j(uri, user, password)
+        result = run_query(driver, query)
+
+        # Convert Neo4j Record objects to dictionaries
+        results_as_dicts = [record.data() for record in result]
+        print(results_as_dicts)
+        return jsonify({'results': results_as_dicts})
+
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
