@@ -1,7 +1,6 @@
 *.cypher
 *.mp3
 *.pyc
-*.txt
 
 __pycache__/
 CSV/
