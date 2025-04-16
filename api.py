@@ -99,7 +99,6 @@ def execute_crisp_query():
 
         # Convert Neo4j Record objects to dictionaries
         results_as_dicts = [record.data() for record in result]
-        print(results_as_dicts)
         return jsonify({'results': results_as_dicts})
 
     except Exception as e:

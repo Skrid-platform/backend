@@ -130,7 +130,7 @@ class Parser:
             \tsend a query              : python3 main_parser.py send -F crisp_query.cypher -t result.txt
             \tsend a query 2            : python3 main_parser.py -u user -p pwd send -F -f fuzzy_query.cypher -t result.txt -m 6
             \twrite a fuzzy query       : python3 main_parser.py write \"[[('c', 5), 1, 1], [('d', 5), None]]\" -a 0.5 -t -o fuzzy_query.cypher
-            \twrite a query from file   : python3 main_parser.py w \"$(python3 main_parser.py g \"10343_Avant_deux.mei\" 9)\" -p 2
+            \twrite a query from a song : python3 main_parser.py w \"$(python3 main_parser.py g \"10343_Avant_deux.mei\" 9)\" -p 2
             \tget notes from a song     : python3 main_parser.py get Air_n_83.mei 5 -o notes
             \tlist all songs            : python3 main_parser.py l
             \tlist all songs (compact)  : python3 main_parser.py l -n 0''',
