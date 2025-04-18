@@ -39,7 +39,7 @@ def generate_query():
             #---Convert string to list
             notes = notes.replace("\\", "")
             notes = literal_eval(notes)
-
+            print(notes)
             query = create_query_from_list_of_notes(
                 notes,
                 float(data.get('pitch_distance', 0.0)),
