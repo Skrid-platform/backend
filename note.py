@@ -3,12 +3,15 @@ class Note:
         self.pitch = pitch
         self.octave = octave
         self.dur = dur
-        if dots is None and duration is None:
-            self.duration = 1.0/dur
-        elif duration is None:
-            self.duration = 1.0/dur*1.5
+        if dur is None:
+            self.duration = None
         else:
-            self.duration = duration
+            if dots is None and duration is None:
+                self.duration = 1.0/dur
+            elif duration is None:
+                self.duration = 1.0/dur*1.5
+            else:
+                self.duration = duration
         self.dots = dots
         self.start = start
         self.end = end

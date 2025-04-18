@@ -62,10 +62,25 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
 
         event = '(e{}:Event)'.format(i)
 
-        if note.dots:
-            fact = "(e{})--(f{}:Fact{{class:'{}', octave:{}, dur:{}, dots:{} }})".format(i, fact_nb, note.pitch, note.octave, note.dur, note.dots)
-        else:
-            fact = "(e{})--(f{}:Fact{{class:'{}', octave:{}, dur:{} }})".format(i, fact_nb, note.pitch, note.octave, note.dur)
+        fact_properties = []
+
+        if note.pitch is not None:
+            fact_properties.append(f"class:'{note.pitch}'")
+
+        if note.octave is not None:
+            fact_properties.append(f"octave:{note.octave}")
+
+        if note.dur is not None:
+            fact_properties.append(f"dur:{note.dur}")
+
+        if note.dots is not None:
+            fact_properties.append(f"dots:{note.dots}")
+
+        # Join all defined properties
+        properties_str = ', '.join(fact_properties)
+
+        # Construct the full Fact pattern
+        fact = f"(e{i})--(f{fact_nb}:Fact{{{properties_str}}})"
 
         facts.append(fact)
         fact_nb += 1
