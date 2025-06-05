@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from ast import literal_eval
+import os
 from reformulation_V3 import reformulate_fuzzy_query
 from neo4j_connection import connect_to_neo4j, run_query
 from process_results import (
@@ -13,6 +14,10 @@ from utils import (
     create_query_from_contour,
     check_contour_input_format
 )
+
+uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+user = os.getenv("NEO4J_USER", "neo4j")
+password = os.getenv("NEO4J_PASSWORD", "1234678")
 
 app = Flask(__name__)
 
@@ -69,9 +74,6 @@ def execute_query():
     data = request.get_json()
     try:
         fuzzyQuery = data['query']
-        uri = data.get('uri')
-        user = data.get('user')
-        password = data.get('password')
 
         driver = connect_to_neo4j(uri, user, password)
         crispQuery = reformulate_fuzzy_query(fuzzyQuery)
@@ -89,11 +91,9 @@ def execute_crisp_query():
     data = request.get_json()
     try:
         query = data.get('query')
-        uri = data.get('uri')
-        user = data.get('user')
-        password = data.get('password')
 
         driver = connect_to_neo4j(uri, user, password)
+        print(uri, user, password)
         result = run_query(driver, query)
 
         # Convert Neo4j Record objects to dictionaries
@@ -104,4 +104,4 @@ def execute_crisp_query():
         return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5000)

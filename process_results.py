@@ -196,7 +196,7 @@ def get_ordered_results_2(result, query):
         aggregated_degrees = [aggregate_degrees(min_aggregation, degrees) if degrees else 1.0 for degrees in note_degrees]
         
         # Compute sequence degree
-        sequence_degree = aggregate_degrees(min_aggregation, aggregated_degrees)
+        sequence_degree = aggregate_degrees(average_aggregation, aggregated_degrees)
         
         if sequence_degree >= alpha:
             note_details = [(note_data[0], pitch_deg, duration_deg, sequencing_deg, deg, mem_degs) for note_data, deg, (pitch_deg, duration_deg, sequencing_deg), mem_degs in zip(note_sequence, aggregated_degrees, p_d_g_note_degrees, membership_function_degrees)]
