@@ -93,7 +93,6 @@ def execute_crisp_query():
         query = data.get('query')
 
         driver = connect_to_neo4j(uri, user, password)
-        print(uri, user, password)
         result = run_query(driver, query)
 
         # Convert Neo4j Record objects to dictionaries
