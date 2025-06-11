@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+##-Imports
 from flask import Flask, request, jsonify
 from ast import literal_eval
 import os
@@ -15,12 +19,40 @@ from utils import (
     check_contour_input_format
 )
 
+##-Init
 uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 user = os.getenv("NEO4J_USER", "neo4j")
 password = os.getenv("NEO4J_PASSWORD", "1234678")
 
+DEBUG = True
+HOST = '0.0.0.0'
+PORT = 5000
+
 app = Flask(__name__)
 
+
+##-Functions
+def query_edits_db(query: str):
+    '''
+    Checks if the query contains some keywords that modify the database.
+
+    Args:
+        query: the cypher query
+    
+    Returns:
+        True if `query` would modify the database, False otherwise
+    '''
+
+    keywords = ('create', 'delete', 'set', 'remove', 'detach', 'load')
+    for k in keywords:
+        if k in query.lower():
+            print(f'Query contains "{k.upper()}" keyword. Aborting it.')
+            return True
+
+    return False
+
+
+##-Routes
 @app.route('/ping', methods=['GET'])
 def ping():
     return jsonify({'message': 'pong'})
@@ -74,15 +106,19 @@ def execute_query():
     data = request.get_json()
     try:
         fuzzyQuery = data['query']
+        crispQuery = reformulate_fuzzy_query(fuzzyQuery)
+
+        if query_edits_db(crispQuery):
+            return jsonify({'error': 'Keyword not allowed in query (edits the database)'}), 400
 
         driver = connect_to_neo4j(uri, user, password)
-        crispQuery = reformulate_fuzzy_query(fuzzyQuery)
 
         result = run_query(driver, crispQuery)
         
         output = process_results_to_json(result, fuzzyQuery)
 
         return jsonify({'result': output})
+
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
@@ -91,6 +127,9 @@ def execute_crisp_query():
     data = request.get_json()
     try:
         query = data.get('query')
+
+        if query_edits_db(query):
+            return jsonify({'error': 'Keyword not allowed in query (edits the database)'}), 400
 
         driver = connect_to_neo4j(uri, user, password)
         result = run_query(driver, query)
@@ -102,5 +141,7 @@ def execute_crisp_query():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+
+##-Run
 if __name__ == '__main__':
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=DEBUG, host=HOST, port=PORT)
