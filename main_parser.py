@@ -4,6 +4,7 @@
 ##-Imports
 #---General
 import argparse
+import os
 from os.path import exists
 
 # import neo4j.exceptions.CypherSyntaxError
@@ -137,7 +138,7 @@ class Parser:
             formatter_class=argparse.RawDescriptionHelpFormatter
         )
 
-        #---Add arguments
+        #---getenvAdd arguments
         # self.parser.add_argument(
         #     '-v', '--version',
         #     help='show version and exit',
@@ -147,17 +148,17 @@ class Parser:
 
         self.parser.add_argument(
             '-U', '--URI',
-            default='bolt://localhost:7687',
+            default=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
             help='the uri to the neo4j database'
         )
         self.parser.add_argument(
             '-u', '--user',
-            default='neo4j',
+            default=os.getenv("NEO4J_USER", "neo4j"),
             help='the username to access the database'
         )
         self.parser.add_argument(
             '-p', '--password',
-            default='12345678',
+            default=os.getenv("NEO4J_PASSWORD", "1234678"),
             help='the password to access the database'
         )
 

@@ -1,6 +1,6 @@
 from neo4j_connection import connect_to_neo4j, run_query
 from generate_audio import generate_mp3
-from degree_computation import convert_note_to_sharp
+from fuzzy_computation import convert_note_to_sharp
 from note import Note
 from refactor import move_attribute_values_to_where_clause
 # from audio_parser import extract_notes

@@ -1,9 +1,9 @@
 import re
-from find_nearby_pitches import find_frequency_bounds, find_nearby_pitches
+from fuzzy_computation import find_frequency_bounds, find_nearby_pitches
 from extract_notes_from_query import extract_notes_from_query_dict, extract_fuzzy_parameters, extract_match_clause, extract_where_clause, extract_attributes_with_membership_functions, extract_membership_function_support_intervals
-from find_duration_range import find_duration_range_decimal, find_duration_range_multiplicative_factor_sym
+from fuzzy_computation import find_duration_range_decimal, find_duration_range_multiplicative_factor_sym
 from utils import calculate_intervals_list, calculate_dur_ratios_list
-from degree_computation import convert_note_to_sharp
+from fuzzy_computation import convert_note_to_sharp
 from refactor import move_attribute_values_to_where_clause, refactor_variable_names
 
 def make_duration_condition(duration_factor, duration, node_name, alpha, dotted):
