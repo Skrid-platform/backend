@@ -61,9 +61,10 @@ def get_ordered_results_2(result, query):
     Returns:
         list: A sorted list of sequences, each containing source, start, end, degree, and note details.
     """
+
     # Extract the query notes and fuzzy parameters
     query_notes = extract_notes_from_query_dict(query)
-    query_notes = {node_name: attrs for node_name, attrs in query_notes.items() if attrs['type'] == 'Fact'}
+    query_notes = {node_name: attrs for node_name, attrs in query_notes.items() if 'type' in attrs and attrs['type'] == 'Fact'}
     pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, allow_homothety = extract_fuzzy_parameters(query)
     
     # Extract membership functions and their associated attributes
