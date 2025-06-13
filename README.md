@@ -30,11 +30,16 @@ cd backend
 
 (more infos to be added)
 
-2. Setup on macOS (skip if not on macOS)
+2. **Set up a Python virtual environment**
 
-**Set up a Python virtual environment**
+Important: the python version needs to be between `3.8` and `3.11` (both included) for the `basic-pitch` dependency.
+
+Set up a virtual environment:
 ```bash
+# Create the virtual environment
 python3 -m venv venv
+
+# Activate it (needs to be ran every time)
 source venv/bin/activate
 ```
 
@@ -86,12 +91,12 @@ A Flask-based API that exposes key functionalities for use in front-end applicat
 
 #### Available Endpoints:
 
-| Endpoint                   | Method | Description                                 |
-|----------------------------|--------|---------------------------------------------|
-| `/ping`                   | GET    | Health check                                |
-| `/generate-query`         | POST   | Generate a fuzzy or contour query           |
-| `/compile-query`          | POST   | Compile a fuzzy query into Cypher           |
-| `/execute-fuzzy-query`    | POST   | Execute a fuzzy query and return results    |
+| Endpoint                  | Method | Description                                     |
+|---------------------------|--------|-------------------------------------------------|
+| `/ping`                   | GET    | Health check                                    |
+| `/generate-query`         | POST   | Generate a fuzzy or contour query               |
+| `/compile-query`          | POST   | Compile a fuzzy query into Cypher               |
+| `/execute-fuzzy-query`    | POST   | Execute a fuzzy query and return results        |
 | `/execute-crisp-query`    | POST   | Execute a crisp Cypher query and return results |
 
 #### Example usage:
