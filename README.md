@@ -91,19 +91,25 @@ A Flask-based API that exposes key functionalities for use in front-end applicat
 
 #### Available Endpoints:
 
-| Endpoint                  | Method | Description                                     |
-|---------------------------|--------|-------------------------------------------------|
-| `/ping`                   | GET    | Health check                                    |
-| `/generate-query`         | POST   | Generate a fuzzy or contour query               |
-| `/compile-query`          | POST   | Compile a fuzzy query into Cypher               |
-| `/execute-fuzzy-query`    | POST   | Execute a fuzzy query and return results        |
-| `/execute-crisp-query`    | POST   | Execute a crisp Cypher query and return results |
+| Endpoint               | Method | Description                                     |
+|------------------------|--------|-------------------------------------------------|
+| `/ping`                | GET    | Health check                                    |
+| `/generate-query`      | POST   | Generate a fuzzy or contour query               |
+| `/compile-query`       | POST   | Compile a fuzzy query into Cypher               |
+| `/execute-fuzzy-query` | POST   | Execute a fuzzy query and return results        |
+| `/execute-crisp-query` | POST   | Execute a crisp Cypher query and return results |
+| `/convert-recording`   | POST   | Converts a recording to music notes             |
 
 #### Example usage:
 ```bash
 curl -X POST http://localhost:5000/generate-query \
     -H "Content-Type: application/json" \
     -d '{"notes": "[[(\"c\", 5), 4], [(\"d\", 5), 4]]", "alpha": 0.2}'
+```
+
+```bash
+curl -X POST http://localhost:5000/convert-recording \
+    -F file=@relative/path/to/audio.wav
 ```
 
 > The API is used by the Node.js server powering the SKRID front-end and it can be used directly.

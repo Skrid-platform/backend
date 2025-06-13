@@ -5,6 +5,8 @@
 from flask import Flask, request, jsonify
 from ast import literal_eval
 import os
+from random import randint
+
 from reformulation_V3 import reformulate_fuzzy_query
 from neo4j_connection import connect_to_neo4j, run_query
 from process_results import (
@@ -18,6 +20,7 @@ from utils import (
     create_query_from_contour,
     check_contour_input_format
 )
+from recording_to_notes import RecordingToNotes
 
 ##-Init
 uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
@@ -29,6 +32,8 @@ HOST = '0.0.0.0'
 PORT = 5000
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024**2 # 16 MB
+app.config['UPLOAD_FOLDER'] = 'uploads/'
 
 
 ##-Functions
@@ -137,6 +142,34 @@ def execute_crisp_query():
         # Convert Neo4j Record objects to dictionaries
         results_as_dicts = [record.data() for record in result]
         return jsonify({'results': results_as_dicts})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/convert-recording', methods=['POST'])
+def convert_recording_to_notes():
+    try:
+        #---Get the file and save it
+        print(request.files)
+        uploaded_file = request.files['file']
+
+        if uploaded_file.filename == None:
+            return jsonify({'error': 'no file given'}), 400
+
+        fn_nonce = randint(100000, 9999999)
+        get_ext = lambda x: x[len(x) - x.find('.'):]
+        ext = get_ext(uploaded_file.filename)
+        fn = app.config['UPLOAD_FOLDER'] + f'audio_{fn_nonce}.{ext}'
+        uploaded_file.save(fn)
+
+        #---Convert it
+        C = RecordingToNotes()
+        notes = C.get_notes(fn)
+
+        #---Delete the file
+        os.remove(fn)
+
+        return jsonify({'notes': notes})
 
     except Exception as e:
         return jsonify({'error': str(e)}), 400
