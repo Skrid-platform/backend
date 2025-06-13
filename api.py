@@ -150,7 +150,6 @@ def execute_crisp_query():
 def convert_recording_to_notes():
     try:
         #---Get the file and save it
-        print(request.files)
         uploaded_file = request.files['file']
 
         if uploaded_file.filename == None:
