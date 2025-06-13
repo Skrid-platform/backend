@@ -40,7 +40,7 @@ source venv/bin/activate
 
 3. **Install dependencies**
 ```bash
-pip install -r dependencies.txt
+pip install -r requirements.txt
 ```
 
 4. **Run the Flask API locally**
