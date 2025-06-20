@@ -250,6 +250,7 @@ class Parser:
         self.create_compile();
         self.create_send();
         self.create_write();
+        self.create_recording_convert();
         self.create_get();
         self.create_list();
 
@@ -406,6 +407,23 @@ class Parser:
             help='Match only the contour of the melody, i.e the general shape of melodic and rythmic intervals between notes'
         )
 
+    def create_recording_convert(self):
+        '''Creates the recording_convert subparser and add its arguments.'''
+
+        #---Init
+        self.parser_r = self.subparsers.add_parser('recording_convert', aliases=['r'], help='converts a recording to notes')
+
+        #---Add arguments
+        self.parser_r.add_argument(
+            'AUDIO_FILE',
+            help='path to the audio file'
+        )
+
+        self.parser_r.add_argument(
+            '-o', '--output',
+            help='give a filename where to write result. If not set, just print it.'
+        )
+
     def create_get(self):
         '''Creates the get subparser and add its arguments.'''
 
@@ -470,6 +488,9 @@ class Parser:
 
         elif args.subparser in ('w', 'write'):
             self.parse_write(args)
+
+        elif args.subparser in ('r', 'recording_convert'):
+            self.parse_recording_convert(args)
 
         elif args.subparser in ('g', 'get'):
             self.parse_get(args)
@@ -603,6 +624,19 @@ class Parser:
 
         else:
             write_to_file(args.output, query)
+
+    def parse_recording_convert(self, args):
+        '''Parse the args for the recording_convert mode'''
+
+        fn = args.AUDIO_FILE
+
+        res = get_notes_from_audio(fn, self.parser_r)
+
+        if args.output == None:
+            print(res)
+
+        else:
+            write_to_file(args.output, res)
 
     def parse_get(self, args):
         '''Parse the args for the get mode'''
