@@ -3,7 +3,7 @@ from pydub.generators import Sine
 import numpy as np
 import os
 
-from note import Note
+from src.core.note import Note
 
 # Frequency mapping for notes (A4 = 440 Hz)
 note_frequencies = {
@@ -11,10 +11,11 @@ note_frequencies = {
     'f#': 369.99, 'g': 392.00, 'g#': 415.30, 'a': 440.00, 'a#': 466.16, 'b': 493.88
 }
 
+# Helper function to convert duration from beats to seconds
 def convert_duration_to_seconds(note_duration, bpm=60):
     beat_duration = 60.0 / bpm
     duration_in_beats = 4 * note_duration  # Whole note is 4 beats, quarter note is 1 beat, etc.
-    return duration_in_beats * beat_duration
+    return duration_in_beats * beat_duration # Adjusted for beats per measure
 
 # Modified function to add harmonics and apply an ADSR envelope
 def generate_piano_like_note(frequency, duration_ms, sample_rate=44100):
@@ -105,12 +106,6 @@ def generate_mp3(notes, file_name, audio_dir, bpm=60, overlap_ms=200, sample_rat
     file_path = os.path.join(audio_dir, file_name)
     song.export(file_path, format="mp3")
     print(f"Generated MP3: {file_path}")
-
-
-# Helper function to convert duration from beats to seconds
-def convert_duration_to_seconds(note_duration, bpm=60):
-    beat_duration = 60.0 / bpm
-    return 4 * note_duration * beat_duration  # Adjusted for beats per measure
 
 
 if __name__ == "__main__":

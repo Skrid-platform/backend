@@ -1,14 +1,20 @@
-from neo4j_connection import connect_to_neo4j, run_query
-from generate_audio import generate_mp3
-from fuzzy_computation import convert_note_to_sharp
-from note import Note
-from refactor import move_attribute_values_to_where_clause
-# from audio_parser import extract_notes
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
+##-Imports
+#---General
 import os
 import argparse
 from ast import literal_eval # safer than eval
 import re
+
+#---Project
+from src.db.neo4j_connection import connect_to_neo4j, run_query
+from src.audio.generate_audio import generate_mp3
+from src.core.fuzzy_computation import convert_note_to_sharp
+from src.core.note import Note
+from src.core.refactor import move_attribute_values_to_where_clause
+# from src.audio.audio_parser import extract_notes
 
 def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, allow_homothety, incipit_only, collection=None):
     '''
@@ -206,10 +212,13 @@ def create_query_from_contour(contour, incipit_only, collection=None):
     return move_attribute_values_to_where_clause(query)
 
 def get_first_k_notes_of_each_score(k, source, driver):
-    # In : an integer, a driver for the DB
-    # Out : a crisp query returning the sequences of k first notes for each score in the DB
+    '''
+    In: an integer, a driver for the DB
+    Out: a crisp query returning the sequences of k first notes for each score in the DB
 
-    # Initialize the MATCH and WHERE clauses
+    Initialize the MATCH and WHERE clauses
+    '''
+
     match_clause = "MATCH\n"
     event_chain = []
     fact_chain = []
@@ -264,8 +273,10 @@ def generate_mp3_from_source_and_time_interval(driver, source, start_time, end_t
     generate_mp3(notes, file_name, bpm)
 
 def get_notes_from_source_and_time_interval(driver, source, start_time, end_time):
-    # In : driver for DB, a source to identify one score, a starting and ending time
-    # Out : a list of notes
+    '''
+    In: driver for DB, a source to identify one score, a starting and ending time
+    Out: a list of notes
+    '''
 
     query = f"""
     MATCH (e:Event)-[:IS]->(f:Fact)

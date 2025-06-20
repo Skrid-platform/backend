@@ -1,6 +1,6 @@
 import re
 
-from extract_notes_from_query import extract_match_clause, extract_where_clause, extract_return_clause
+from src.core.extract_notes_from_query import extract_match_clause, extract_where_clause, extract_return_clause
 
 def combine_polyphonic_queries(queries):
     """

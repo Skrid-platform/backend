@@ -13,13 +13,13 @@ from os.path import exists
 import neo4j
 
 #---Project
-from reformulation_V3 import reformulate_fuzzy_query
-from neo4j_connection import connect_to_neo4j, run_query
-from process_results import process_results_to_text, process_results_to_mp3, process_results_to_json, process_crisp_results_to_json
-from utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes, create_query_from_contour, check_notes_input_format, check_contour_input_format
+from src.core.reformulation_V3 import reformulate_fuzzy_query
+from src.db.neo4j_connection import connect_to_neo4j, run_query
+from src.core.process_results import process_results_to_text, process_results_to_mp3, process_results_to_json, process_crisp_results_to_json
+from src.utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes, create_query_from_contour, check_notes_input_format, check_contour_input_format
 
 #---Performance tests
-from testing_utilities import PerformanceLogger
+from tests.testing_utilities import PerformanceLogger
 
 ##-Init
 # version = '1.0'
@@ -36,7 +36,7 @@ def import_recording_to_notes():
     global RecordingToNotes
 
     if recording_to_notes_not_imported:
-        from recording_to_notes import RecordingToNotes
+        from src.audio.recording_to_notes import RecordingToNotes
         recording_to_notes_not_imported = False
 
 def restricted_float(x, mn=None, mx=None):

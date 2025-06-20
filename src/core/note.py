@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''Defines a Note as a class'''
+
 class Note:
     def __init__(self, pitch, octave, dur, dots=None, duration=None, start=None, end=None, id_=None):
         self.pitch = pitch

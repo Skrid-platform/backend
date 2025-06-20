@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+##-Imports
+#---General
 import os
 import subprocess
 import time
@@ -9,8 +14,9 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import ast
 
-from neo4j_connection import connect_to_neo4j, run_query
-from utils import calculate_pitch_interval, create_query_from_contour
+#---Project
+from src.db.neo4j_connection import connect_to_neo4j, run_query
+from src.utils import calculate_pitch_interval, create_query_from_contour
 
 class PerformanceLogger:
     _instance = None

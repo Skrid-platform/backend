@@ -1,5 +1,10 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+##-Imports
 from math import ceil, floor, log2
 
+##-Functions
 def find_duration_range(duration, max_distance):
     actual_duration = 1/duration
 
@@ -271,7 +276,7 @@ def pitch_degree_with_intervals(interval1, interval2, pitch_gap):
     # d = 1 - (abs(interval1 - interval2) / (pitch_gap + pitch_gap*0.1))
     d = 1 - (abs(interval1 - interval2) / pitch_gap)
     return max(d, 0)
-  
+
 
 def duration_degree(duration1, duration2, max_duration_distance):
     if max_duration_distance == 0:

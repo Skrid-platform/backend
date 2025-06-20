@@ -1,8 +1,16 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+##-Imports
+#---General
 import re
 import csv
 from io import StringIO
-from extract_notes_from_query import extract_fuzzy_membership_functions, extract_fuzzy_parameters
 
+#---Project
+# from src.core.extract_notes_from_query import extract_fuzzy_membership_functions, extract_fuzzy_parameters
+
+##-Functions
 def move_attribute_values_to_where_clause(query):
     '''
     Move attribute values to the where clause of the query. Also checks that all nodes and relationships have a type.

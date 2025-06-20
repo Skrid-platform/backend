@@ -5,9 +5,9 @@ import scipy.signal
 import re
 from math import log
 
-from note import Note
-from utils import create_query_from_list_of_notes
-from generate_audio import generate_mp3
+from src.core.note import Note
+from src.utils import create_query_from_list_of_notes
+from src.audio.generate_audio import generate_mp3
 
 semitones_from_c = {
     'c': 0, 'c#': 1, 'd': 2, 'd#': 3, 'e': 4, 'f': 5, 'f#': 6, 

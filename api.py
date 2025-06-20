@@ -11,20 +11,20 @@ import os
 from random import randint
 
 #---Project
-from reformulation_V3 import reformulate_fuzzy_query
-from neo4j_connection import connect_to_neo4j, run_query
-from process_results import (
+from src.core.reformulation_V3 import reformulate_fuzzy_query
+from src.db.neo4j_connection import connect_to_neo4j, run_query
+from src.core.process_results import (
     process_results_to_text,
     process_results_to_mp3,
     process_results_to_json,
     process_crisp_results_to_json
 )
-from utils import (
+from src.utils import (
     create_query_from_list_of_notes,
     create_query_from_contour,
     check_contour_input_format
 )
-from recording_to_notes import RecordingToNotes
+from src.audio.recording_to_notes import RecordingToNotes
 
 
 ##-Init
