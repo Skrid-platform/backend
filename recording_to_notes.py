@@ -177,7 +177,7 @@ class RecordingToNotes:
 
         return ret
 
-    def get_notes(self, fn: str) -> list[tuple[tuple[str | list[str]], str, int]]:
+    def get_notes(self, fn: str) -> list[tuple[str | list[str], str, int]]:
         '''
         Uses basic_pitch's predict function to convert the input audio file `fn`, and make a list of notes.
         To make the list of notes, it uses `music21` (to read the midi data).
@@ -225,7 +225,7 @@ class RecordingToNotes:
             else:
                 pitch = [k[:-1].replace('-', 'b') + '/' + k[-1] for k in n[0]]
 
-            if pitch != 'r': # Removing all the silences from the notes, it gives a better result.
+            if pitch != 'r': # Removing all the silences from the notes, it gives a better result. To undo this, remove this `if`, and decrease the indentation next line.
                 ret.append((pitch, dur, n[2]))
 
         return ret

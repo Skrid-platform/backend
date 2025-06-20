@@ -34,7 +34,7 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
 
         For example : `[[('c', 5), 4], [('b', 4), 8], [('b', 4), 8], [('a', 4), ('d', 5), 16]]`.
 
-        duration is in the following format: 1 for whole, 2 for half, ...
+        duration is in the following format: 1 for whole, 2 for half, 4 for quarter, ...
     '''
 
     match_clause = 'MATCH\n'
@@ -450,10 +450,10 @@ def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|
     Ensure that `notes_input` is in the correct format (see below for a description of the format).
     If not, raise an argparse.ArgumentTypeError.
 
-    Input :
-        - notes_input : the user input (a string, not a list).
+    In:
+        - notes_input: the user input (a string, not a list).
 
-    Output :
+    Out:
         - a list of (char, int, int)  if the format is right ;
         - argparse.ArgumentTypeError  otherwise.
 
@@ -579,12 +579,12 @@ def check_contour_input_format(contour: str) -> dict:
         raise argparse.ArgumentTypeError("Both rhythmic and melodic contours must have the same length. Example: 'URd*U-LMl'.")
 
     # Store contour as structured data
-    contour = {
+    ret = {
         'rhythmic': rhythmic_contours,
         'melodic': melodic_contours
     }
 
-    return contour
+    return ret
 
 if __name__ == "__main__":
     # Set up a driver just to clear the cache

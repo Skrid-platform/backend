@@ -21,8 +21,22 @@ from testing_utilities import PerformanceLogger
 
 ##-Init
 # version = '1.0'
+recording_to_notes_not_imported = True
 
 ##-Util
+def import_recording_to_notes():
+    '''
+    Imports the module `recording_to_notes.py` if not already imported.
+    Useful as it is long to load.
+    '''
+
+    global recording_to_notes_not_imported
+    global RecordingToNotes
+
+    if recording_to_notes_not_imported:
+        from recording_to_notes import RecordingToNotes
+        recording_to_notes_not_imported = False
+
 def restricted_float(x, mn=None, mx=None):
     '''
     Defines a new type to restrict a float to the interval [mn ; mx].
@@ -70,6 +84,7 @@ def get_file_content(fn, parser=None):
     Try to read the file `fn`.
     If not found and `parser` != None, raise an error with `parser.error`. If `parser` is None, raise an `ArgumentTypeError`.
     '''
+
     try:
         with open(fn, 'r') as f:
             content = f.read()
@@ -93,6 +108,73 @@ def write_to_file(fn, content):
     with open(fn, 'w') as f:
         f.write(content)
 
+def get_notes_from_audio(fn: str, parser: argparse.ArgumentParser | None = None) -> list[list[tuple[str, int] | str | int]]:
+    '''
+    Convert the audio file `fn` to music notes using `recording_to_notes.py`.
+
+    In:
+        - fn: the path to the audio file
+        - parser: used to raise the error with the current parser. Otherwise, raise an `argparse.ArgumentTypeError`.
+
+    Out:
+        the notes, in the format wanted by the `write` mode of the parser:
+        `[[(class_1, octave_1), ..., (class_1n, octave_1n), duration_1, dots_1], ...]`
+        E.g `"[[('c', 5), 1, 0], [('d', 5), ('f', 5), 4, 1]]"`
+    '''
+
+    import_recording_to_notes()
+
+    convert_dur = {
+        'w': 1,
+        'h': 2,
+        'q': 4,
+        '8': 8,
+        '16': 16,
+        '32': 32
+    }
+
+    def note_str_to_tuple(note: str) -> tuple[str, int]:
+        '''
+        Convert a note in the format `'C#/5'` to `('C#', 5)`.
+
+        In:
+            - note: the note as a string (with the slash)
+        
+        Out:
+            the note as a tuple
+        '''
+    
+        tmp = note.split('/')
+        return (tmp[0].lower(), int(tmp[-1]))
+
+    try:
+        C = RecordingToNotes()
+        notes = C.get_notes(fn)
+
+    except FileNotFoundError:
+        if parser != None:
+            parser.error(f'The file {fn} has not been found')
+        else:
+            raise argparse.ArgumentTypeError(f'The file {fn} has not been found')
+
+    ret = []
+    for note in notes:
+        ret.append([])
+
+        # Add pitche(s)
+        if type(note[0]) == str:
+            ret[-1].append(note_str_to_tuple(note[0]))
+        else:
+            for pitch in note[0]:
+                ret[-1].append(note_str_to_tuple(pitch))
+
+        # Add duration
+        ret[-1].append(convert_dur[note[1]])
+
+        # Add dots
+        ret[-1].append(note[2])
+
+    return ret
 
 
 def list_available_songs(driver, collection=None):
@@ -264,6 +346,11 @@ class Parser:
             '-F', '--file',
             action='store_true',
             help='NOTES is a file name (can be create with get mode)'
+        )
+        self.parser_w.add_argument(
+            '-A', '--audio',
+            action='store_true',
+            help='NOTES is a file name of an audio file (can be create with get mode)'
         )
         self.parser_w.add_argument(
             '-o', '--output',
@@ -475,8 +562,12 @@ class Parser:
         if args.allow_transposition and args.contour_match:
             self.parser_w.error('not possible to use `-t` and `-C` at the same time')
 
-        if args.file:
+        if args.file: # Read notes from a file
             notes_input = get_file_content(args.NOTES, self.parser_w)
+
+        elif args.audio: # Convert notes from an audio
+            notes_input = str(get_notes_from_audio(args.NOTES, self.parser_w))
+
         else:
             notes_input = args.NOTES
         
@@ -485,19 +576,31 @@ class Parser:
             # Contour match mode: Validate that the input is in the correct dual-batch format
             contour = check_contour_input_format(notes_input)
             print(contour)
-
-
             query = create_query_from_contour(contour, args.incipit_only, args.collections)
+
         else:
             # Normal mode: Validate that the input is a list of notes
             try:
                 notes = check_notes_input_format(notes_input)
+
             except (ValueError, SyntaxError):
                 self.parser_w.error("NOTES must be a valid list format. Example: \"[[(\'c\', 5), 1], [(\'d\', 5), 4, 1]]\"")
-            query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition, args.allow_homothety, args.incipit_only, args.collections)
+
+            query = create_query_from_list_of_notes(
+                notes,
+                args.pitch_distance,
+                args.duration_factor,
+                args.duration_gap,
+                args.alpha,
+                args.allow_transposition,
+                args.allow_homothety,
+                args.incipit_only,
+                args.collections
+            )
 
         if args.output == None:
             print(query)
+
         else:
             write_to_file(args.output, query)
 
