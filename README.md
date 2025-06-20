@@ -67,13 +67,14 @@ usage: main_parser.py [-h] [-U URI] [-u USER] [-p PASSWORD]
 ```
 
 #### Subcommands:
-| Command      | Alias | Description                               |
-|--------------|-------|-------------------------------------------|
-| `compile`    | `c`   | Compile a fuzzy query into Cypher         |
-| `send`       | `s`   | Send a query (crisp or fuzzy)             |
-| `write`      | `w`   | Generate a fuzzy query from note input    |
-| `get`        | `g`   | Extract the first `k` notes from a piece  |
-| `list`       | `l`   | List available song files in the database |
+| Command             | Alias | Description                               |
+|---------------------|-------|-------------------------------------------|
+| `compile`           | `c`   | Compile a fuzzy query into Cypher         |
+| `send`              | `s`   | Send a query (crisp or fuzzy)             |
+| `write`             | `w`   | Generate a fuzzy query from note input    |
+| `recording_convert` | `r`   | Converts a recording to music notes       |
+| `get`               | `g`   | Extract the first `k` notes from a piece  |
+| `list`              | `l`   | List available song files in the database |
 
 #### Example usage:
 ```bash
