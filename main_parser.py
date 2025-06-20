@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+'''Defines an CLI argument parser to interface the features'''
+
 ##-Imports
 #---General
 import argparse

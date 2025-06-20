@@ -1,13 +1,14 @@
 *.cypher
 *.mp3
 *.pyc
+*.csv
 
 __pycache__/
+venv/
 CSV/
 latex/
 queries/
 test_queries/
+
 audio/
-tests/
-*.csv
-venv/
+!src/audio/

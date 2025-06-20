@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+'''Defines an API to interface the features'''
+
 ##-Imports
+#---General
 from flask import Flask, request, jsonify
 from ast import literal_eval
 import os
 from random import randint
 
+#---Project
 from reformulation_V3 import reformulate_fuzzy_query
 from neo4j_connection import connect_to_neo4j, run_query
 from process_results import (
@@ -21,6 +25,7 @@ from utils import (
     check_contour_input_format
 )
 from recording_to_notes import RecordingToNotes
+
 
 ##-Init
 uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
