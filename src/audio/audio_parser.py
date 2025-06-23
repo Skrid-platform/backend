@@ -130,7 +130,7 @@ def normalize_intervals(intervals):
     
     return normalized_intervals
 
-def generate_notes_from_intervals(intervals, base_pitch, base_octave):
+def generate_notes_from_intervals(intervals, base_pitch, base_octave) -> list[Note]:
     """Generate a sequence of Notes from a list of (semitone_diff, duration_ratio) tuples."""
     notes = []
     
@@ -162,7 +162,7 @@ def generate_notes_from_intervals(intervals, base_pitch, base_octave):
     
     return notes
 
-def extract_contour(path, sr=16000, fmin=65, fmax=900, freq_tolerance=5):
+def extract_contour(path, sr=16000, fmin=65, fmax=900, freq_tolerance=5) -> list[Note]:
     """Extract a high-level contour representation from an audio file."""
     audio, sr = librosa.load(path, sr=sr)
     f0, _, _ = librosa.pyin(audio, sr=sr, fmin=fmin, fmax=fmax, n_thresholds=30)

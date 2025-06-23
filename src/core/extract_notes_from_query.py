@@ -5,7 +5,6 @@
 
 ##-Imports
 import re
-import numpy as np
 
 ##-Functions
 def extract_notes_from_query_dict(query: str) -> dict:

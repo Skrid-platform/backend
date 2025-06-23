@@ -16,7 +16,8 @@ import ast
 
 #---Project
 from src.db.neo4j_connection import connect_to_neo4j, run_query
-from src.utils import calculate_pitch_interval, create_query_from_contour
+from src.core.note_calculations import calculate_pitch_interval
+from src.utils import create_query_from_contour
 
 ##-Class and functions
 class PerformanceLogger:

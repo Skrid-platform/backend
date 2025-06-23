@@ -10,12 +10,26 @@ import shutil
 import json
 
 #---Project
-from src.core.extract_notes_from_query import extract_fuzzy_parameters, extract_attributes_with_membership_functions, extract_fuzzy_membership_functions, extract_notes_from_query_dict
+from src.core.extract_notes_from_query import (
+    extract_fuzzy_parameters,
+    extract_attributes_with_membership_functions,
+    extract_fuzzy_membership_functions,
+    extract_notes_from_query_dict
+)
+from src.core.fuzzy_computation import (
+    pitch_degree,
+    get_notes_from_source_and_time_interval,
+    duration_degree,
+    sequencing_degree,
+    aggregate_note_degrees,
+    aggregate_sequence_degrees,
+    aggregate_degrees,
+    pitch_degree_with_intervals,
+    duration_degree_with_multiplicative_factor
+)
 from src.core.note import Note
-from src.core.fuzzy_computation import pitch_degree, duration_degree, sequencing_degree, aggregate_note_degrees, aggregate_sequence_degrees, aggregate_degrees, pitch_degree_with_intervals, duration_degree_with_multiplicative_factor
+from src.core.note_calculations import calculate_intervals_list, calculate_dur_ratios_list
 from src.audio.generate_audio import generate_mp3
-from src.utils import get_notes_from_source_and_time_interval, calculate_pitch_interval, calculate_intervals_list, calculate_dur_ratios_list
-from src.db.neo4j_connection import connect_to_neo4j, run_query
 
 ##-Functions
 def min_aggregation(*degrees):

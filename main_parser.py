@@ -14,9 +14,20 @@ import neo4j
 
 #---Project
 from src.core.reformulation_V3 import reformulate_fuzzy_query
+from src.core.process_results import (
+    process_results_to_text,
+    process_results_to_mp3,
+    process_results_to_json,
+    process_crisp_results_to_json
+)
 from src.db.neo4j_connection import connect_to_neo4j, run_query
-from src.core.process_results import process_results_to_text, process_results_to_mp3, process_results_to_json, process_crisp_results_to_json
-from src.utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes, create_query_from_contour, check_notes_input_format, check_contour_input_format
+from src.utils import (
+    get_first_k_notes_of_each_score,
+    create_query_from_list_of_notes,
+    create_query_from_contour,
+    check_notes_input_format,
+    check_contour_input_format
+)
 
 #---Performance tests
 from tests.testing_utilities import PerformanceLogger
@@ -731,5 +742,9 @@ if __name__ == '__main__':
         
     except neo4j.exceptions.AuthError as err:
         print(f'Authentification error to the neo4j database: "{err}"')
+        exit()
+
+    except neo4j.exceptions.ServiceUnavailable as err:
+        print(f'Connection error to the neo4j database: "{err}"')
         exit()
 

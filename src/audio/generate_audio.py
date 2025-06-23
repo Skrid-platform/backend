@@ -88,7 +88,7 @@ def generate_note_audio(note, bpm=60):
         sine_wave = generate_piano_like_note(frequency, duration_in_seconds * 1000)
         return sine_wave
 
-def generate_mp3(notes, file_name, audio_dir, bpm=60, overlap_ms=200, sample_rate=44100):
+def generate_mp3(notes: list[Note], file_name: str, audio_dir: str, bpm=60, overlap_ms=200, sample_rate=44100):
     song = AudioSegment.silent(duration=0)  # Initialize an empty song
 
     # Process each note

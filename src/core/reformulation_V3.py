@@ -24,7 +24,7 @@ from src.core.extract_notes_from_query import (
     extract_membership_function_support_intervals
 )
 from src.core.refactor import move_attribute_values_to_where_clause, refactor_variable_names
-from src.utils import calculate_intervals_list, calculate_dur_ratios_list
+from src.core.note_calculations import calculate_intervals_list, calculate_dur_ratios_list
 
 ##-Functions
 def make_duration_condition(duration_factor, duration, node_name, alpha, dotted):

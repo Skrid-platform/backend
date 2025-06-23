@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+'''Definition of functions useful for both API and CLI'''
+
 ##-Imports
 #---General
 import os
@@ -9,9 +11,7 @@ from ast import literal_eval # safer than eval
 import re
 
 #---Project
-from src.db.neo4j_connection import connect_to_neo4j, run_query
-from src.audio.generate_audio import generate_mp3
-from src.core.fuzzy_computation import convert_note_to_sharp
+from src.db.neo4j_connection import run_query
 from src.core.note import Note
 from src.core.refactor import move_attribute_values_to_where_clause
 
@@ -214,10 +214,9 @@ def get_first_k_notes_of_each_score(k, source, driver):
     '''
     In: an integer, a driver for the DB
     Out: a crisp query returning the sequences of k first notes for each score in the DB
-
-    Initialize the MATCH and WHERE clauses
     '''
 
+    # Initialize the MATCH and WHERE clauses
     match_clause = "MATCH\n"
     event_chain = []
     fact_chain = []
@@ -265,195 +264,6 @@ def get_first_k_notes_of_each_score(k, source, driver):
         sequences.append(sequence)
     
     return sequences[0]
-
-def generate_mp3_from_source_and_time_interval(driver, source, start_time, end_time, bpm=60):
-    notes = get_notes_from_source_and_time_interval(driver, source, start_time, end_time)
-    file_name = f"{source}_{start_time}_{end_time}.mp3"
-    generate_mp3(notes, file_name, bpm)
-
-def get_notes_from_source_and_time_interval(driver, source, start_time, end_time):
-    '''
-    In: driver for DB, a source to identify one score, a starting and ending time
-    Out: a list of notes
-    '''
-
-    query = f"""
-    MATCH (e:Event)-[:IS]->(f:Fact)
-    WHERE e.start >= {start_time} AND e.end <= {end_time} AND e.source = '{source}'
-    RETURN f.class AS class, f.octave AS octave, e.dur AS dur, e.dots as dots, e.start as start, e.end as end
-    ORDER BY e.start
-    """  
-
-    results = run_query(driver, query)
-    notes = [Note(record['class'], record['octave'], record['dur'], record['dots'], None, record['start'], record['end']) for record in results]
-
-    return notes
-
-def calculate_base_stone(pitch, octave, accid=None):
-    # Convert flat to sharp
-    pitch = convert_note_to_sharp(pitch)
-
-    # Define pitches and their relative semitone positions from C (piano changes octave on C)
-    # notes_from_a = ['a', 'a#', 'b', 'c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#']
-    notes_from_c = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b']
-    # semitones_from_a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    semitones_from_c = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-
-    # # Define pitches and their relative semitone positions from A
-    # notes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
-    # semitones_from_a = [0, 2, 3, 5, 7, 8, 10]  # A to G, cumulative semitone distance
-    
-    # Create a mapping from note to its index and semitone offset
-    # note_to_semitone = {note: semitones for note, semitones in zip(notes, semitones_from_a)}
-    note_to_semitone = {note: semitones for note, semitones in zip(notes_from_c, semitones_from_c)}
-    
-    # Find the base semitone position for the given pitch and octave
-    # if pitch == 'a' or pitch == 'b' : # this is not needed as we do from c now (and not from a)
-    #     base_semitone = note_to_semitone[pitch] + (octave * 12) + 21
-    # else :
-    #     base_semitone = note_to_semitone[pitch] + ((octave - 1) * 12) + 21
-
-    base_semitone = note_to_semitone[pitch] + (octave * 12) + 21
-    
-    return base_semitone / 2.0
-
-def calculate_pitch_interval(note1, octave1, note2, octave2):
-    return calculate_base_stone(note2, octave2) - calculate_base_stone(note1, octave1)
-
-def calculate_intervals(notes: list[list[tuple[str|None, int|None] | int|float|None]]) -> list[float]:
-    '''
-    Compute the list of intervals between consecutive notes.
-
-    - notes : the array of notes, following the format given in `extract_notes_from_query` ;
-
-    Out: a list of intervals.
-    '''
-
-    intervals = []
-    for i, event in enumerate(notes[:-1]):
-        note1, octave1 = notes[i][0] # Taking only the first note for a chord.
-        note2, octave2 = notes[i + 1][0]
-
-        if None in (note1, octave1, note2, octave2):
-            interval = None
-        else:
-            interval = calculate_pitch_interval(note1, octave1, note2, octave2)
-
-        intervals.append(interval)
-
-    return intervals
-
-def calculate_intervals_list(notes_dict: dict) -> list[float]:
-    '''
-    Compute the list of intervals between consecutive notes.
-
-    - notes_dict : a dictionary of nodes with their attributes, as returned by `extract_notes_from_query`.
-
-    Output: a list of intervals between consecutive notes.
-    '''
-    # Extract Fact nodes (notes) from the dictionary
-    fact_nodes = {node_name: attrs for node_name, attrs in notes_dict.items() if attrs.get('type') in ('Fact', 'rest') }
-
-    # Initialize a list to hold pitches
-    pitches = []
-
-
-    for node_name, attrs in fact_nodes.items():
-        note_class = attrs.get('class')
-        octave = attrs.get('octave')
-        type_ = attrs.get('type')
-        if type_ == 'rest':
-            pitches.append(None)
-        elif note_class is not None and octave is not None:
-            pitches.append([note_class, octave])
-        else:
-            # If note class or octave is missing, append 'NA'
-            pitches.append('NA')
-
-    # Compute intervals between consecutive pitches
-    intervals = []
-    for i in range(len(pitches) - 1):
-        if pitches[i] is None or pitches[i+1] is None:
-            interval = None
-        elif pitches[i] == 'NA' or pitches[i+1] == 'NA':
-            interval = 'NA'
-        else:
-            interval = calculate_pitch_interval(pitches[i][0], pitches[i][1], pitches[i+1][0], pitches[i+1][1])
-        intervals.append(interval)
-
-    return intervals
-
-def calculate_dur_ratios_list(notes_dict: dict) -> list[float]:
-    '''
-    Compute the list of duration ratios between consecutive notes.
-
-    - notes_dict : a dictionary of nodes with their attributes, as returned by `extract_notes_from_query`.
-
-    Output: a list of duration ratios between consecutive notes.
-    '''
-    # Extract Fact nodes
-    fact_nodes = {node_name: attrs for node_name, attrs in notes_dict.items() if attrs.get('type') in ('Fact', 'rest') }
-    
-    # Retrieve durations
-    durations = [1.0/notes_dict[node].get('dur', None) for node in fact_nodes]
-    dots = [notes_dict[node].get('dots', None) for node in fact_nodes]
-    for idx, dot in enumerate(dots):
-        if dot is not None:
-            durations[idx] = durations[idx]*1.5
-    
-    # Compute duration ratios between consecutive events
-    dur_ratios = []
-    for i in range(len(durations) - 1):
-        if durations[i] is None or durations[i+1] is None or durations[i] == 0:
-            dur_ratio = None
-        else:
-            dur_ratio = durations[i+1] / durations[i]
-        dur_ratios.append(dur_ratio)
-    
-    return dur_ratios
-
-def execute_cypher_dumps(directory_path: str, uri: str, user: str, password: str, verbose: bool = False):
-    '''
-    Executes all .cypher dump files in the specified directory one by one.
-
-    - directory_path : path to the directory containing .cypher files;
-    - uri            : Neo4j database URI (e.g., "bolt://localhost:7687");
-    - user           : database username;
-    - password       : database password;
-    - verbose        : if True, prints execution logs.
-    '''
-
-    # Check if the directory exists
-    if not os.path.isdir(directory_path):
-        raise ValueError(f"The directory '{directory_path}' does not exist.")
-
-    # List all .cypher or .cql files in the directory, sorted for consistency
-    cypher_files = sorted([f for f in os.listdir(directory_path) if f.endswith('.cypher') or f.endswith('.cql')])
-
-    if not cypher_files:
-        print("No .cypher files found in the directory.")
-        return
-
-    # Connect to the Neo4j database
-    driver = connect_to_neo4j(uri, user, password)
-
-    # Execute each Cypher dump file
-    for cypher_file in cypher_files:
-        file_path = os.path.join(directory_path, cypher_file)
-
-        try:
-            with open(file_path, 'r') as file:
-                cypher_query = file.read()
-            print(f'Executing {cypher_file}')
-            # Execute the Cypher query using run_query
-            results = run_query(driver, cypher_query)
-
-            if verbose:
-                print(f'Successfully executed: {cypher_file}')
-        except Exception as e:
-            print(f'Error executing {cypher_file}: {e}')
-
-    print("All Cypher dump files have been executed successfully.")
 
 def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|None] | int|float|None]]:
     '''
@@ -596,8 +406,3 @@ def check_contour_input_format(contour: str) -> dict:
 
     return ret
 
-if __name__ == "__main__":
-    # Set up a driver just to clear the cache
-    uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
-    user = "neo4j"                 # Default username
-    password = "12345678"          # Replace with your actual password

@@ -4,7 +4,12 @@
 '''Creates fuzzy queries from given parameters'''
 
 ##-Imports
+#---General
 from math import ceil, floor, log2
+
+#---Project
+from src.db.neo4j_connection import run_query
+from src.core.note import Note
 
 ##-Functions
 def find_duration_range(duration, max_distance):
@@ -324,6 +329,32 @@ def aggregate_sequence_degrees(aggregation_fn, degree_list):
 
 def aggregate_degrees(aggregation_fn, degree_list):
     return aggregation_fn(*degree_list)
+
+def get_notes_from_source_and_time_interval(driver, source: str, start_time: float, end_time: float):
+    '''
+    Queries the database to get the notes between `start_time` and `end_time` from `source`
+
+    In:
+        - driver: DB driver connection
+        - source: a source to identify one score (the mei file name)
+        - start_time: starting time
+        - end_time: ending time
+
+    Out:
+        a list of notes
+    '''
+
+    query = f"""
+    MATCH (e:Event)-[:IS]->(f:Fact)
+    WHERE e.start >= {start_time} AND e.end <= {end_time} AND e.source = '{source}'
+    RETURN f.class AS class, f.octave AS octave, e.dur AS dur, e.dots as dots, e.start as start, e.end as end
+    ORDER BY e.start
+    """  
+
+    results = run_query(driver, query)
+    notes = [Note(record['class'], record['octave'], record['dur'], record['dots'], None, record['start'], record['end']) for record in results]
+
+    return notes
 
 ##-Run
 if __name__ == "__main__":
