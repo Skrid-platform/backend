@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+'''Handles the connection to the Neo4j database'''
+
 ##-Imports
 from neo4j import GraphDatabase
 
@@ -13,6 +15,7 @@ def connect_to_neo4j(uri, user, password):
 
 def run_query(driver, query):
     '''Runs a query and fetch all results'''
+
     with driver.session() as session:
         result = session.run(query)
         # return result.data()

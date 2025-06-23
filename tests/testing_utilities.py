@@ -18,6 +18,7 @@ import ast
 from src.db.neo4j_connection import connect_to_neo4j, run_query
 from src.utils import calculate_pitch_interval, create_query_from_contour
 
+##-Class and functions
 class PerformanceLogger:
     _instance = None
     log_file = "performance_log.csv"
@@ -478,22 +479,24 @@ def generate_multiple_random_notes(n, num_notes=15, output_file="random_notes.tx
     print(f"Generated notes saved to {output_file}")
 
 def populate_500_score():
+    uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
+    user = "neo4j"                 # Default username
+    password = "12345678"          # Replace with your actual password
+    driver = connect_to_neo4j(uri, user, password)
 
-        uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
-        user = "neo4j"                 # Default username
-        password = "12345678"          # Replace with your actual password
-        driver = connect_to_neo4j(uri, user, password)
+    with open("load_500_scores.cql", "r") as f:
+        query = f.read()
 
-        with open("load_500_scores.cql", "r") as f:
-            query = f.read()
+    # Run the query
+    run_query(driver, query)
 
-        # Run the query
-        run_query(driver, query)
+    driver.close()
 
 def save_csv(test_name):
     """
     Déplace le fichier performance_log.csv vers le dossier CSV avec un nom basé sur le test_name.
     """
+
     command = f"mv ./performance_log.csv ./CSV/{test_name}_log.csv"
     print(f"Running command: {command}")
     subprocess.run(command, shell=True)
@@ -615,6 +618,7 @@ def generate_contour_queries(test_name, contour_file, with_interval, with_durati
                 print(f"Generated query {output_file}")
 
 
+##-Run
 # if __name__ == "__main__":
     # for _ in range(12):
     #     populate_500_score()
@@ -629,7 +633,7 @@ def generate_contour_queries(test_name, contour_file, with_interval, with_durati
     # max_length=15
 
     # write_queries = False
-    # execute_queries = True
+    # execute_queries_bool = True
     # write_latex = True
 
     # if os.path.exists("./performance_log.csv"):
@@ -643,10 +647,10 @@ def generate_contour_queries(test_name, contour_file, with_interval, with_durati
     #     for length in range(1, max_length + 1):
     #         if write_queries:
     #             generate_queries_v2(test_name, sequences, pitch_value, 1.0, 0.0, length, False)
-    #         if execute_queries:
+    #         if execute_queries_bool:
     #             execute_queries_v2(test_name, sequences, pitch_value, 1.0, 0.0, length)
 
-    # if execute_queries:
+    # if execute_queries_bool:
     #     save_csv(test_name)
     
     # if write_latex:
@@ -660,10 +664,10 @@ def generate_contour_queries(test_name, contour_file, with_interval, with_durati
     #     for length in range(1, max_length + 1):
     #         if write_queries:
     #             generate_queries_v2(test_name, sequences, pitch_value, 1.0, 0.0, length, True)
-    #         if execute_queries:
+    #         if execute_queries_bool:
     #             execute_queries_v2(test_name, sequences, pitch_value, 1.0, 0.0, length)
 
-    # if execute_queries:
+    # if execute_queries_bool:
     #     save_csv(test_name)
 
     # if write_latex:
@@ -680,10 +684,10 @@ def generate_contour_queries(test_name, contour_file, with_interval, with_durati
     #     for length in range(1, max_length + 1):
     #         if write_queries:
     #             generate_queries_v2(test_name, sequences, 0.0, duration_value, 0.0, length, False)
-    #         if execute_queries:
+    #         if execute_queries_bool:
     #             execute_queries_v2(test_name, sequences, 0.0, duration_value, 0.0, length)
 
-    # if execute_queries:
+    # if execute_queries_bool:
     #     save_csv(test_name)
     
     # if write_latex:
@@ -698,10 +702,10 @@ def generate_contour_queries(test_name, contour_file, with_interval, with_durati
     #     for length in range(1, max_length + 1):
     #         if write_queries:
     #             generate_queries_v2(test_name, sequences, 0.0, duration_value, 0.0, length, True)
-    #         if execute_queries:
+    #         if execute_queries_bool:
     #             execute_queries_v2(test_name, sequences, 0.0, duration_value, 0.0, length)
 
-    # if execute_queries:
+    # if execute_queries_bool:
     #     save_csv(test_name)
 
     # if write_latex:
@@ -719,10 +723,10 @@ def generate_contour_queries(test_name, contour_file, with_interval, with_durati
     #     for length in range(1, max_length + 1):
     #         if write_queries:
     #             generate_queries_v2(test_name, sequences, 0.0, 1.0, gap_value, length, False)
-    #         if execute_queries:
+    #         if execute_queries_bool:
     #             execute_queries_v2(test_name, sequences, 0.0, 1.0, gap_value, length)
 
-    # if execute_queries:
+    # if execute_queries_bool:
     #     save_csv(test_name)
 
     # if write_latex:
@@ -736,10 +740,10 @@ def generate_contour_queries(test_name, contour_file, with_interval, with_durati
     #     for length in range(1, max_length + 1):
     #         if write_queries:
     #             generate_queries_v2(test_name, sequences, 0.0, 1.0, gap_value, length, True)
-    #         if execute_queries:
+    #         if execute_queries_bool:
     #             execute_queries_v2(test_name, sequences, 0.0, 1.0, gap_value, length)
 
-    # if execute_queries:
+    # if execute_queries_bool:
     #     save_csv(test_name)
 
     # if write_latex:
@@ -752,10 +756,10 @@ def generate_contour_queries(test_name, contour_file, with_interval, with_durati
     # test_name = f"db_size_6000"
     # if write_queries:
     #     generate_queries_v2("db_size", sequences, 1.0, 2.0, 0.0625, 6, False)
-    # if execute_queries:
+    # if execute_queries_bool:
     #     execute_queries_v2("db_size", sequences, 1.0, 2.0, 0.0625, 6)
 
-    # if execute_queries:
+    # if execute_queries_bool:
     #     save_csv(test_name)
     
     # if write_latex:
@@ -768,10 +772,10 @@ def generate_contour_queries(test_name, contour_file, with_interval, with_durati
     # test_name = f"db_size_6000_t"
     # if write_queries:
     #     generate_queries_v2("db_size_t", sequences, 1.0, 2.0, 0.0625, 6, True)
-    # if execute_queries:
+    # if execute_queries_bool:
     #     execute_queries_v2("db_size_t", sequences, 1.0, 2.0, 0.0625, 6)
 
-    # if execute_queries:
+    # if execute_queries_bool:
     #     save_csv(test_name)
     
     # if write_latex:
@@ -793,10 +797,10 @@ if __name__ == "__main__":
     # max_length=4
 
     write_queries = True
-    execute_queries = True
+    execute_queries_bool = True
     write_latex = True
 
-    if os.path.exists("./performance_log.csv") and execute_queries:
+    if os.path.exists("./performance_log.csv") and execute_queries_bool:
         print(f"File ./performance_log.csv already exists. Deleting it.")
         os.remove("./performance_log.csv")
 
@@ -808,10 +812,10 @@ if __name__ == "__main__":
         for length in range(1, max_length + 1):
             if write_queries:
                 generate_contour_queries(test_name, contour_file, with_interval, with_dur_ratio, length)
-            if execute_queries:
+            if execute_queries_bool:
                 execute_queries_v2(test_name, sequences, length, f"{with_interval}_{with_dur_ratio}")
 
-    if execute_queries:
+    if execute_queries_bool:
         save_csv(test_name)
     
     if write_latex:
@@ -825,10 +829,10 @@ if __name__ == "__main__":
     # test_name = f"contour_db_size_2000"
     # if write_queries:
     #     generate_contour_queries("contour_db_size", contour_file, True, True, 6)
-    # if execute_queries:
+    # if execute_queries_bool:
     #     execute_queries_v2("contour_db_size", sequences, 6, "True_True")
 
-    # if execute_queries:
+    # if execute_queries_bool:
     #     save_csv(test_name)
     
     # if write_latex:

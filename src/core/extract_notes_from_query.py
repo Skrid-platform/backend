@@ -1,6 +1,13 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''Extracts informations from a query'''
+
+##-Imports
 import re
 import numpy as np
 
+##-Functions
 def extract_notes_from_query_dict(query: str) -> dict:
     '''
     Extract nodes and their attributes from a given query, including node types.
@@ -423,6 +430,7 @@ def extract_attributes_with_membership_functions(query):
 
     return matches
 
+##-Run
 if __name__ == "__main__":
     query = """DEFINEASC leapUp AS (1.0,1.5)
     DEFINEDESC slow AS (2.0,3.0)

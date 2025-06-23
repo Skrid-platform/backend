@@ -14,7 +14,6 @@ from src.audio.generate_audio import generate_mp3
 from src.core.fuzzy_computation import convert_note_to_sharp
 from src.core.note import Note
 from src.core.refactor import move_attribute_values_to_where_clause
-# from src.audio.audio_parser import extract_notes
 
 def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, allow_homothety, incipit_only, collection=None):
     '''

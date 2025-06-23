@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+'''Processes the results of crisp queries in order to rank them'''
+
 ##-Imports
 #---General
 import os
@@ -344,7 +346,6 @@ def process_results_to_text(result, query):
 
 
 def process_results_to_mp3(result, query, max_files, driver):
-
     sequence_details = get_ordered_results_2(result, query)
 
     if len(sequence_details) > max_files:
@@ -364,6 +365,7 @@ def process_results_to_mp3(result, query, max_files, driver):
         file_name = f"{source}_{start}_{end}_{round(sequence_degree, 2)}.mp3"
         generate_mp3(notes, file_name, audio_dir, bpm=60)
 
+##-Run
 if __name__ == "__main__":
     pass
     # test

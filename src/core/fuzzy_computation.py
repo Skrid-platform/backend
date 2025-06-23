@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+'''Creates fuzzy queries from given parameters'''
+
 ##-Imports
 from math import ceil, floor, log2
 
@@ -323,6 +325,7 @@ def aggregate_sequence_degrees(aggregation_fn, degree_list):
 def aggregate_degrees(aggregation_fn, degree_list):
     return aggregation_fn(*degree_list)
 
+##-Run
 if __name__ == "__main__":
     duration = 1.0
     factor = 2.0

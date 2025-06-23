@@ -1,16 +1,26 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''Manages audio generation from notes'''
+
+##-Imports
+#---General
 from pydub import AudioSegment
 from pydub.generators import Sine
 import numpy as np
 import os
 
+#---Project
 from src.core.note import Note
 
+##-Init
 # Frequency mapping for notes (A4 = 440 Hz)
 note_frequencies = {
     'c': 261.63, 'c#': 277.18, 'd': 293.66, 'd#': 311.13, 'e': 329.63, 'f': 349.23,
     'f#': 369.99, 'g': 392.00, 'g#': 415.30, 'a': 440.00, 'a#': 466.16, 'b': 493.88
 }
 
+##-Functions
 # Helper function to convert duration from beats to seconds
 def convert_duration_to_seconds(note_duration, bpm=60):
     beat_duration = 60.0 / bpm

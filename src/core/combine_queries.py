@@ -1,7 +1,19 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''Combines multiple crisp queries into a polyphonic one'''
+
+##-Imports
+#---General
 import re
 
-from src.core.extract_notes_from_query import extract_match_clause, extract_where_clause, extract_return_clause
+#---Project
+try:
+    from src.core.extract_notes_from_query import extract_match_clause, extract_where_clause, extract_return_clause
+except ModuleNotFoundError:
+    from extract_notes_from_query import extract_match_clause, extract_where_clause, extract_return_clause
 
+##-Functions
 def combine_polyphonic_queries(queries):
     """
     Combines multiple crisp queries into a polyphonic query where each pattern appears in a different voice,
@@ -73,7 +85,7 @@ def combine_polyphonic_queries(queries):
 
     return combined_query
 
-
+##-Run
 if __name__ == "__main__":
     q1 = """MATCH
 (e0:Event)-[n0:NEXT]->(e1:Event)-[n1:NEXT]->(e2:Event)-[n2:NEXT]->(e3:Event)-[n3:NEXT]->(e4:Event),

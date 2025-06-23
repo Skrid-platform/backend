@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-'''Defines a Note as a class'''
+'''Defines the Note class to represent a music note'''
 
 class Note:
     def __init__(self, pitch, octave, dur, dots=None, duration=None, start=None, end=None, id_=None):

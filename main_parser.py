@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-'''Defines an CLI argument parser to interface the features'''
+'''Defines a CLI argument parser to interface the features'''
 
 ##-Imports
 #---General
@@ -24,6 +24,10 @@ from tests.testing_utilities import PerformanceLogger
 ##-Init
 # version = '1.0'
 recording_to_notes_not_imported = True
+
+NEO4J_DEFAULT_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_DEFAULT_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_DEFAULT_PWD = os.getenv("NEO4J_PASSWORD", "1234678")
 
 ##-Util
 def import_recording_to_notes():
@@ -232,17 +236,17 @@ class Parser:
 
         self.parser.add_argument(
             '-U', '--URI',
-            default=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+            default=NEO4J_DEFAULT_URI,
             help='the uri to the neo4j database'
         )
         self.parser.add_argument(
             '-u', '--user',
-            default=os.getenv("NEO4J_USER", "neo4j"),
+            default=NEO4J_DEFAULT_USER,
             help='the username to access the database'
         )
         self.parser.add_argument(
             '-p', '--password',
-            default=os.getenv("NEO4J_PASSWORD", "1234678"),
+            default=NEO4J_DEFAULT_PWD,
             help='the password to access the database'
         )
 
@@ -266,6 +270,17 @@ class Parser:
         '''
 
         self.driver = connect_to_neo4j(uri, user, password)
+
+    def clear_neo4j_cache(self):
+        '''
+        Clears the Neo4j cache.
+        It creates the driver and closes it (using the authentification data given in argument)
+        '''
+    
+        args = self.parser.parse_args()
+        self.init_driver(args.URI, args.user, args.password)
+        run_query(self.driver, "CALL db.clearQueryCaches()")
+        self.close_driver()
 
     def close_driver(self):
         '''Closes the driver'''
@@ -664,7 +679,7 @@ class Parser:
         self.init_driver(args.URI, args.user, args.password)
 
         if args.number_per_line != None and args.number_per_line < 0:
-            self.close_driver();
+            self.close_driver()
             self.parser_l.error('argument `-n` takes a positive value !')
 
         songs = list_available_songs(self.driver, args.collection)
@@ -687,7 +702,7 @@ class Parser:
         else:
             write_to_file(args.output, res)
 
-        self.close_driver();
+        self.close_driver()
 
 
     # class Version(argparse.Action):
@@ -703,19 +718,18 @@ class Parser:
 if __name__ == '__main__':
     testing_mode = False
 
-    if testing_mode:
-        logger = PerformanceLogger()
-        app = Parser()
-        app.parse()
-        logger.save()
+    try:
+        if testing_mode:
+            logger = PerformanceLogger()
 
-        # Set up a driver just to clear the cache
-        uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
-        user = "neo4j"                 # Default username
-        password = "12345678"          # Replace with your actual password
-        driver = connect_to_neo4j(uri, user, password)
-        run_query(driver, "CALL db.clearQueryCaches()")
-    
-    else:
         app = Parser()
         app.parse()
+
+        if testing_mode:
+            logger.save()
+            app.clear_neo4j_cache()
+        
+    except neo4j.exceptions.AuthError as err:
+        print(f'Authentification error to the neo4j database: "{err}"')
+        exit()
+

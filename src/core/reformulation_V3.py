@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+'''Converts fuzzy queries into cypher ones'''
+
 ##-Imports
 #---General
 import re
@@ -554,9 +556,11 @@ def reformulate_fuzzy_query(query):
     new_query = match_clause  + where_clause + return_clause
     return new_query.strip('\n')
 
+##-Run
 if __name__ == '__main__':
     with open('fuzzy_query.cypher', 'r') as file:
         fuzzy_query = file.read()
+
     fuzzy_query = move_attribute_values_to_where_clause(fuzzy_query)
     fuzzy_query = refactor_variable_names(fuzzy_query)
     print(reformulate_fuzzy_query(fuzzy_query))

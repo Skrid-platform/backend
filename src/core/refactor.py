@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+'''Refactors a fuzzy query to a canonical (standard) version'''
+
 ##-Imports
 #---General
 import re
@@ -295,9 +297,11 @@ def refactor_variable_names(query):
 
     return new_query
 
+##-Run
 if __name__ == "__main__":
     with open('fuzzy_query.cypher', 'r') as file:
         fuzzy_query = file.read()
+
     fuzzy_query = move_attribute_values_to_where_clause(fuzzy_query)
     fuzzy_query = refactor_variable_names(fuzzy_query)
     print(fuzzy_query)
