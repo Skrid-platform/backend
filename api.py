@@ -124,8 +124,9 @@ def execute_query():
         driver = connect_to_neo4j(uri, user, password)
 
         result = run_query(driver, crispQuery)
-        
         output = process_results_to_json(result, fuzzyQuery)
+
+        driver.close()
 
         return jsonify({'result': output})
 
@@ -142,10 +143,12 @@ def execute_crisp_query():
             return jsonify({'error': 'Keyword not allowed in query (edits the database)'}), 400
 
         driver = connect_to_neo4j(uri, user, password)
-        result = run_query(driver, query)
 
-        # Convert Neo4j Record objects to dictionaries
-        results_as_dicts = [record.data() for record in result]
+        result = run_query(driver, query)
+        results_as_dicts = [record.data() for record in result] # Convert Neo4j Record objects to dictionaries
+
+        driver.close()
+
         return jsonify({'results': results_as_dicts})
 
     except Exception as e:
