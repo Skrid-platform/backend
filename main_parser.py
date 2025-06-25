@@ -9,7 +9,6 @@ import argparse
 import os
 from os.path import exists
 
-# import neo4j.exceptions.CypherSyntaxError
 import neo4j
 
 #---Project
@@ -30,7 +29,9 @@ from src.utils import (
 )
 
 #---Performance tests
-from tests.testing_utilities import PerformanceLogger
+def import_PerformanceLogger():
+    global PerformanceLogger
+    from tests.testing_utilities import PerformanceLogger
 
 ##-Init
 # version = '1.0'
@@ -570,11 +571,14 @@ class Parser:
         try:
             if testing_mode:
                 logger.start("only_query")
+
             res = run_query(self.driver, crisp_query)
+
             if testing_mode:
                 logger.end("only_query")
+
         except neo4j.exceptions.CypherSyntaxError as err:
-            print('parse_send: query syntax error: ' + str(err))
+            print(f'parse_send: query syntax error: {err}')
             return
 
         if args.text_output == None and args.mp3 == None:
@@ -731,6 +735,7 @@ if __name__ == '__main__':
 
     try:
         if testing_mode:
+            import_PerformanceLogger()
             logger = PerformanceLogger()
 
         app = Parser()
