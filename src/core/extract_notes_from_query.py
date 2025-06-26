@@ -7,7 +7,7 @@
 import re
 
 ##-Functions
-def extract_notes_from_query_dict(query: str) -> dict:
+def extract_notes_from_query_dict(query: str) -> dict[str, dict[str, int | str]]:
     '''
     Extract nodes and their attributes from a given query, including node types.
 

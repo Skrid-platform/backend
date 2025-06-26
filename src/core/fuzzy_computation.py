@@ -6,6 +6,7 @@
 ##-Imports
 #---General
 from math import ceil, floor, log2
+import re
 
 #---Project
 from src.db.neo4j_connection import run_query
@@ -163,7 +164,7 @@ def find_nearby_pitches(pitch, octave, pitch_distance):
 
     return res
 
-def find_frequency_bounds(pitch, octave, max_distance, alpha = 0.0):
+def find_frequency_bounds(pitch: str, octave: int, max_distance: int, alpha: float = 0.0) -> tuple[int, int]:
     """
     Calculates the frequency bounds for a given pitch, octave, and maximum semitone distance.
 
@@ -176,6 +177,7 @@ def find_frequency_bounds(pitch, octave, max_distance, alpha = 0.0):
     Returns:
         tuple: A tuple containing the minimum and maximum frequencies (in Hz) as integers.
     """
+
     # Ensure pitch is in sharps
     pitch = convert_note_to_sharp(pitch)
 
@@ -204,25 +206,109 @@ def find_frequency_bounds(pitch, octave, max_distance, alpha = 0.0):
     
     return floor(min_frequency), ceil(max_frequency)
 
+def split_note_accidental(note: str) -> tuple[str, str | None]:
+    """
+    Splits a note string into its base note and accidental.
+
+    Accidentals:
+        # or s: sharp
+        b: flat
+        n: natural
+        x: double sharp
+        bb: double flat
+
+    Parameters:
+        note (str): The note string (e.g., 'c', 'c#', 'db', 'cx', 'cn', 'ebb').
+
+    Returns:
+        tuple: A tuple containing the base note and accidental.
+    """
+
+    match = re.match(r'^([a-gA-G])((#|s|b|n|x|bb)?)$', note)
+
+    if match:
+        base_note = match.group(1).lower()
+        accidental = match.group(2)
+
+        if accidental == '':
+            accidental = None
+
+        elif accidental == '#': # Sharps are written with s here (in the database) (can be # or s in find_nearby_pitches)
+            accidental = 's'
+
+        return base_note.lower(), accidental
+
+    else:
+        raise ValueError(f"Invalid note name: {note}")
+
+def sharpen(base_note: str) -> str:
+    '''
+    Sharpens `base_note`
+    Calculates the enharmonically equivalent note to `base_note`#.
+
+    In:
+        - base_note: the base pitch, without any accidental.
+    Out:
+        the enharmonically equivalent note to `base_note`#, using a sharp notation.
+    '''
+
+    notes_semitones = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b']
+
+    return notes_semitones[(notes_semitones.index(base_note) + 1) % len(notes_semitones)]
+
+def flatten(base_note: str) -> str:
+    '''
+    Flattens `base_note`
+    Calculates the enharmonically equivalent note to `base_note`b.
+
+    In:
+        - base_note: the base pitch, without any accidental.
+    Out:
+        the enharmonically equivalent note to `base_note`b, using a sharp notation.
+    '''
+
+    notes_semitones = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b']
+
+    return notes_semitones[(notes_semitones.index(base_note) - 1) % len(notes_semitones)]
+
 def convert_note_to_sharp(note: str) -> str:
     '''
     Convert a note to its equivalent in sharp (if it is a flat).
     If the note has no accidental, it is not modified.
 
-    - note : a string of length 1 or 2 representing a musical note class (no octave).
+    If there is a natural, the accidental is removed.
+    If there is a double sharp or a double flat, it is converted to remove the accidental.
+
+    - note: a string of length 1 or 2 representing a musical note class (no octave).
              Sharp can be represented either with 's' or '#'.
              Flat can be represented either with 'f' of 'b'.
 
     Output: `note` with sharp represented as '#', or `note` unchanged if there was no accidental.
     '''
 
-    notes = 'abcdefg'
+    base_note, accidental = split_note_accidental(note)
 
-    note = note.replace('s', '#')
-    if len(note) == 2 and note[1] in ('f', 'b'):
-        note = notes[(notes.index(note[0]) - 1) % len(notes)] + '#' # Convert flat to sharp
+    if accidental == None:
+        return base_note
 
-    return note
+    elif accidental in ('s', '#'): # Sharp
+        return sharpen(base_note)
+
+    elif accidental in ('b', 'f'): # Flat
+        return flatten(base_note)
+
+    elif accidental == 'n': # Natural
+        return base_note
+
+    elif accidental == 'x': # Double sharp
+        return sharpen(sharpen(base_note))
+
+    elif accidental == 'bb': # Double flat
+        return flatten(flatten(base_note))
+
+    else:
+        raise ValueError(f'convert_note_to_sharp: accidental "{accidental}" not found!')
+
 
 def note_distance_in_tones(note1, octave1, note2, octave2):
     '''Calculate the distance (in tones) between two notes.'''
