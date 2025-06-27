@@ -478,7 +478,9 @@ def create_return_clause(query, notes_dict, duration_gap, intervals, allow_homot
     for idx, fact_node_name in enumerate(fact_nodes):
         return_clauses.extend([
             f"\n{fact_node_name}.octave AS octave_{idx}",
-            f"{fact_node_name}.class AS pitch_{idx}"
+            f"{fact_node_name}.class AS pitch_{idx}",
+            f"{fact_node_name}.accid AS accid_{idx}",
+            f"{fact_node_name}.accid_ges AS accid_ges_{idx}"
         ])
     
     # Add source, start, and end from the first and last events

@@ -27,7 +27,9 @@ from src.core.fuzzy_computation import (
     pitch_degree_with_intervals,
     duration_degree_with_multiplicative_factor
 )
-from src.core.note import Note
+from src.representation.chord import Chord
+from src.representation.duration import Duration
+from src.representation.pitch import Pitch
 from src.core.note_calculations import calculate_intervals_list, calculate_dur_ratios_list
 from src.audio.generate_audio import generate_mp3
 
@@ -72,7 +74,15 @@ def almost_all_aggregation_yager(*degrees):
 
     return max_min_alpha_degree
 
-def get_ordered_results_2(result, query):
+def get_ordered_results_2(result, query) -> list[
+    tuple[
+        str,
+        float,
+        float,
+        float,
+        list[tuple[Chord, float, float, float, float, str]]
+    ]
+]:
     """
     Extracts and ranks query results based on fuzzy degrees, handling cases with or without transposition,
     and supporting arbitrary membership functions.
@@ -105,11 +115,16 @@ def get_ordered_results_2(result, query):
     if allow_homothety:
         duration_ratios = calculate_dur_ratios_list(query_notes)
 
-    note_sequences = []
+    note_sequences: list[tuple[
+        list[tuple[Chord, float | None, float | None]],
+        str,
+        float,
+        float
+    ]] = []
     stored_attribute_values = []  # To store attribute values for membership function computation
     
     for record in result:
-        note_sequence = []
+        note_sequence: list[tuple[Chord, float | None, float | None]] = []
         
         fact_nb = 0  # Corresponds to the index of the first fact for the current event
         attribute_values = {}  # Store attribute values for this record
@@ -122,11 +137,17 @@ def get_ordered_results_2(result, query):
             end = record[f"end_{event_nb}"]
             id_ = record[f"id_{event_nb}"]
 
-            # Handle dotted note duration calculation
-            if dots and dots > 0:
-                note = Note(pitch, octave, int(1 / (duration / 1.5)), dots, duration, start, end, id_)
-            else:
-                note = Note(pitch, octave, int(1 / duration), dots, duration, start, end, id_)
+            accid = record[f"accid_{event_nb}"]
+            if accid is None:
+                accid = record[f"accid_ges_{event_nb}"]
+
+            note = Chord([Pitch(pitch, octave, accid)], Duration(duration), dots, start, end, id_)
+            # # Handle dotted note duration calculation
+            # if dots is not None and dots > 0:
+            #     note = Note(pitch, octave, int(1 / (duration / 1.5)), dots, duration, start, end, id_)
+            #     note = Chord([Pitch(pitch, octave, accid)], Duration(duration), dots, start, end, id_)
+            # else:
+            #     note = Note(pitch, octave, int(1 / duration), dots, duration, start, end, id_)
 
             # Retrieve interval and duration ratio
             interval, duration_ratio = None, None
@@ -148,7 +169,15 @@ def get_ordered_results_2(result, query):
         stored_attribute_values.append(attribute_values)
         note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
     
-    sequence_details = []
+    sequence_details: list[
+        tuple[
+            str,
+            float,
+            float,
+            float,
+            list[tuple[Chord, float, float, float, float, str]]
+        ]
+    ] = []
     for seq_idx, (note_sequence, source, start, end) in enumerate(note_sequences):
         note_degrees = [[] for _ in range(len(note_sequence))]  # Store degrees per note
         interval_degrees  = [[] for _ in range(len(note_sequence)-1)] # Store degrees per interval
@@ -169,7 +198,7 @@ def get_ordered_results_2(result, query):
                         interval_degrees[idx - 1].append(pitch_deg)
                 else:
                     if 'class' in query_note.keys() and 'octave' in query_note.keys():
-                        pitch_deg = pitch_degree(query_note['class'], query_note['octave'], note.pitch, note.octave, pitch_gap)
+                        pitch_deg = pitch_degree(query_note['class'], query_note['octave'], note.pitches[0].class_, note.pitches[0].octave, pitch_gap) #TODO: chords are ignored, and only the first pitch is taken here
                         note_degrees[idx].append(pitch_deg)
             
             # Compute duration degree
@@ -179,11 +208,11 @@ def get_ordered_results_2(result, query):
                     if query_note.get('dots', None):
                         expected_duration *= 1.5
                     if allow_homothety:
-                        if idx > 0:  # Skip first note 
+                        if idx > 0:  # Skip first note
                             duration_deg = duration_degree_with_multiplicative_factor(duration_ratios[idx - 1], duration_ratio, duration_factor)
                             note_degrees[idx].append(duration_deg)
                     else:
-                        duration_deg = duration_degree_with_multiplicative_factor(expected_duration, note.duration, duration_factor)
+                        duration_deg = duration_degree_with_multiplicative_factor(expected_duration, note.dur.to_int(), duration_factor)
                         note_degrees[idx].append(duration_deg) 
             
             # Compute sequencing degree
@@ -194,7 +223,7 @@ def get_ordered_results_2(result, query):
                     note_degrees[idx].append(sequencing_deg)
             
             p_d_g_note_degrees[idx] = [pitch_deg, duration_deg, sequencing_deg]
-            
+
         # Compute degrees from membership functions
         attribute_values = stored_attribute_values[seq_idx]
         membership_function_degrees = [[] for _ in range(len(note_sequence))]
@@ -305,7 +334,7 @@ def process_results_to_dict(result, query):
         seq_dict['notes'] = []
         for idx, (note, pitch_deg, duration_deg, sequencing_deg, note_deg, membership_functions_degrees) in enumerate(note_details):
             note_dict = {}
-            note_dict['note'] = note.__dict__
+            note_dict['note'] = note.to_dict()
             note_dict['pitch_deg'] = pitch_deg
             note_dict['duration_deg'] = duration_deg
             note_dict['sequencing_deg'] = sequencing_deg

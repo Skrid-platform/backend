@@ -11,7 +11,9 @@ import numpy as np
 import os
 
 #---Project
-from src.core.note import Note
+from src.representation.chord import Chord
+from src.representation.duration import Duration
+from src.representation.pitch import Pitch
 
 ##-Init
 # Frequency mapping for notes (A4 = 440 Hz)
@@ -88,12 +90,14 @@ def generate_note_audio(note, bpm=60):
         sine_wave = generate_piano_like_note(frequency, duration_in_seconds * 1000)
         return sine_wave
 
-def generate_mp3(notes: list[Note], file_name: str, audio_dir: str, bpm=60, overlap_ms=200, sample_rate=44100):
+def generate_mp3(notes: list[Chord], file_name: str, audio_dir: str, bpm=60, overlap_ms=200, sample_rate=44100):
     song = AudioSegment.silent(duration=0)  # Initialize an empty song
 
     # Process each note
     for idx, note in enumerate(notes):
-        pitch, octave, duration = note.pitch, note.octave, note.duration
+        duration = note.get_duration_dots_float()
+        pitch = note.pitches[0].get_class_accid() #TODO: for a chord, only the first note is generated !
+        octave = note.pitches[0].octave
 
         # Check if it's a rest
         if pitch is None and octave is None and duration is not None:
@@ -120,5 +124,12 @@ def generate_mp3(notes: list[Note], file_name: str, audio_dir: str, bpm=60, over
 
 if __name__ == "__main__":
     # Example usage
-    notes = [Note('c', 5, 8), Note('d', 5, 4), Note('e', 5, 8), Note('f', 5, 4), Note('g', 5, 16)]
+    # notes = [Note('c', 5, 8), Note('d', 5, 4), Note('e', 5, 8), Note('f', 5, 4), Note('g', 5, 16)]
+    notes = [
+        Chord([Pitch('c', 5)], Duration(8), 0),
+        Chord([Pitch('d', 5)], Duration(4), 0),
+        Chord([Pitch('e', 5)], Duration(8), 0),
+        Chord([Pitch('f', 5)], Duration(4), 0),
+        Chord([Pitch('g', 5)], Duration(16), 0)
+    ]
     generate_mp3(notes, "output.mp3", "./audio/output/", bpm=60)

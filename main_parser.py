@@ -637,7 +637,8 @@ class Parser:
                 notes = check_notes_input_format(notes_input)
 
             except (ValueError, SyntaxError):
-                self.parser_w.error("NOTES must be a valid list format. Example: \"[[(\'c\', 5), 1], [(\'d\', 5), 4, 1]]\"")
+                # self.parser_w.error("NOTES must be a valid list format. Example: \"[[(\'c\', 5), 1], [(\'d\', 5), 4, 1]]\"")
+                self.parser_w.error("NOTES must be a valid list format. Example: \"[(['c#/5'], 1), (['d/5', 'f/5'], 4, 1)]\"")
 
             query = create_query_from_list_of_notes(
                 notes,

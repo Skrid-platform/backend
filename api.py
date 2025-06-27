@@ -20,6 +20,7 @@ from src.core.process_results import (
     process_crisp_results_to_json
 )
 from src.utils import (
+    check_notes_input_format,
     create_query_from_list_of_notes,
     create_query_from_contour,
     check_contour_input_format
@@ -70,36 +71,39 @@ def ping():
 @app.route('/generate-query', methods=['POST'])
 def generate_query():
     data = request.get_json()
-    try:
-        contour_search = data.get('contour_match', False)
-        if contour_search:
-            contour = data['notes']
-            contour = check_contour_input_format(contour)
-            query = create_query_from_contour(
-                contour,
-                data.get('incipit_only', False),
-                data.get('collection')
-            )
-        else:
-            notes = data['notes']
+    # try:
+    contour_search = data.get('contour_match', False)
+    if contour_search:
+        contour = data['notes']
+        contour = check_contour_input_format(contour)
+        query = create_query_from_contour(
+            contour,
+            data.get('incipit_only', False),
+            data.get('collection')
+        )
+    else:
+        notes = data['notes']
 
-            #---Convert string to list
-            notes = notes.replace("\\", "")
-            notes = literal_eval(notes)
-            query = create_query_from_list_of_notes(
-                notes,
-                float(data.get('pitch_distance', 0.0)),
-                float(data.get('duration_factor', 1.0)),
-                float(data.get('duration_gap', 0.0)),
-                float(data.get('alpha', 0.0)),
-                data.get('allow_transposition', False),
-                data.get('allow_homothety', False),
-                data.get('incipit_only', False),
-                data.get('collection')
-            )
-        return jsonify({'query': query})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        #---Convert string to list
+        notes_chords = check_notes_input_format(notes)
+
+        query = create_query_from_list_of_notes(
+            notes_chords,
+            float(data.get('pitch_distance', 0.0)),
+            float(data.get('duration_factor', 1.0)),
+            float(data.get('duration_gap', 0.0)),
+            float(data.get('alpha', 0.0)),
+            data.get('allow_transposition', False),
+            data.get('allow_homothety', False),
+            data.get('incipit_only', False),
+            data.get('collection')
+        )
+
+    return jsonify({'query': query})
+
+    # except Exception as e:
+    #     print(e)
+    #     return jsonify({'error': str(e)}), 400
 
 @app.route('/compile-query', methods=['POST'])
 def compile_query():

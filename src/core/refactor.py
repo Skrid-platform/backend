@@ -13,13 +13,16 @@ from io import StringIO
 # from src.core.extract_notes_from_query import extract_fuzzy_membership_functions, extract_fuzzy_parameters
 
 ##-Functions
-def move_attribute_values_to_where_clause(query):
+def move_attribute_values_to_where_clause(query: str) -> str:
     '''
     Move attribute values to the where clause of the query. Also checks that all nodes and relationships have a type.
 
-    - IN : query        : a fuzzy query where some attribute values may be in the match clause ;
-    - OUT : the query where attribute values have been moved
+    In:
+        - query: a fuzzy query where some attribute values may be in the match clause
+    Out:
+        the query where attribute values have been moved
     '''
+
     # Initialize dictionaries to keep track of variables and their types
     node_variables = {}
     relationship_variables = {}
@@ -38,6 +41,7 @@ def move_attribute_values_to_where_clause(query):
         rest_start = match_start + rest_match.start()
         match_clause = query[match_start:rest_start].strip()
         rest_of_query = query[rest_start:].strip()
+
     else:
         match_clause = query[match_start:].strip()
         rest_of_query = ''

@@ -10,7 +10,9 @@ import re
 
 #---Project
 from src.db.neo4j_connection import run_query
-from src.core.note import Note
+from src.representation.chord import Chord
+from src.representation.duration import Duration
+from src.representation.pitch import Pitch
 
 ##-Functions
 def find_duration_range(duration, max_distance):
@@ -271,7 +273,7 @@ def flatten(base_note: str) -> str:
 
     return notes_semitones[(notes_semitones.index(base_note) - 1) % len(notes_semitones)]
 
-def convert_note_to_sharp(note: str) -> str:
+def convert_note_to_sharp(note: str) -> str: #TODO: remove this function and use Pitch
     '''
     Convert a note to its equivalent in sharp (if it is a flat).
     If the note has no accidental, it is not modified.
@@ -416,7 +418,7 @@ def aggregate_sequence_degrees(aggregation_fn, degree_list):
 def aggregate_degrees(aggregation_fn, degree_list):
     return aggregation_fn(*degree_list)
 
-def get_notes_from_source_and_time_interval(driver, source: str, start_time: float, end_time: float):
+def get_notes_from_source_and_time_interval(driver, source: str, start_time: float, end_time: float) -> list[Chord]:
     '''
     Queries the database to get the notes between `start_time` and `end_time` from `source`
 
@@ -433,12 +435,33 @@ def get_notes_from_source_and_time_interval(driver, source: str, start_time: flo
     query = f"""
     MATCH (e:Event)-[:IS]->(f:Fact)
     WHERE e.start >= {start_time} AND e.end <= {end_time} AND e.source = '{source}'
-    RETURN f.class AS class, f.octave AS octave, e.dur AS dur, e.dots as dots, e.start as start, e.end as end
+    RETURN f.class AS class, f.octave AS octave, f.type as type, f.accid as accid, f.accid_ges as accid_ges, e.dur AS dur, e.dots as dots, e.start as start, e.end as end
     ORDER BY e.start
-    """  
+    """
 
     results = run_query(driver, query)
-    notes = [Note(record['class'], record['octave'], record['dur'], record['dots'], None, record['start'], record['end']) for record in results]
+
+    notes = []
+
+    for record in results:
+        # Note or rest
+        if record['type'] == 'rest':
+            p = Pitch('r', None, None)
+
+        else:
+            # Accidental
+            if record['accid'] != None:
+                accid = record['accid']
+            elif record['accid_ges'] != None:
+                accid = record['accid_ges']
+            else:
+                accid = None
+
+            p = Pitch(record['class'], record['octave'], accid)
+
+        c = Chord([p], Duration(record['dur']), record['dots'], record['start'], record['end'])
+
+        notes.append(c)
 
     return notes
 

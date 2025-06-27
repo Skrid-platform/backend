@@ -12,15 +12,27 @@ import re
 
 #---Project
 from src.db.neo4j_connection import run_query
-from src.core.note import Note
 from src.core.refactor import move_attribute_values_to_where_clause
+from src.representation.chord import Chord
+from src.representation.pitch import Pitch
+from src.representation.duration import Duration
 
-def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, duration_gap, alpha, allow_transposition, allow_homothety, incipit_only, collection=None):
+def create_query_from_list_of_notes(
+    notes: list[Chord],
+    pitch_distance: float,
+    duration_factor: float,
+    duration_gap: float,
+    alpha: float,
+    allow_transposition: bool,
+    allow_homothety: bool,
+    incipit_only: bool,
+    collection: str | None = None
+):
     '''
     Create a fuzzy query.
 
     In :
-        - notes                      : the note array (see below for the format) ;
+        - notes                      : the note array ;
         - pitch_distance (float)     : the `pitch distance` (fuzzy param) ;
         - duration_factor (float)    : the `duration factor` (fuzzy param) ;
         - duration_gap (float)       : the `duration gap` (fuzzy param) ;
@@ -32,14 +44,6 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
 
     Out :
         a fuzzy query searching for the notes given in parameters.
-
-    Description for the format of `notes` :
-        `notes` should be a list of `note`s.
-        A `note` is a list of the following format : `[(class_1, octave_1), ..., (class_n, octave_n), duration]`
-
-        For example : `[[('c', 5), 4], [('b', 4), 8], [('b', 4), 8], [('a', 4), ('d', 5), 16]]`.
-
-        duration is in the following format: 1 for whole, 2 for half, 4 for quarter, ...
     '''
 
     match_clause = 'MATCH\n'
@@ -51,52 +55,62 @@ def create_query_from_list_of_notes(notes, pitch_distance, duration_factor, dura
     match_clause += f' TOLERANT pitch={pitch_distance}, duration={duration_factor}, gap={duration_gap}\n ALPHA {alpha}\n'
 
     if incipit_only:
-        match_clause += " (v:Voice)-[:timeSeries]->(e0:Event),\n"
+        match_clause += ' (v:Voice)-[:timeSeries]->(e0:Event),\n'
     
     if collection is not None:
-        match_clause += " (tp:TopRhythmic{{collection:'{}'}})-[:RHYTHMIC]->(m:Measure),\n (m)-[:HAS]->(e0:Event),\n".format(collection)
+        match_clause += f" (tp:TopRhythmic{{collection:'{collection}'}})-[:RHYTHMIC]->(m:Measure),\n (m)-[:HAS]->(e0:Event),\n"
     
     events = []
     facts = []
+    where_clause_accids = []
     fact_nb = 0
     for i, note_or_chord in enumerate(notes):
-        if len(note_or_chord) > 2:
-            note = Note(note_or_chord[0][0], note_or_chord[0][1], note_or_chord[1], note_or_chord[2])
-        else:
-            note = Note(note_or_chord[0][0], note_or_chord[0][1], note_or_chord[1])
+        # if len(note_or_chord) > 2:
+        #     note = Note(note_or_chord[0][0], note_or_chord[0][1], note_or_chord[1], note_or_chord[2])
+        # else:
+        #     note = Note(note_or_chord[0][0], note_or_chord[0][1], note_or_chord[1])
 
-        event = '(e{}:Event)'.format(i)
 
-        fact_properties = []
+        event_properties = []
+        if note_or_chord.dur is not None:
+            event_properties.append(f'dur: {note_or_chord.dur.to_int()}')
 
-        if note.pitch is not None:
-            fact_properties.append(f"class:'{note.pitch}'")
+        if note_or_chord.dots > 0:
+            event_properties.append(f'dots: {note_or_chord.dots}')
 
-        if note.octave is not None:
-            fact_properties.append(f"octave:{note.octave}")
+        properties_str_event = ', '.join(event_properties)
+        event = f'(e{i}:Event{{{properties_str_event}}})'
 
-        if note.dur is not None:
-            fact_properties.append(f"dur:{note.dur}")
+        for pitch in note_or_chord.pitches:
+            fact_properties = []
 
-        if note.dots is not None:
-            fact_properties.append(f"dots:{note.dots}")
+            if pitch.class_ is not None:
+                fact_properties.append(f"class:'{pitch.class_}'")
 
-        # Join all defined properties
-        properties_str = ', '.join(fact_properties)
+            if pitch.octave is not None:
+                fact_properties.append(f'octave:{pitch.octave}')
 
-        # Construct the full Fact pattern
-        fact = f"(e{i})--(f{fact_nb}:Fact{{{properties_str}}})"
+            if pitch.accid is not None:
+                where_clause_accids.append(f"(f{fact_nb}.accid = '{pitch.accid}' OR f{fact_nb}.accid_ges = '{pitch.accid}')")
 
-        facts.append(fact)
-        fact_nb += 1
+            # Join all defined properties
+            properties_str = ', '.join(fact_properties)
+
+            # Construct the full Fact pattern
+            fact = f"(e{i})--(f{fact_nb}:Fact{{{properties_str}}})"
+
+            facts.append(fact)
+            fact_nb += 1
 
         events.append(event)
     
     match_clause += " " + "".join(f"{events[i]}-[n{i}:NEXT]->" for i in range(len(events)-1)) + events[-1] + ",\n " + ",\n ".join(facts)
+
+    where_clause = '\nWHERE ' + ' AND '.join(where_clause_accids) + '\n'
     
     return_clause = "\nRETURN e0.source AS source, e0.start AS start"
 
-    query = match_clause + return_clause
+    query = match_clause + where_clause + return_clause
     return move_attribute_values_to_where_clause(query)
 
 def create_query_from_contour(contour, incipit_only, collection=None):
@@ -210,7 +224,7 @@ def create_query_from_contour(contour, incipit_only, collection=None):
 
     return move_attribute_values_to_where_clause(query)
 
-def get_first_k_notes_of_each_score(k, source, driver):
+def get_first_k_notes_of_each_score(k, source, driver) -> list[Chord]:
     '''
     In: an integer, a driver for the DB
     Out: a crisp query returning the sequences of k first notes for each score in the DB
@@ -235,7 +249,7 @@ def get_first_k_notes_of_each_score(k, source, driver):
     return_fields = []
     
     for i in range(1, k + 1):
-        return_fields.append(f"f{i}.class AS pitch_{i}, f{i}.octave AS octave_{i}, f{i}.dur AS dur_{i}, f{i}.duration AS duration_{i}, f{i}.dots AS dots_{i}")
+        return_fields.append(f"f{i}.class AS pitch_{i}, f{i}.octave AS octave_{i}, f{i}.accid AS accid_{i}, f{i}.accid_ges AS accid_ges_{i}, f{i}.dur AS dur_{i}, f{i}.duration AS duration_{i}, f{i}.dots AS dots_{i}")
     
     return_fields.append("e1.source AS source")
     
@@ -248,24 +262,31 @@ def get_first_k_notes_of_each_score(k, source, driver):
     results = run_query(driver, query)
 
     # Process the results
-    sequences = []
+    sequences: list[list[Chord]] = []
     
     for record in results:
-        sequence = []
+        sequence: list[Chord] = []
+
         for i in range(1, k + 1):
             pitch = record[f"pitch_{i}"]
             octave = record[f"octave_{i}"]
             dur = record[f"dur_{i}"]
             duration = record[f"duration_{i}"]
             dots = record[f"dots_{i}"]
-            note = Note(pitch, octave, dur, dots)
+
+            accid = record[f'accid_{i}']
+            if accid == None:
+                accid = record[f'accid_ges_{i}']
+
+            note = Chord([Pitch(pitch, octave, accid)], Duration(dur), dots)
+
             sequence.append(note)
-        sequence = [note.to_list() for note in sequence]
+
         sequences.append(sequence)
     
-    return sequences[0]
+    return sequences[0] #TODO: why calculate all the list, if we only return the first element ?
 
-def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|None] | int|float|None]]:
+def check_notes_input_format(notes_input: str) -> list[Chord]:
     '''
     Ensure that `notes_input` is in the correct format (see below for a description of the format).
     If not, raise an argparse.ArgumentTypeError.
@@ -274,99 +295,61 @@ def check_notes_input_format(notes_input: str) -> list[list[tuple[str|None, int|
         - notes_input: the user input (a string, not a list).
 
     Out:
-        - a list of (char, int, int)  if the format is right ;
+        - a list of `Chord`s if the format is right ;
         - argparse.ArgumentTypeError  otherwise.
 
     Description for the format of `notes` :
-        `notes` should be a list of `note`s.
-        A `note` is a list of the following format : `[(class_1, octave_1), ..., (class_n, octave_n), duration, dots (optional)]`
+        `notes` should be a list of chords.
+        A chord is a tuple of the following format: `([note1, note2, ...], duration, dots)`
+        A note is in the following format: `class[accidental]/octave`
+        `duration` is in the following format: 1 for whole, 2 for half, 4 for quarter, 8 for eighten, ...
 
-        For example : `[[('c', 5), 4, 0], [('b', 4), 8, 1], [('b', 4), 8], [('a', 4), ('d', 5), 16, 2]]`.
-
-        duration is in the following format: 1 for whole, 2 for half, ...
-        dots is an optional integer representing the number of dots.
+        For example: `[(['c#/5'], 4, 0), (['b/4'], 8, 1), (['b/4'], 8, 0), (['a/4', 'd/5'], 16, 2)]`
     '''
 
-    #---Init (functions to test each part)
-    def check_class(class_: str|None) -> bool:
-        '''Return True iff `class_` is in correct format.'''
-
-        return (
-            class_ == None
-            or (
-                isinstance(class_, str)
-                and (
-                    len(class_) == 1 or
-                    (len(class_) == 2 and class_[1] in '#sbf')
-                )
-                and
-                class_[0] in 'abcdefgr'
-            )
-        )
-
-    def check_octave(octave: int|None) -> bool:
-        '''Return True iff `octave` is in correct format.'''
-
-        return isinstance(octave, (int, type(None)))
-
-    def check_duration(duration: int|float|None) -> bool:
-        '''Return True iff `duration` is in correct format.'''
-
-        return isinstance(duration, (int, float, type(None)))
-
-    def check_dots(dots: int|None) -> bool:
-        '''Return True iff `dots` is in correct format.'''
-
-        return isinstance(dots, (int, type(None))) and (dots is None or dots >= 0)
-
-    format_notes = "Notes format: list of [(class, octave), duration, dots]: [[(class, octave), ..., duration, dots], ...]. E.g `[[(\'c\', 5), 4, 0], [(\'b\', 4), 8, 1], [(\'b\', 4), 8], [(\'a\', 4), (\'d\', 5), 16, 2]]`. It is possible to use \"None\" to ignore a criteria. Dots are optinal, with default value of 0."
+    format_notes = "Notes format: list of ([notes], duration, dots): [([note1, ...], duration, dots)]. E.g `[(['c#/5'], 4, 0), (['b/4'], 8, 1), (['b/4'], 8, 0), (['a/4', 'd/5'], 16, 2)]`. It is possible to use \"None\" to ignore a criteria."
 
     #---Convert string to list
     notes_input = notes_input.replace("\\", "")
     notes = literal_eval(notes_input)
 
+    ret = []
+
     #---Check
     for i, note_or_chord in enumerate(notes):
         #-Check type of the current note/chord (e.g [('c', 5), 8])
-        if type(note_or_chord) != list:
-            raise argparse.ArgumentTypeError(f'error with note {i}: should be a a list, but "{note_or_chord}", of type {type(note_or_chord)} found !\n' + format_notes)
+        if type(note_or_chord) != tuple:
+            raise argparse.ArgumentTypeError(f'error with note {i}: should be a tuple, but "{note_or_chord}", of type {type(note_or_chord)} found !\n' + format_notes)
 
         #-Check the length of the current note/chord (e.g [('c', 5), 8])
-        if len(note_or_chord) < 2:
-            raise argparse.ArgumentTypeError(f'error with note {i}: there should be at least two elements in the list, for example `[(\'c\', 5), 4]`, but "{note_or_chord}", with length {len(note_or_chord)} found !\n' + format_notes)
+        if len(note_or_chord) != 3:
+            raise argparse.ArgumentTypeError(f'error with note {i}: there should be three elements in the tuple, for example `([\'c#/5\'], 8, 0)`, but "{note_or_chord}", with length {len(note_or_chord)} found !\n' + format_notes)
 
         #-Check the duration
-        duration = note_or_chord[1]
-        if not check_duration(duration):
-            raise argparse.ArgumentTypeError(f'error with note {i}: "{note_or_chord}": "{duration}" (duration) is not a float (or None)\n' + format_notes)
-
-        #-Check the dots (if provided)
-        if len(note_or_chord) > 2:
-            dots = note_or_chord[-1]
-            if not check_dots(dots):
-                raise argparse.ArgumentTypeError(f'error with note {i}: "{note_or_chord}": "{dots}" (dots) is not a non-negative integer or None\n' + format_notes)
-        else:
-            dots = 0  # Default to 0 if dots are not provided
+        try:
+            duration = Duration(note_or_chord[1])
+        except ValueError as err:
+            raise argparse.ArgumentTypeError(f'error with note {i}: duration: {err}')
 
         #-Check each note
-        for j, note in enumerate(note_or_chord[:-2]):
-            #-Check type of note tuple
-            if type(note) != tuple:
-                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: should be a tuple (e.g `(\'c\', 5)`), but "{note}", of type {type(note)} found !\n' + format_notes)
+        pitches = []
+        for j, note in enumerate(note_or_chord[0]):
+            p = Pitch(None, None, None)
+            try:
+                p.from_str(note)
+                pitches.append(p)
 
-            #-Check length of note tuple
-            if len(note) != 2:
-                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: note tuple should have 2 elements (class, octave), but {len(note_or_chord)} found !\n' + format_notes)
+            except ValueError as err:
+                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: pitch: {err}')
 
-            #-Check note class
-            if not check_class(note[0]):
-                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: "{note}": "{note[0]}" is not a note class.\n' + format_notes)
+        try:
+            c = Chord(pitches, duration, note_or_chord[2])
+            ret.append(c)
 
-            #-Check note octave
-            if not check_octave(note[1]):
-                raise argparse.ArgumentTypeError(f'error with note {i}, element {j}: "{note}": "{note[1]}" (octave) is not an int, or a float, or None.\n' + format_notes)
+        except ValueError as err:
+            raise argparse.ArgumentTypeError(f'error with note {i}: chord: {err}')
 
-    return notes
+    return ret
 
 def check_contour_input_format(contour: str) -> dict:
     pattern = r'^(([*UDRudX]*)(-)([XLSMls]*))$'
