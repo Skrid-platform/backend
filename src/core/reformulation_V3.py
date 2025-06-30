@@ -28,22 +28,40 @@ from src.core.refactor import move_attribute_values_to_where_clause, refactor_va
 from src.core.note_calculations import calculate_intervals_list, calculate_dur_ratios_list
 
 ##-Functions
-def make_duration_condition(duration_factor, duration, node_name, alpha, dotted):
-    if duration == None:
+def make_duration_condition(duration_factor: float, dur: int | None, node_name: str, alpha: float, dots: int) -> str:
+    '''
+    Creates the duration condition for the WHERE clause.
+
+    In:
+        - duration_factor: the fuzzy parameter indicating the factor for the duration. If it is 1, it is an exact search.
+        - dur: the duration of the note, without accounting for the dots. It should be in the "int" format (power of 2: 1 for whole, 2, 4, ...)
+        - node_name: the name of the node in the cypher query
+        - alpha: the alpha cut value
+        - dots: the number of dots for the note
+    '''
+    if dur == None:
         return ''
 
     # Before reforumation step, we use 'dur' attribute in the data model and in fuzzy query expression to be coherent
     # 'dur' attribute is given in power of two (1, 2, 4, ...) and does not take dots into account
     # 'duration' attribut is given in fraction (0.125, 0.325, ...) and takes dots into account
-    duration = 1.0/duration
-    if dotted:
-        duration = duration*1.5
+    duration = 1 / dur
+
+    # Add the duration of the dots
+    if dots != None:
+        i = 1
+        while dots > 0:
+            duration += (1 / dur) / (2**i)
+
+            i += 1
+            dots -= 1
 
     if duration_factor != 1:
         min_duration, max_duration = find_duration_range_multiplicative_factor_sym(duration, duration_factor, alpha)
         res = f"{node_name}.duration >= {min_duration} AND {node_name}.duration <= {max_duration}"
     else:
         res = f"{node_name}.duration = {duration}"
+
     return res
 
 def make_duration_ratio_condition(duration_ratio, duration_gap, duration_factor, idx, alpha):
@@ -184,7 +202,7 @@ def create_match_clause(query: str, notes: dict[str, dict[str, int | str]]) -> s
         - notes: the notes extracted from the query
 
     Out:
-        a string representing the match clause
+        a string representing the MATCH clause
     '''
 
     _, _, duration_gap, _, allow_transposition, _ = extract_fuzzy_parameters(query)
@@ -285,7 +303,19 @@ def create_match_clause(query: str, notes: dict[str, dict[str, int | str]]) -> s
 
         return match_clause
 
-def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str]], allow_transposition: bool, allow_homothety: bool, pitch_distance: float, duration_factor: float, duration_gap: float, alpha: float = 0.0):
+def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str]], allow_transposition: bool, allow_homothety: bool, pitch_distance: float, duration_factor: float, duration_gap: float, alpha: float = 0.0) -> str:
+    '''
+    Create the WHERE clause for the compiled query.
+
+    In:
+        - query: the entire query string;
+        - notes: the notes extracted from the query
+        The other params are the fuzzy parameters
+
+    Out:
+        a string representing the WHERE clause
+    '''
+
     # Step 1: Extract the WHERE clause from the query
     try:
         where_clause = extract_where_clause(query)
@@ -377,29 +407,33 @@ def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str]],
     if allow_homothety:
         dur_ratios = calculate_dur_ratios_list(notes_dict)
 
-    # Extract Fact nodes (notes with durations)
-    f_nodes = [node for node, attrs in notes_dict.items() if attrs.get('type') == 'Fact']
-    for idx, f_node in enumerate(f_nodes):
-        attrs = notes_dict[f_node]
-        duration = attrs.get('dur')
+    # Extract Fact and Event nodes (Event: for the duration; Fact: for the class and octave)
+    print(notes_dict)
+    f_nodes = [node for node, attrs in notes_dict.items() if attrs.get('type') in ('Fact', 'Event')]
+    for idx, node in enumerate(f_nodes):
+        attrs = notes_dict[node]
 
+        # Rhythm
         if allow_homothety:
             if idx < len(f_nodes) - 1:
                 duration_ratio_condition = make_duration_ratio_condition(dur_ratios[idx], duration_gap, duration_factor, idx, alpha)
                 if duration_ratio_condition:
                     where_clauses.append(duration_ratio_condition)
-        else:
-            duration_condition = make_duration_condition(duration_factor, duration, f_node, alpha, attrs.get('dots'))
+
+        elif attrs.get('type') == 'Event':
+            duration_condition = make_duration_condition(duration_factor, attrs.get('dur'), node, alpha, attrs.get('dots'))
             if duration_condition:
                 where_clauses.append(duration_condition)
         
-        if allow_transposition:
+        # Pitch
+        if allow_transposition and attrs.get('type') == 'Fact':
             if idx < len(f_nodes) - 1:
                 interval_condition = make_interval_condition(intervals[idx], duration_gap, pitch_distance, idx, alpha)
                 if interval_condition:
                     where_clauses.append(interval_condition)
-        else:
-            pitch_condition = make_pitch_condition(pitch_distance, attrs.get('class'), attrs.get('octave'), f_node, alpha)
+
+        elif attrs.get('type') == 'Fact':
+            pitch_condition = make_pitch_condition(pitch_distance, attrs.get('class'), attrs.get('octave'), node, alpha)
             if pitch_condition:
                 where_clauses.append(pitch_condition)
         
@@ -433,7 +467,7 @@ def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str]],
     where_clause = '\nWHERE\n' + preexisting_where_clause  + ' AND\n'.join(where_clauses)
     return where_clause
 
-def create_return_clause(query, notes_dict, duration_gap, intervals, allow_homothety):
+def create_return_clause(query: str, notes_dict: dict[str, dict[str, int | str]], duration_gap, intervals, allow_homothety) -> str:
     '''
     Create the RETURN clause for the compiled query.
 
