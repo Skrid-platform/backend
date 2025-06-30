@@ -33,7 +33,7 @@ class Chord:
 
         self.start = start
         self.end = end
-        self.id_ = id_
+        self.id = id_
 
     def from_str(self, pitches):
         '''TODO: Docstring for from_str.
@@ -79,7 +79,7 @@ class Chord:
             'dots': self.dots,
             'start': self.start,
             'end': self.end,
-            'id_': self.id_
+            'id': self.id
         }
 
         return d
