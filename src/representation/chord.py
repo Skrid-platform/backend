@@ -35,17 +35,6 @@ class Chord:
         self.end = end
         self.id = id_
 
-    def from_str(self, pitches):
-        '''TODO: Docstring for from_str.
-
-        In:
-            - pitches: TODO
-        Out:
-            TODO
-        '''
-    
-        pass #TODO: depends on the format given
-
     def get_duration_dots_float(self) -> float:
         '''Calculates the duration of the note, with the potential dots, and give the float representation.'''
     

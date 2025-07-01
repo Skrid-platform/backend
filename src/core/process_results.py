@@ -19,7 +19,6 @@ from src.core.extract_notes_from_query import (
 from src.core.fuzzy_computation import (
     pitch_degree,
     get_notes_from_source_and_time_interval,
-    duration_degree,
     sequencing_degree,
     aggregate_note_degrees,
     aggregate_sequence_degrees,
@@ -198,7 +197,11 @@ def get_ordered_results_2(result, query) -> list[
                         interval_degrees[idx - 1].append(pitch_deg)
                 else:
                     if 'class' in query_note.keys() and 'octave' in query_note.keys():
-                        pitch_deg = pitch_degree(query_note['class'], query_note['octave'], note.pitches[0].class_, note.pitches[0].octave, pitch_gap) #TODO: chords are ignored, and only the first pitch is taken here
+                        note_from_query = Pitch()
+                        note_from_query.from_class_and_octave(query_note['class'], query_note['octave'])
+                        note_from_result = Pitch()
+                        note_from_result.from_class_and_octave(note.pitches[0].class_, note.pitches[0].octave) #TODO: chords are ignored, and only the first pitch is taken here
+                        pitch_deg = pitch_degree(note_from_query, note_from_result, pitch_gap)
                         note_degrees[idx].append(pitch_deg)
             
             # Compute duration degree
@@ -209,10 +212,10 @@ def get_ordered_results_2(result, query) -> list[
                         expected_duration *= 1.5
                     if allow_homothety:
                         if idx > 0:  # Skip first note
-                            duration_deg = duration_degree_with_multiplicative_factor(duration_ratios[idx - 1], duration_ratio, duration_factor)
+                            duration_deg = duration_degree_with_multiplicative_factor(Duration(duration_ratios[idx - 1]), Duration(duration_ratio), duration_factor)
                             note_degrees[idx].append(duration_deg)
                     else:
-                        duration_deg = duration_degree_with_multiplicative_factor(expected_duration, note.dur.to_int(), duration_factor)
+                        duration_deg = duration_degree_with_multiplicative_factor(Duration(expected_duration), note.dur, duration_factor)
                         note_degrees[idx].append(duration_deg) 
             
             # Compute sequencing degree

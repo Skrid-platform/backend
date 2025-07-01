@@ -4,39 +4,21 @@
 '''Defines functions that realise calculations on notes'''
 
 ##-Imports
-from src.core.fuzzy_computation import convert_note_to_sharp
+from src.representation.pitch import Pitch
 
 ##-Functions
-def calculate_base_stone(pitch, octave, accid=None):
-    # Convert flat to sharp
-    pitch = convert_note_to_sharp(pitch)
+def calculate_pitch_interval(note1: Pitch, note2: Pitch) -> float:
+    '''
+    Calculates the *interval* between `note1` and `note2`, in *tones*: `note2 - note1`.
 
-    # Define pitches and their relative semitone positions from C (piano changes octave on C)
-    # notes_from_a = ['a', 'a#', 'b', 'c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#']
-    notes_from_c = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b']
-    # semitones_from_a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    semitones_from_c = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    In:
+        - note1: the first note
+        - note2: the second note
+    Out:
+        the interval between `note1` and `note2`, in *tones*.
+    '''
 
-    # # Define pitches and their relative semitone positions from A
-    # notes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
-    # semitones_from_a = [0, 2, 3, 5, 7, 8, 10]  # A to G, cumulative semitone distance
-    
-    # Create a mapping from note to its index and semitone offset
-    # note_to_semitone = {note: semitones for note, semitones in zip(notes, semitones_from_a)}
-    note_to_semitone = {note: semitones for note, semitones in zip(notes_from_c, semitones_from_c)}
-    
-    # Find the base semitone position for the given pitch and octave
-    # if pitch == 'a' or pitch == 'b' : # this is not needed as we do from c now (and not from a)
-    #     base_semitone = note_to_semitone[pitch] + (octave * 12) + 21
-    # else :
-    #     base_semitone = note_to_semitone[pitch] + ((octave - 1) * 12) + 21
-
-    base_semitone = note_to_semitone[pitch] + (octave * 12) + 21
-    
-    return base_semitone / 2.0
-
-def calculate_pitch_interval(note1, octave1, note2, octave2):
-    return calculate_base_stone(note2, octave2) - calculate_base_stone(note1, octave1)
+    return (note2 - note1) / 2
 
 def calculate_intervals(notes: list[list[tuple[str|None, int|None] | int|float|None]]) -> list[float]:
     '''

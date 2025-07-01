@@ -8,12 +8,8 @@
 import re
 
 #---Project
+from src.representation.pitch import Pitch
 from src.core.fuzzy_computation import (
-    find_frequency_bounds,
-    find_nearby_pitches,
-    find_duration_range_decimal,
-    convert_note_to_sharp,
-    split_note_accidental,
     find_duration_range_multiplicative_factor_sym
 )
 from src.core.extract_notes_from_query import (
@@ -130,44 +126,45 @@ def make_interval_condition(interval, duration_gap, pitch_distance, idx, alpha):
                 interval_condition = f"n{idx}.interval = {interval}"
     return interval_condition
 
-def make_pitch_condition(pitch_distance: float, pitch: str | None, octave: int | None, name: str, alpha: float):
-    """
+def make_pitch_condition(pitch_distance: float, pitch: Pitch, name: str, alpha: float):
+    '''
     Creates a pitch condition for a given note, handling accidentals properly.
 
-    Parameters:
-        pitch_distance (float): The pitch distance tolerance.
-        pitch (str): The pitch class.
-        octave (int): The octave number.
-        name (str): The variable name of the note in the query.
+    In:
+        - pitch_distance: the pitch distance tolerance
+        - pitch: the pitch
+        - name: the variable name of the note in the query
+        - alpha: the alpha cut value
 
-    Returns:
+    Out:
         str: The pitch condition as a string.
-    """
+    '''
 
-    if pitch is None:
-        if octave is None:
+    if pitch.class_ is None:
+        if pitch.octave is None:
             pitch_condition = ''
         else:
-            pitch_condition = f"{name}.octave = {octave}"
+            pitch_condition = f"{name}.octave = {pitch.octave}"
     else:
-        if pitch_distance == 0 or pitch == 'r':
-            if pitch == 'r':
+        if pitch_distance == 0 or pitch.class_ == 'r':
+            if pitch.class_ == 'r':
                 pitch_condition = f"{name}.type = 'rest'"
             else:
                 # Split pitch into base note and accidental
-                base_note, accidental = split_note_accidental(pitch)
-                pitch_condition = f"{name}.class = '{base_note}'"
-                if accidental:
+                pitch_condition = f"{name}.class = '{pitch.class_}'"
+                if pitch.accid is not None:
                     # Add condition for accidental, including accid and accid_ges
-                    pitch_condition += f" AND ({name}.accid = '{accidental}' OR {name}.accid_ges = '{accidental}')" #TODO: if accidental is a sharp, do we also need to add a condition with the equivalent as a flat ?
+                    accid = pitch.accid
+                    accid = accid.replace('#', 's')
+                    pitch_condition += f" AND ({name}.accid = '{accid}' OR {name}.accid_ges = '{accid}')" #TODO: if accidental is a sharp, do we also need to add a condition with the equivalent as a flat?
                 else:
                     # No accidental, so accid is NULL or empty
                     pitch_condition += f" AND NOT EXISTS({name}.accid) AND NOT EXISTS({name}.accid_ges)"
-                if octave is not None:
-                    pitch_condition += f" AND {name}.octave = {octave}"
+
+                if pitch.octave is not None:
+                    pitch_condition += f" AND {name}.octave = {pitch.octave}"
         else:
-            o = 4 if octave is None else octave  # Default octave if not specified
-            near_pitches = find_nearby_pitches(pitch, o, pitch_distance)
+            # near_pitches = find_nearby_pitches(pitch, o, pitch_distance)
 
             # pitch_condition = '('
             # for n, o_ in near_pitches:
@@ -184,7 +181,8 @@ def make_pitch_condition(pitch_distance: float, pitch: str | None, octave: int |
             # # Remove the trailing ' OR ' and close the parentheses
             # pitch_condition = pitch_condition.rstrip(' OR ') + '\n)'
 
-            low_freq_bound, high_freq_bound = find_frequency_bounds(pitch, o, pitch_distance, alpha)
+            # low_freq_bound, high_freq_bound = find_frequency_bounds(pitch, o, pitch_distance, alpha)
+            low_freq_bound, high_freq_bound = pitch.find_frequency_bounds(pitch_distance, alpha)
             pitch_condition = f"{low_freq_bound} <= {name}.frequency AND {name}.frequency <= {high_freq_bound}"
             
     return pitch_condition
@@ -408,7 +406,6 @@ def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str]],
         dur_ratios = calculate_dur_ratios_list(notes_dict)
 
     # Extract Fact and Event nodes (Event: for the duration; Fact: for the class and octave)
-    print(notes_dict)
     f_nodes = [node for node, attrs in notes_dict.items() if attrs.get('type') in ('Fact', 'Event')]
     for idx, node in enumerate(f_nodes):
         attrs = notes_dict[node]
@@ -433,7 +430,9 @@ def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str]],
                     where_clauses.append(interval_condition)
 
         elif attrs.get('type') == 'Fact':
-            pitch_condition = make_pitch_condition(pitch_distance, attrs.get('class'), attrs.get('octave'), node, alpha)
+            p = Pitch()
+            p.from_class_and_octave(attrs.get('class'), attrs.get('octave'))
+            pitch_condition = make_pitch_condition(pitch_distance, p, node, alpha)
             if pitch_condition:
                 where_clauses.append(pitch_condition)
         

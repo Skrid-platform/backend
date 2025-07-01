@@ -12,7 +12,7 @@ class Duration:
     dur_float = tuple([1 / k for k in dur_int])
     dur_float_dotted = tuple([k + k/2 for k in dur_float])
 
-    def __init__(self, dur: int | str | float):
+    def __init__(self, dur: int | str | float | None):
         '''
         Initiates the class.
         Tries to guess the correct type for the duration.
@@ -26,6 +26,10 @@ class Duration:
 
         The dots are not taken into account here.
         '''
+
+        if dur is None:
+            self.dur = None
+            return
 
         if type(dur) == float:
             # Firstly, check if it is in fact an integer
