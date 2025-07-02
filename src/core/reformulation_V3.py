@@ -71,14 +71,14 @@ def make_duration_ratio_condition(duration_ratio, duration_gap, duration_factor,
     if duration_gap > 0:
         if duration_factor > 1:
             duration_ratio_condition = (
-                f"EXISTS(f{idx}.duration) AND EXISTS(f{idx + 1}.duration) AND "
-                f"{min_ratio} <= f{idx + 1}.duration / f{idx}.duration AND "
-                f"f{idx + 1}.duration / f{idx}.duration <= {max_ratio}"
+                f"EXISTS(e{idx}.duration) AND EXISTS(e{idx + 1}.duration) AND "
+                f"{min_ratio} <= e{idx + 1}.duration / e{idx}.duration AND "
+                f"e{idx + 1}.duration / e{idx}.duration <= {max_ratio}"
             )
         else:
             duration_ratio_condition = (
-                f"EXISTS(f{idx}.duration) AND EXISTS(f{idx + 1}.duration) AND "
-                f"f{idx + 1}.duration / f{idx}.duration = {duration_ratio}"
+                f"EXISTS(e{idx}.duration) AND EXISTS(e{idx + 1}.duration) AND "
+                f"e{idx + 1}.duration / e{idx}.duration = {duration_ratio}"
             )
     else:
         if duration_factor > 1:
@@ -406,40 +406,49 @@ def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str]],
         dur_ratios = calculate_dur_ratios_list(notes_dict)
 
     # Extract Fact and Event nodes (Event: for the duration; Fact: for the class and octave)
-    f_nodes = [node for node, attrs in notes_dict.items() if attrs.get('type') in ('Fact', 'Event')]
-    for idx, node in enumerate(f_nodes):
-        attrs = notes_dict[node]
+    f_nodes = [node for node, attrs in notes_dict.items() if attrs.get('type') == 'Fact']
+    e_nodes = [node for node, attrs in notes_dict.items() if attrs.get('type') == 'Event']
 
-        # Rhythm
-        if allow_homothety:
-            if idx < len(f_nodes) - 1:
-                duration_ratio_condition = make_duration_ratio_condition(dur_ratios[idx], duration_gap, duration_factor, idx, alpha)
-                if duration_ratio_condition:
-                    where_clauses.append(duration_ratio_condition)
+    for idx, f_node in enumerate(f_nodes):
+        attrs = notes_dict[f_node]
 
-        elif attrs.get('type') == 'Event':
-            duration_condition = make_duration_condition(duration_factor, attrs.get('dur'), node, alpha, attrs.get('dots'))
-            if duration_condition:
-                where_clauses.append(duration_condition)
-        
         # Pitch
-        if allow_transposition and attrs.get('type') == 'Fact':
-            if idx < len(f_nodes) - 1:
+        if allow_transposition:
+            if idx < len(f_nodes) - 1: #TODO: move this to e_nodes (events)? Because of chords
                 interval_condition = make_interval_condition(intervals[idx], duration_gap, pitch_distance, idx, alpha)
+
                 if interval_condition:
                     where_clauses.append(interval_condition)
 
-        elif attrs.get('type') == 'Fact':
+        else:
             p = Pitch((attrs.get('class'), attrs.get('octave')))
-            pitch_condition = make_pitch_condition(pitch_distance, p, node, alpha)
+            pitch_condition = make_pitch_condition(pitch_distance, p, f_node, alpha)
+
             if pitch_condition:
                 where_clauses.append(pitch_condition)
+
+    for idx, e_node in enumerate(e_nodes):
+        attrs = notes_dict[e_node]
+
+        # Rhythm
+        if allow_homothety:
+            if idx < len(e_nodes) - 1:
+                duration_ratio_condition = make_duration_ratio_condition(dur_ratios[idx], duration_gap, duration_factor, idx, alpha)
+
+                if duration_ratio_condition:
+                    where_clauses.append(duration_ratio_condition)
+
+        else:
+            duration_condition = make_duration_condition(duration_factor, attrs.get('dur'), e_node, alpha, attrs.get('dots'))
+
+            if duration_condition:
+                where_clauses.append(duration_condition)
         
-
-
+        # Duration gap
         if duration_gap > 0:
-            if idx < len(f_nodes) - 1:
+            if idx < len(e_nodes) - 1:
                 sequencing_condition = make_sequencing_condition(duration_gap, f'e{idx}', f'e{idx+1}', alpha)
+
                 if sequencing_condition:
                     where_clauses.append(sequencing_condition)
 
