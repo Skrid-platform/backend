@@ -154,8 +154,7 @@ def make_pitch_condition(pitch_distance: float, pitch: Pitch, name: str, alpha: 
                 pitch_condition = f"{name}.class = '{pitch.class_}'"
                 if pitch.accid is not None:
                     # Add condition for accidental, including accid and accid_ges
-                    accid = pitch.accid
-                    accid = accid.replace('#', 's')
+                    accid = pitch.accid.replace('#', 's')
                     pitch_condition += f" AND ({name}.accid = '{accid}' OR {name}.accid_ges = '{accid}')" #TODO: if accidental is a sharp, do we also need to add a condition with the equivalent as a flat?
                 else:
                     # No accidental, so accid is NULL or empty

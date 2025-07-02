@@ -80,7 +80,7 @@ usage: main_parser.py [-h] [-U URI] [-u USER] [-p PASSWORD]
 ```bash
 python3 main_parser.py compile -F fuzzy_query.cypher -o crisp_query.cypher
 python3 main_parser.py send -F crisp_query.cypher -t result.txt
-python3 main_parser.py write "[[('c', 5), 1, 1], [('d', 5), None]]" -a 0.5 -t
+python3 main_parser.py write "[(['c#/5'], 4, 0), (['b/4'], 8, 1), (['b/4'], 8, 0), (['a/4', 'd/5'], 16, 2)]" -a 0.5 -t
 python3 main_parser.py get Air_n_83.mei 5 -o notes
 ```
 
@@ -105,7 +105,7 @@ A Flask-based API that exposes key functionalities for use in front-end applicat
 ```bash
 curl -X POST http://localhost:5000/generate-query \
     -H "Content-Type: application/json" \
-    -d '{"notes": "[[(\"c\", 5), 4], [(\"d\", 5), 4]]", "alpha": 0.2}'
+    -d '{"notes": "[([\"c#/5\"], 4, 0), ([\"b/4\"], 8, 1), ([\"b/4\"], 8, 0), ([\"a/4\", \"d/5\"], 16, 2)]", "alpha": 0.2}'
 ```
 
 ```bash
