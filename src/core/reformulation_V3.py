@@ -430,8 +430,7 @@ def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str]],
                     where_clauses.append(interval_condition)
 
         elif attrs.get('type') == 'Fact':
-            p = Pitch()
-            p.from_class_and_octave(attrs.get('class'), attrs.get('octave'))
+            p = Pitch((attrs.get('class'), attrs.get('octave')))
             pitch_condition = make_pitch_condition(pitch_distance, p, node, alpha)
             if pitch_condition:
                 where_clauses.append(pitch_condition)

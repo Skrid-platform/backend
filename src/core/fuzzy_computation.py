@@ -180,7 +180,7 @@ def get_notes_from_source_and_time_interval(driver: neo4j.Driver, source: str, s
     for record in results:
         # Note or rest
         if record['type'] == 'rest':
-            p = Pitch('r', None, None)
+            p = Pitch('r')
 
         else:
             # Accidental
@@ -191,7 +191,7 @@ def get_notes_from_source_and_time_interval(driver: neo4j.Driver, source: str, s
             else:
                 accid = None
 
-            p = Pitch(record['class'], record['octave'], accid)
+            p = Pitch((record['class'], record['octave'], accid))
 
         c = Chord([p], Duration(record['dur']), record['dots'], record['start'], record['end'])
 
@@ -208,6 +208,6 @@ if __name__ == "__main__":
     frequencies = [440, 261.63, 329.63, 493.88, 880, 30.87]
     for freq in frequencies:
         # print(f"{freq:.2f} Hz -> {frequency_to_note(freq)}")
-        print(f"{freq:.2f} Hz -> {Pitch(None, None).from_frequency(freq)}")
+        print(f"{freq:.2f} Hz -> {Pitch(freq)}")
 
-    print(duration_degree_with_multiplicative_factor(0.25, 0.125, 0.5))
+    print(duration_degree_with_multiplicative_factor(Duration(0.25), Duration(0.125), 0.5))

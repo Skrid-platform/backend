@@ -23,30 +23,55 @@ class Pitch:
 
     A4_FREQ = 440 # Hz
 
-    def __init__(self, class_: str | None = None, octave: int | None = None, accid: str | None = None):
+    def __init__(self, p: float | str | tuple[str, int] | tuple[str|None, int|None, str|None] | None):
         '''
         Instantiates the class.
+        Tries to guess the format of `p`.
 
         In:
-            - class_: the class of the pitch in (`a`, `b`, `c`, `d`, `e`, `f`, `g`)
-            - octave: the octave of the pitch
-            - accid: the potential accidental of the note. In (`#`, `s`, `b`, `n`, `x`, `bb`)
+            - p: the pitch. It can be in any of the formats described below.
 
-        All the arguments can be set to `None` in order to use `self.from_str`.
+        Format of `p`:
+            - None                 : note not yet precised (for example to use `self.from_...`)
+            - float                : `p` is a *frequency*
+            - str                  : `p` is in the format `c#/5` (see `self.from_str`)
+            - tuple[str, int]      : `p` is in the format `(class_accid, octave)` (see `self.from_class_and_octave`)
+            - tuple[str, int, str] : `p` is in the format `(class, octave, accid)` (see `self.from_class_octave_accid`)
         '''
 
-        # Check values
-        self.class_ = class_
-        self.octave = octave
-        self.accid = accid
+        if p is None:
+            self.from_class_octave_accid(None, None, None)
 
-        self._check_format()
+        elif type(p) in (float, int):
+            self.from_frequency(p)
+
+        elif type(p) == str:
+            self.from_str(p)
+
+        elif type(p) == tuple:
+            if len(p) == 2:
+                self.from_class_and_octave(*p)
+
+            elif len(p) == 3:
+                self.from_class_octave_accid(*p)
+
+            else:
+                raise ValueError('Pitch: __init__: wrong format for `p`!')
+
+        else:
+            raise ValueError('Pitch: __init__: wrong format for `p`!')
 
     def _check_format(self):
-        '''Checks that the attributes `class_` and `accid` are correct (or None)'''
+        '''
+        Checks that the attributes `class_` and `accid` are correct (or None)
+
+        Out:
+            None       if everything is OK
+            ValueError otherwise
+        '''
     
         if self.class_ != None and self.class_.lower() not in 'rabcdefg':
-            raise ValueError(f'Pitch: error: `class_` must be in (a, b, c, d, e, f, g), but "{self.class_}" found!')
+            raise ValueError(f'Pitch: error: `class_` must be in (a, b, c, d, e, f, g, r), but "{self.class_}" found!')
 
         if self.accid != None and self.accid.lower() not in ('#', 's', 'b', 'f', 'n', 'x', 'bb'):
             raise ValueError(f'Pitch: error: `accid` must be in (#, s, b, n, x, bb), but "{self.accid}" found!')
@@ -57,12 +82,32 @@ class Pitch:
         if self.accid == 'f': # convert f to b (flat)
             self.accid = 'b'
 
+    def from_class_octave_accid(self, class_: str | None = None, octave: int | None = None, accid: str | None = None):
+        '''
+        Initiates the attributes `class_`, `octave` and `accid`.
+
+        In:
+            - class_: the class of the pitch in (`a`, `b`, `c`, `d`, `e`, `f`, `g`, `r`) (rest is `r`)
+            - octave: the octave of the pitch
+            - accid: the potential accidental of the note. In (`#`, `s`, `b`, `n`, `x`, `bb`)
+        '''
+
+        self.class_ = class_
+        self.octave = octave
+        self.accid = accid
+
+        self._check_format()
+
     def from_str(self, note: str | None):
         '''
         Initiates the attributes `class_`, `octave` and `accid` by reading from `note`.
 
         In:
             - note: the note, represented as `c#/5` for example. A rest is represented as `r`.
+
+        Out:
+            None       if OK
+            ValueError if the note is badly formatted
         '''
 
         if note == None:
@@ -219,8 +264,7 @@ class Pitch:
             p = Pitch.notes_semitones[semitone % len(Pitch.notes_semitones)]
             o = self.octave + (semitone // len(Pitch.notes_semitones))
 
-            note = Pitch()
-            note.from_class_and_octave(p, o)
+            note = Pitch((p, o))
             res.append(note)
 
         return res
@@ -262,7 +306,7 @@ class Pitch:
             The (signed) number of semitones between the current note and A4: `self - a4`
         '''
     
-        a4 = Pitch('a', 4, None)
+        a4 = Pitch(('a', 4, None))
 
         return self - a4
 
@@ -290,7 +334,7 @@ class Pitch:
     def __deepcopy__(self) -> 'Pitch':
         '''Creates a deep copy of self.'''
     
-        return Pitch(self.class_, self.octave, self.accid)
+        return Pitch((self.class_, self.octave, self.accid))
 
     def copy(self) -> 'Pitch':
         return self.__deepcopy__()
@@ -340,12 +384,10 @@ class Pitch:
 
 ##-Test
 if __name__ == '__main__':
-    p = Pitch(None, None)
-    p.from_str('db/5')
+    p = Pitch('db/5')
     print(p)
 
-    p_ = Pitch()
-    p_.from_frequency(554)
+    p_ = Pitch(554)
     print(p_)
     print(p_.get_frequency())
 
@@ -370,3 +412,5 @@ if __name__ == '__main__':
     # for k in range(24):
     #     print(c)
     #     c.add_semitones(1)
+
+    print(Pitch('r'))

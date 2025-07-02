@@ -126,10 +126,10 @@ if __name__ == "__main__":
     # Example usage
     # notes = [Note('c', 5, 8), Note('d', 5, 4), Note('e', 5, 8), Note('f', 5, 4), Note('g', 5, 16)]
     notes = [
-        Chord([Pitch('c', 5)], Duration(8), 0),
-        Chord([Pitch('d', 5)], Duration(4), 0),
-        Chord([Pitch('e', 5)], Duration(8), 0),
-        Chord([Pitch('f', 5)], Duration(4), 0),
-        Chord([Pitch('g', 5)], Duration(16), 0)
+        Chord([Pitch(('c', 5))], Duration(8), 0),
+        Chord([Pitch(('d', 5))], Duration(4), 0),
+        Chord([Pitch(('e', 5))], Duration(8), 0),
+        Chord([Pitch(('f', 5))], Duration(4), 0),
+        Chord([Pitch(('g', 5))], Duration(16), 0)
     ]
     generate_mp3(notes, "output.mp3", "./audio/output/", bpm=60)

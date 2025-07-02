@@ -278,7 +278,7 @@ def get_first_k_notes_of_each_score(k, source, driver) -> list[Chord]:
             if accid == None:
                 accid = record[f'accid_ges_{i}']
 
-            note = Chord([Pitch(pitch, octave, accid)], Duration(dur), dots)
+            note = Chord([Pitch((pitch, octave, accid))], Duration(dur), dots)
 
             sequence.append(note)
 
@@ -334,7 +334,7 @@ def check_notes_input_format(notes_input: str) -> list[Chord]:
         #-Check each note
         pitches = []
         for j, note in enumerate(note_or_chord[0]):
-            p = Pitch(None, None, None)
+            p = Pitch(None)
             try:
                 p.from_str(note)
                 pitches.append(p)

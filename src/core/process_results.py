@@ -140,7 +140,7 @@ def get_ordered_results_2(result, query) -> list[
             if accid is None:
                 accid = record[f"accid_ges_{event_nb}"]
 
-            note = Chord([Pitch(pitch, octave, accid)], Duration(duration), dots, start, end, id_)
+            note = Chord([Pitch((pitch, octave, accid))], Duration(duration), dots, start, end, id_)
             # # Handle dotted note duration calculation
             # if dots is not None and dots > 0:
             #     note = Note(pitch, octave, int(1 / (duration / 1.5)), dots, duration, start, end, id_)
@@ -197,10 +197,9 @@ def get_ordered_results_2(result, query) -> list[
                         interval_degrees[idx - 1].append(pitch_deg)
                 else:
                     if 'class' in query_note.keys() and 'octave' in query_note.keys():
-                        note_from_query = Pitch()
-                        note_from_query.from_class_and_octave(query_note['class'], query_note['octave'])
-                        note_from_result = Pitch()
-                        note_from_result.from_class_and_octave(note.pitches[0].class_, note.pitches[0].octave) #TODO: chords are ignored, and only the first pitch is taken here
+                        note_from_query = Pitch((str(query_note['class']), int(query_note['octave'])))
+                        note_from_result = Pitch((note.pitches[0].class_, note.pitches[0].octave)) #TODO: chords are ignored, and only the first pitch is taken here
+
                         pitch_deg = pitch_degree(note_from_query, note_from_result, pitch_gap)
                         note_degrees[idx].append(pitch_deg)
             
