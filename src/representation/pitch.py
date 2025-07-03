@@ -212,13 +212,14 @@ class Pitch:
         if self.accid != None:
             semitones += Pitch.accid_semitones[self.accid]
 
+        # New semitones
+        new_st = Pitch.notes_semitones.index(self.class_) + semitones
+
         # New pitch
-        new_pitch = Pitch.notes_semitones[
-            (Pitch.notes_semitones.index(self.class_) + semitones) % l
-        ]
+        new_pitch = Pitch.notes_semitones[new_st % l]
 
         # New octave
-        octv = self.octave + (Pitch.notes_semitones.index(self.class_) + semitones) // l
+        octv = self.octave + new_st // l
 
         self.from_str(f'{new_pitch}/{octv}')
 
@@ -306,7 +307,7 @@ class Pitch:
             The (signed) number of semitones between the current note and A4: `self - a4`
         '''
     
-        a4 = Pitch(('a', 4, None))
+        a4 = Pitch('a/4')
 
         return self - a4
 

@@ -150,37 +150,23 @@ def make_pitch_condition(pitch_distance: float, pitch: Pitch, name: str, alpha: 
             if pitch.class_ == 'r':
                 pitch_condition = f"{name}.type = 'rest'"
             else:
-                # Split pitch into base note and accidental
                 pitch_condition = f"{name}.class = '{pitch.class_}'"
-                if pitch.accid is not None:
-                    # Add condition for accidental, including accid and accid_ges
+
+                if pitch.accid is not None: # Add condition for accidental, including accid and accid_ges
+                    # Only sharps are checked, because:
+                    #   1. pitch.accid is converted to sharp in the class Pitch
+                    #   2. the data loader (data-ingestion) converts notes to sharp.
+
                     accid = pitch.accid.replace('#', 's')
-                    pitch_condition += f" AND ({name}.accid = '{accid}' OR {name}.accid_ges = '{accid}')" #TODO: if accidental is a sharp, do we also need to add a condition with the equivalent as a flat?
+                    pitch_condition += f" AND ({name}.accid = '{accid}' OR {name}.accid_ges = '{accid}')"
+
                 else:
-                    # No accidental, so accid is NULL or empty
-                    pitch_condition += f" AND NOT EXISTS({name}.accid) AND NOT EXISTS({name}.accid_ges)"
+                    # No accidental on the searched note, so accid is NULL or empty and same for accid_ges, or accid_ges is not null, and accid is 'n'.
+                    pitch_condition += f" AND ((NOT EXISTS({name}.accid) AND NOT EXISTS({name}.accid_ges)) OR {name}.accid = 'n')"
 
                 if pitch.octave is not None:
                     pitch_condition += f" AND {name}.octave = {pitch.octave}"
         else:
-            # near_pitches = find_nearby_pitches(pitch, o, pitch_distance)
-
-            # pitch_condition = '('
-            # for n, o_ in near_pitches:
-            #     base_note, accidental = split_note_accidental(n)
-            #     base_condition = f"{name}.class = '{base_note}'"
-            #     if accidental:
-            #         base_condition += f" AND ({name}.accid = '{accidental}' OR {name}.accid_ges = '{accidental}')"
-            #     else:
-            #         base_condition += f" AND NOT EXISTS({name}.accid) AND NOT EXISTS({name}.accid)"
-            #     if octave is None:
-            #         pitch_condition += f"\n  ({base_condition}) OR "
-            #     else:
-            #         pitch_condition += f"\n  ({base_condition} AND {name}.octave = {o_}) OR "
-            # # Remove the trailing ' OR ' and close the parentheses
-            # pitch_condition = pitch_condition.rstrip(' OR ') + '\n)'
-
-            # low_freq_bound, high_freq_bound = find_frequency_bounds(pitch, o, pitch_distance, alpha)
             low_freq_bound, high_freq_bound = pitch.find_frequency_bounds(pitch_distance, alpha)
             pitch_condition = f"{low_freq_bound} <= {name}.frequency AND {name}.frequency <= {high_freq_bound}"
             
