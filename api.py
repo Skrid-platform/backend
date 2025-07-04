@@ -15,7 +15,6 @@ from src.core.reformulation_V3 import reformulate_fuzzy_query
 from src.db.neo4j_connection import connect_to_neo4j, run_query
 from src.core.process_results import (
     process_results_to_text,
-    process_results_to_mp3,
     process_results_to_json,
     process_crisp_results_to_json
 )

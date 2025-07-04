@@ -21,7 +21,7 @@ from src.core.extract_notes_from_query import (
     extract_membership_function_support_intervals
 )
 from src.core.refactor import move_attribute_values_to_where_clause, refactor_variable_names
-from src.core.note_calculations import calculate_intervals_list, calculate_dur_ratios_list
+from src.core.note_calculations import calculate_chord_intervals, calculate_intervals_list, calculate_dur_ratios_list
 
 ##-Functions
 def make_duration_condition(duration_factor: float, dur: int | None, node_name: str, alpha: float, dots: int) -> str:
@@ -132,7 +132,7 @@ def make_pitch_condition(pitch_distance: float, pitch: Pitch, name: str, alpha: 
 
     In:
         - pitch_distance: the pitch distance tolerance
-        - pitch: the pitch
+        - pitch: the pitch to search for
         - name: the variable name of the note in the query
         - alpha: the alpha cut value
 
@@ -176,7 +176,7 @@ def make_sequencing_condition(duration_gap, name_1, name_2, alpha):
     sequencing_condition = f"{name_1}.end >= {name_2}.start - {duration_gap * (1 - alpha)}"
     return sequencing_condition
 
-def create_match_clause(query: str, notes: dict[str, dict[str, int | str]]) -> str:
+def create_match_clause(query: str, notes: dict[str, dict[str, int | str | list[str]]]) -> str:
     '''
     Create the MATCH clause for the compiled query.
 
@@ -286,13 +286,13 @@ def create_match_clause(query: str, notes: dict[str, dict[str, int | str]]) -> s
 
         return match_clause
 
-def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str]], allow_transposition: bool, allow_homothety: bool, pitch_distance: float, duration_factor: float, duration_gap: float, alpha: float = 0.0) -> str:
+def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str | list[str]]], allow_transposition: bool, allow_homothety: bool, pitch_distance: float, duration_factor: float, duration_gap: float, alpha: float = 0.0) -> str:
     '''
     Create the WHERE clause for the compiled query.
 
     In:
         - query: the entire query string;
-        - notes: the notes extracted from the query
+        - notes_dict: the notes extracted from the query
         The other params are the fuzzy parameters
 
     Out:
@@ -387,6 +387,9 @@ def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str]],
     where_clauses = []
     if allow_transposition:
         intervals = calculate_intervals_list(notes_dict)
+        chords_conditions = calculate_chord_intervals(notes_dict)
+        where_clauses.extend(chords_conditions)
+
     if allow_homothety:
         dur_ratios = calculate_dur_ratios_list(notes_dict)
 
@@ -398,14 +401,7 @@ def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str]],
         attrs = notes_dict[f_node]
 
         # Pitch
-        if allow_transposition:
-            if idx < len(f_nodes) - 1: #TODO: move this to e_nodes (events)? Because of chords
-                interval_condition = make_interval_condition(intervals[idx], duration_gap, pitch_distance, idx, alpha)
-
-                if interval_condition:
-                    where_clauses.append(interval_condition)
-
-        else:
+        if not allow_transposition:
             p = Pitch((attrs.get('class'), attrs.get('octave')))
             pitch_condition = make_pitch_condition(pitch_distance, p, f_node, alpha)
 
@@ -414,6 +410,15 @@ def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str]],
 
     for idx, e_node in enumerate(e_nodes):
         attrs = notes_dict[e_node]
+
+        # Pitch
+        if allow_transposition:
+            if idx < len(e_nodes) - 1:
+                interval_condition = make_interval_condition(intervals[idx], duration_gap, pitch_distance, idx, alpha)
+
+                if interval_condition:
+                    where_clauses.append(interval_condition)
+
 
         # Rhythm
         if allow_homothety:

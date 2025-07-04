@@ -96,7 +96,9 @@ def get_ordered_results_2(result, query) -> list[
 
     # Extract the query notes and fuzzy parameters
     query_notes = extract_notes_from_query_dict(query)
-    query_notes = {node_name: attrs for node_name, attrs in query_notes.items() if 'type' in attrs and attrs['type'] == 'Fact'}
+    fact_nodes = {node_name: attrs for node_name, attrs in query_notes.items() if 'type' in attrs and attrs['type'] == 'Fact'}
+    event_nodes = {node_name: attrs for node_name, attrs in query_notes.items() if 'type' in attrs and attrs['type'] == 'Event'}
+
     pitch_gap, duration_factor, sequencing_gap, alpha, allow_transpose, allow_homothety = extract_fuzzy_parameters(query)
     
     # Extract membership functions and their associated attributes
@@ -115,40 +117,28 @@ def get_ordered_results_2(result, query) -> list[
         duration_ratios = calculate_dur_ratios_list(query_notes)
 
     note_sequences: list[tuple[
-        list[tuple[Chord, float | None, float | None]],
-        str,
-        float,
-        float
+        list[tuple[Chord, float|None, float|None]], # note, interval, duration_ratio
+        str, # source
+        float, # start
+        float # end
     ]] = []
     stored_attribute_values = []  # To store attribute values for membership function computation
     
+    # Fill `note_sequences`
     for record in result:
         note_sequence: list[tuple[Chord, float | None, float | None]] = []
         
-        fact_nb = 0  # Corresponds to the index of the first fact for the current event
         attribute_values = {}  # Store attribute values for this record
-        for event_nb, event in enumerate(query_notes):
-            pitch = record[f"pitch_{event_nb}"]
-            octave = record[f"octave_{event_nb}"]
+        fact_nb = 0
+
+        for event_nb, event in enumerate(event_nodes):
+            # Add all the attributes from the Event node
             duration = record[f"duration_{event_nb}"]
             dots = record[f"dots_{event_nb}"]
             start = record[f"start_{event_nb}"]
             end = record[f"end_{event_nb}"]
             id_ = record[f"id_{event_nb}"]
 
-            accid = record[f"accid_{event_nb}"]
-            if accid is None:
-                accid = record[f"accid_ges_{event_nb}"]
-
-            note = Chord([Pitch((pitch, octave, accid))], Duration(duration), dots, start, end, id_)
-            # # Handle dotted note duration calculation
-            # if dots is not None and dots > 0:
-            #     note = Note(pitch, octave, int(1 / (duration / 1.5)), dots, duration, start, end, id_)
-            #     note = Chord([Pitch(pitch, octave, accid)], Duration(duration), dots, start, end, id_)
-            # else:
-            #     note = Note(pitch, octave, int(1 / duration), dots, duration, start, end, id_)
-
-            # Retrieve interval and duration ratio
             interval, duration_ratio = None, None
             if allow_transpose:
                 if event_nb > 0:
@@ -157,14 +147,29 @@ def get_ordered_results_2(result, query) -> list[
             if allow_homothety:
                 if event_nb > 0:
                     duration_ratio = record[f"duration_ratio_{event_nb - 1}"]
-            
+
+            # Add all the attributes from the Facts nodes
+            pitches = []
+            for fact_var_name in event_nodes[event]['children']:
+                pitch = record[f"pitch_{fact_nb}"]
+                octave = record[f"octave_{fact_nb}"]
+
+                accid = record[f"accid_{fact_nb}"]
+                if accid is None:
+                    accid = record[f"accid_ges_{fact_nb}"]
+
+                fact_nb += 1
+
+                pitches.append(Pitch((pitch, octave, accid)))
+
+            note = Chord(pitches, Duration(duration), dots, start, end, id_)
+
             note_sequence.append((note, interval, duration_ratio))
-            fact_nb += 1  # Would be used for chords
         
             # Store membership function attribute values
             for alias, node_name, attribute_name, membership_function_name in attribute_aliases:
                 attribute_values[alias] = record[alias]
-        
+
         stored_attribute_values.append(attribute_values)
         note_sequences.append((note_sequence, record['source'], record['start'], record['end']))
     

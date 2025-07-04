@@ -18,6 +18,7 @@ import ast
 from src.db.neo4j_connection import connect_to_neo4j, run_query
 from src.core.note_calculations import calculate_pitch_interval
 from src.utils import create_query_from_contour
+from src.representation.pitch import Pitch
 
 ##-Class and functions
 class PerformanceLogger:
@@ -555,7 +556,7 @@ def extract_contour_from_notes(notes):
         if pitch1 is None or pitch2 is None:
             melodic_contour.append('X')
         else:
-            interval = calculate_pitch_interval(pitch1, octave1, pitch2, octave2)
+            interval = calculate_pitch_interval(Pitch((pitch1, octave1)), Pitch((pitch2, octave2)))
             melodic_contour.append(get_melodic_symbol(interval))
 
         # Compute duration ratio

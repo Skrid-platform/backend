@@ -14,7 +14,7 @@ class Chord:
     A note is a chord with a single pitch.
     '''
 
-    def __init__(self, p: list[Pitch] | None, duration: Duration, dots: int = 0, start: float | None = None, end: float | None = None, id_: str | None = None):
+    def __init__(self, p: list[Pitch] | None, duration: Duration, dots: int | None = 0, start: float | None = None, end: float | None = None, id_: str | None = None):
         '''
         Instantiates the class.
 
@@ -24,7 +24,7 @@ class Chord:
             - dots: the number of dots for the note
         '''
 
-        if dots < 0:
+        if dots != None and dots < 0:
             raise ValueError('Chord: error: argument `dots` should be positive')
     
         self.pitches = p
@@ -42,8 +42,9 @@ class Chord:
         ret = base_dur
 
         # Add dots
-        for k in range(self.dots):
-            ret += base_dur / (k + 1)
+        if self.dots != None:
+            for k in range(self.dots):
+                ret += base_dur / (k + 1)
 
         return ret
 
@@ -53,8 +54,12 @@ class Chord:
         If there are three dots, three 'd' will be added to the base duration represented as a string.
         '''
     
-        base_dur = self.dur.to_str()
-        return base_dur + 'd'*self.dots
+        dur = self.dur.to_str()
+
+        if self.dots != None:
+            dur += 'd'*self.dots
+
+        return dur
 
     def to_dict(self) -> dict:
         '''
@@ -72,4 +77,21 @@ class Chord:
         }
 
         return d
+
+    def __repr__(self) -> str:
+        '''Makes a representation of a chord.'''
+
+        if self.pitches == None:
+            return 'None'
+    
+        notes_repr = [str(p) for p in self.pitches]
+        ret = f'{notes_repr} {self.get_duration_dots_str()}'
+
+        if self.start != None and self.end != None:
+            ret += f' start={self.start}, end={self.end}'
+
+        if self.id != None:
+            ret += f' id={self.id}'
+
+        return ret
 

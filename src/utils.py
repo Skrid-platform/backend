@@ -72,10 +72,10 @@ def create_query_from_list_of_notes(
 
 
         event_properties = []
-        if note_or_chord.dur is not None:
+        if note_or_chord.dur.to_int() is not None:
             event_properties.append(f'dur: {note_or_chord.dur.to_int()}')
 
-        if note_or_chord.dots > 0:
+        if note_or_chord.dots != None:
             event_properties.append(f'dots: {note_or_chord.dots}')
 
         properties_str_event = ', '.join(event_properties)
@@ -90,8 +90,9 @@ def create_query_from_list_of_notes(
             if pitch.octave is not None:
                 fact_properties.append(f'octave:{pitch.octave}')
 
-            if pitch.accid is not None:
-                where_clause_accids.append(f"(f{fact_nb}.accid = '{pitch.accid}' OR f{fact_nb}.accid_ges = '{pitch.accid}')")
+            if pitch_distance == 0 and pitch.accid is not None:
+                accid = pitch.accid.replace('#', 's')
+                where_clause_accids.append(f"(f{fact_nb}.accid = '{accid}' OR f{fact_nb}.accid_ges = '{accid}')")
 
             # Join all defined properties
             properties_str = ', '.join(fact_properties)

@@ -175,8 +175,8 @@ def get_notes_from_source_and_time_interval(driver: neo4j.Driver, source: str, s
 
     results = run_query(driver, query)
 
-    notes = []
-
+    # Group by start time (in order to re-make chords)
+    pitch_by_start = {}
     for record in results:
         # Note or rest
         if record['type'] == 'rest':
@@ -193,7 +193,17 @@ def get_notes_from_source_and_time_interval(driver: neo4j.Driver, source: str, s
 
             p = Pitch((record['class'], record['octave'], accid))
 
-        c = Chord([p], Duration(record['dur']), record['dots'], record['start'], record['end'])
+        if record['start'] not in pitch_by_start:
+            pitch_by_start[record['start']] = ([], Duration(record['dur']), record['dots'], record['start'], record['end'])
+
+        pitch_by_start[record['start']][0].append(p)
+
+    # Make notes
+    notes = []
+
+    for start in pitch_by_start:
+        pitches = pitch_by_start[start][0]
+        c = Chord(pitches, *(pitch_by_start[start][1:]))
 
         notes.append(c)
 

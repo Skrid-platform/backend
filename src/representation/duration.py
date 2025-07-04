@@ -111,3 +111,8 @@ class Duration:
         idx = Duration.dur_int.index(self.dur)
         return Duration.dur_float[idx]
 
+    def __repr__(self) -> str:
+        '''Makes a representation of the duration, using the string format.'''
+    
+        return self.to_str()
+

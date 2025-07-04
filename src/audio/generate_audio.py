@@ -29,8 +29,7 @@ def convert_duration_to_seconds(note_duration, bpm=60):
     duration_in_beats = 4 * note_duration  # Whole note is 4 beats, quarter note is 1 beat, etc.
     return duration_in_beats * beat_duration # Adjusted for beats per measure
 
-# Modified function to add harmonics and apply an ADSR envelope
-def generate_piano_like_note(frequency, duration_ms, sample_rate=44100):
+def generate_piano_like_wave(frequency: float, duration_ms, sample_rate=44100):
     # Generate primary sine wave for the fundamental frequency
     t = np.linspace(0, duration_ms / 1000, int(sample_rate * duration_ms / 1000), False)
     wave = 0.6 * np.sin(2 * np.pi * frequency * t)
@@ -63,6 +62,11 @@ def generate_piano_like_note(frequency, duration_ms, sample_rate=44100):
 
     # Apply the envelope to the wave
     wave = wave * envelope
+    
+    return wave
+
+def generate_piano_like_note(frequencies: list[float], duration_ms, sample_rate=44100):
+    wave = sum(generate_piano_like_wave(f, duration_ms, sample_rate) for f in frequencies)
 
     # Convert to 16-bit audio segment
     audio_segment = AudioSegment(
@@ -96,20 +100,20 @@ def generate_mp3(notes: list[Chord], file_name: str, audio_dir: str, bpm=60, ove
     # Process each note
     for idx, note in enumerate(notes):
         duration = note.get_duration_dots_float()
-        pitch = note.pitches[0].get_class_accid() #TODO: for a chord, only the first note is generated !
-        octave = note.pitches[0].octave
+        pitch = note.pitches[0].get_class_accid() # Get the first note of the chord to see if it is a silence or None
 
         # Check if it's a rest
-        if pitch is None and octave is None and duration is not None:
+        if pitch in (None, 'r') and duration is not None:
             duration_ms = int(convert_duration_to_seconds(duration, bpm) * 1000)
             rest_audio = AudioSegment.silent(duration=duration_ms)
             song = song.append(rest_audio, crossfade=0)  # Append rest without crossfade
             continue
 
-        frequency = note_frequencies[pitch.lower()] * (2 ** (octave - 4))
-        if frequency:
+        # frequency = note_frequencies[pitch.lower()] * (2 ** (octave - 4))
+        frequencies = [p.get_frequency() for p in note.pitches]
+        if 0 not in frequencies:
             duration_ms = int(convert_duration_to_seconds(duration, bpm) * 1000)
-            note_audio = generate_piano_like_note(frequency, duration_ms + overlap_ms, sample_rate=sample_rate)
+            note_audio = generate_piano_like_note(frequencies, duration_ms + overlap_ms, sample_rate=sample_rate)
 
             # Append the note, overlapping the release with the previous note
             if idx == 0:
