@@ -302,7 +302,7 @@ def check_notes_input_format(notes_input: str) -> list[Chord]:
     Description for the format of `notes` :
         `notes` should be a list of chords.
         A chord is a tuple of the following format: `([note1, note2, ...], duration, dots)`
-        A note is in the following format: `class[accidental]/octave`
+        A note is in the following format: `class[accidental]/octave` (`accidental` is optional), e.g `c/5` or `c#/5`
         `duration` is in the following format: 1 for whole, 2 for half, 4 for quarter, 8 for eighten, ...
 
         For example: `[(['c#/5'], 4, 0), (['b/4'], 8, 1), (['b/4'], 8, 0), (['a/4', 'd/5'], 16, 2)]`

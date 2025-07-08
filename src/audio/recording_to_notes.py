@@ -212,7 +212,7 @@ class RecordingToNotes:
             if beg and n[0] == 'r':
                 continue
 
-            beg = False
+            beg = False #TODO: use Chord, Duration, Pitch
 
             # Convert duration
             dur = convert_music21_duration_types[n[1]]
