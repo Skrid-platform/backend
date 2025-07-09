@@ -27,6 +27,7 @@ from src.utils import (
     check_notes_input_format,
     check_contour_input_format
 )
+from src.representation.chord import Chord, Duration, Pitch
 
 #---Performance tests
 def import_PerformanceLogger():
@@ -126,7 +127,7 @@ def write_to_file(fn, content):
     with open(fn, 'w') as f:
         f.write(content)
 
-def get_notes_from_audio(fn: str, parser: argparse.ArgumentParser | None = None) -> list[list[tuple[str, int] | str | int]]:
+def get_notes_from_audio(fn: str, parser: argparse.ArgumentParser | None = None) -> list[Chord]:
     '''
     Convert the audio file `fn` to music notes using `recording_to_notes.py`.
 
@@ -142,29 +143,6 @@ def get_notes_from_audio(fn: str, parser: argparse.ArgumentParser | None = None)
 
     import_recording_to_notes()
 
-    convert_dur = {
-        'w': 1,
-        'h': 2,
-        'q': 4,
-        '8': 8,
-        '16': 16,
-        '32': 32
-    }
-
-    def note_str_to_tuple(note: str) -> tuple[str, int]:
-        '''
-        Convert a note in the format `'C#/5'` to `('C#', 5)`.
-
-        In:
-            - note: the note as a string (with the slash)
-        
-        Out:
-            the note as a tuple
-        '''
-    
-        tmp = note.split('/')
-        return (tmp[0].lower(), int(tmp[-1]))
-
     try:
         C = RecordingToNotes()
         notes = C.get_notes(fn)
@@ -175,24 +153,7 @@ def get_notes_from_audio(fn: str, parser: argparse.ArgumentParser | None = None)
         else:
             raise argparse.ArgumentTypeError(f'The file {fn} has not been found')
 
-    ret = []
-    for note in notes:
-        ret.append([])
-
-        # Add pitche(s)
-        if type(note[0]) == str:
-            ret[-1].append(note_str_to_tuple(note[0]))
-        else:
-            for pitch in note[0]:
-                ret[-1].append(note_str_to_tuple(pitch))
-
-        # Add duration
-        ret[-1].append(convert_dur[note[1]])
-
-        # Add dots
-        ret[-1].append(note[2])
-
-    return ret
+    return notes
 
 
 def list_available_songs(driver, collection=None):
@@ -619,25 +580,24 @@ class Parser:
             notes_input = get_file_content(args.NOTES, self.parser_w)
 
         elif args.audio: # Convert notes from an audio
-            notes_input = str(get_notes_from_audio(args.NOTES, self.parser_w))
+            notes_input_chords = get_notes_from_audio(args.NOTES, self.parser_w)
+            notes_input_array = [c.to_array_format() for c in notes_input_chords]
+            notes_input = str(notes_input_array)
 
         else:
             notes_input = args.NOTES
         
         # Validate notes input based on contour_match flag
-        if args.contour_match:
-            # Contour match mode: Validate that the input is in the correct dual-batch format
+        if args.contour_match: # Contour match mode: Validate that the input is in the correct dual-batch format
             contour = check_contour_input_format(notes_input)
             print(contour)
             query = create_query_from_contour(contour, args.incipit_only, args.collections)
 
-        else:
-            # Normal mode: Validate that the input is a list of notes
+        else: # Normal mode: Validate that the input is a list of notes
             try:
                 notes = check_notes_input_format(notes_input)
 
             except (ValueError, SyntaxError):
-                # self.parser_w.error("NOTES must be a valid list format. Example: \"[[(\'c\', 5), 1], [(\'d\', 5), 4, 1]]\"")
                 self.parser_w.error("NOTES must be a valid list format. Example: \"[(['c#/5'], 1), (['d/5', 'f/5'], 4, 1)]\"")
 
             query = create_query_from_list_of_notes(

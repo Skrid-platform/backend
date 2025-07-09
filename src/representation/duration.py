@@ -12,6 +12,8 @@ class Duration:
     dur_float = tuple([1 / k for k in dur_int])
     dur_float_dotted = tuple([k + k/2 for k in dur_float])
 
+    music21_dur_type = ('whole', 'half', 'quarter', 'eighth', '16th', '32nd')
+
     def __init__(self, dur: int | str | float | None):
         '''
         Initiates the class.
@@ -66,8 +68,12 @@ class Duration:
         Sets `self.dur` from the string value (makes the conversion to int)
 
         In:
-            - dur: the duration, should be in `Duration.dur_str`.
+            - dur: the duration, should be in `Duration.dur_str` or in `Duration.music21_dur_type`.
         '''
+
+        if dur in Duration.music21_dur_type:
+            idx = Duration.music21_dur_type.index(dur)
+            dur = Duration.dur_str[idx]
 
         if dur not in Duration.dur_str:
             raise ValueError(f'Duration: from_str: error: value "{dur}" not in allowed values')

@@ -222,12 +222,20 @@ def execute_crisp_query():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@app.route('/convert-recording', methods=['POST']) #TODO: describe the out format
+@app.route('/convert-recording', methods=['POST'])
 def convert_recording_to_notes():
     '''
     This endpoint converts an audio file to an array of notes (using spotify's `basic-pitch`).
 
     Data to post: the audio file.
+
+    Returns `{ 'notes': n }` or `{ 'error': str }`, where `n` is in the following format:
+    ```
+    [
+        [[note1_str, ...], duration_str, dots],
+        ...
+    ]
+    ```
     '''
 
     try:
@@ -251,7 +259,9 @@ def convert_recording_to_notes():
         #---Delete the file
         os.remove(fn)
 
-        return jsonify({'notes': notes})
+        notes_json = [c.to_array_format(duration_format='str') for c in notes]
+
+        return jsonify({'notes': notes_json})
 
     except Exception as e:
         return jsonify({'error': str(e)}), 400

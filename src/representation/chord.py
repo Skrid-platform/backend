@@ -61,7 +61,15 @@ class Chord:
 
         return dur
 
-    def to_dict(self) -> dict:
+    def is_silence(self) -> bool:
+        '''Check if `self` represents a silence.'''
+    
+        if self.pitches == None:
+            return False
+        
+        return self.pitches[0].class_ == 'r'
+
+    def to_dict(self) -> dict[str, list[dict[str, None|str|int]] | int | float | None]:
         '''
         Put all the relevant attributes into a dict.
         Used to convert to JSON.
@@ -79,7 +87,16 @@ class Chord:
         return d
 
     def __repr__(self) -> str:
-        '''Makes a representation of a chord.'''
+        '''
+        Makes a user readable representation of a chord.
+
+        Out:
+            a string in the following format:
+                `[note1, ...] dur_with_dots_str`, e.g `['c#/5', 'd/5'] hd`
+
+                And if `start`, `end` or `id` is set:
+                `[note1, ...] dur_with_dots_str start={start} end={end} id={id}`, e.g `['c#/5', 'd/5'] h start=0 end=0.5 id=azer`
+        '''
 
         if self.pitches == None:
             return 'None'
@@ -94,4 +111,34 @@ class Chord:
             ret += f' id={self.id}'
 
         return ret
+
+    def to_array_format(self, duration_format: str = 'int') -> tuple[list[str | None], int | str | float, int | None]:
+        '''
+        Makes an array representation of the pitches and durations, that is compatible with the cli parser format (see `utils.py/check_notes_input_format`)
+
+        In:
+            - duration_format: in ('int', 'str', 'float'). Used to select the format for duration. To be compatible with the parser format, use 'int' (default value).
+
+        Out:
+            a tuple of the following format:
+                `([note1, ...], duration, dots)`
+                E.g `(['c#/5'], 4, 0)`, or `(['a/4', 'd/5'], 16, 2)`
+        '''
+    
+        if self.pitches == None:
+            p = [None,]
+    
+        else:
+            p = [str(p) for p in self.pitches]
+
+        if duration_format == 'str':
+            dur = self.dur.to_str()
+        elif duration_format == 'float':
+            dur = self.dur.to_float()
+        else:
+            dur = self.dur.to_int()
+
+        dots = self.dots
+
+        return (p, dur, dots)
 

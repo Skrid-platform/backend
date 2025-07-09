@@ -16,6 +16,8 @@ class Pitch:
         's': 1,
         '#': 1,
         'b': -1,
+        'f': -1,
+        '-': -1,
         'n': 0,
         'x': 2,
         'bb': -2
@@ -69,6 +71,9 @@ class Pitch:
             None       if everything is OK
             ValueError otherwise
         '''
+
+        if self.accid == '-':
+            self.accid = 'b'
     
         if self.class_ != None and self.class_.lower() not in 'rabcdefg':
             raise ValueError(f'Pitch: error: `class_` must be in (a, b, c, d, e, f, g, r), but "{self.class_}" found!')
@@ -103,7 +108,8 @@ class Pitch:
         Initiates the attributes `class_`, `octave` and `accid` by reading from `note`.
 
         In:
-            - note: the note, represented as `c#/5` for example. A rest is represented as `r`.
+            - note: the note, represented as `class[accidental]/octave`. A rest is represented as `r`.
+            The slash is not mandatory. Example of valid formats: `c/5`, `c5`, `c#/5`, `c#5`.
 
         Out:
             None       if OK
@@ -125,9 +131,22 @@ class Pitch:
             return
 
         if '/' not in note:
-            raise ValueError('Pitch: from_str: argument `note` badly formatted: no slash found')
+            # Add a slash before the octave
+            k = len(note) - 1
 
-        cl, octv = note.split('/')
+            while note[k] in '0123456789' and k > 0:
+                k -= 1
+
+            if k == 0 and note[0] in '0123456789':
+                raise ValueError(f'Pitch: from_str: the pitch is not readable from `note` (only digits found)')
+            elif k == len(note) - 1:
+                raise ValueError(f'Pitch: from_str: the octave is not readable from `note` (no digit found at the end)')
+            
+            cl = note[:k + 1]
+            octv = note[k + 1:]
+
+        else:
+            cl, octv = note.split('/')
 
         try:
             self.octave = int(octv)
@@ -181,6 +200,20 @@ class Pitch:
             raise ValueError('Pitch: get_frequency: attributes `class_` and `octave` should not be None!')
         
         return Pitch.A4_FREQ * (2 ** (self.get_semitones_from_A4() / 12))
+
+    def from_midi_pitch(self, pitch: int):
+        '''
+        Gets `self.class_` and `self.octave` by converting the midi pitch number `pitch`.
+        E.g 72 -> 'C/5'
+
+        In:
+            pitch: the midi pitch
+        '''
+
+        self.class_ = Pitch.notes_semitones[pitch % 12]
+        self.octave = pitch // 12 - 1
+
+        self._check_format()
 
     def _get_index(self) -> int:
         '''
@@ -369,7 +402,7 @@ class Pitch:
 
         return f'{class_accid}/{self.octave}'
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, None | str | int]:
         '''
         Put all the relevant attributes into a dict.
         Used to convert to JSON.
@@ -415,3 +448,8 @@ if __name__ == '__main__':
     #     c.add_semitones(1)
 
     print(Pitch('r'))
+
+    print('---')
+    print(Pitch('c#4'))
+    print(Pitch('cbb4'))
+    print(Pitch('c10'))
