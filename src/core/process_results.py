@@ -9,6 +9,8 @@ import os
 import shutil
 import json
 
+from neo4j import Record
+
 #---Project
 from src.core.extract_notes_from_query import (
     extract_fuzzy_parameters,
@@ -29,6 +31,20 @@ from src.core.fuzzy_computation import (
 from src.representation.chord import Chord, Duration, Pitch
 from src.core.note_calculations import calculate_intervals_list, calculate_dur_ratios_list
 from src.audio.generate_audio import generate_mp3
+
+
+##-Types
+#---For the internal representation of the results (output of `process_results_to_dict`)
+pitch_type = dict[str, str | int | None]                    # {'class': str, 'octave': int, 'accid': str | None}
+note_type = dict[str, int | float | str | list[pitch_type]] # {'dur': int, 'dots': int, 'start': float, 'end': float, 'id': str, 'pitches': list[pitch_type]}
+note_match_type = dict[str, int | str | note_type]          # {'note_deg': int, 'pitch_deg': int, 'duration_deg': int, 'sequencing_deg': int, 'membership_functions_degrees': str, 'note': note_type}
+match_type = dict[str, str | float | list[note_match_type]] # {'source': str, 'start': float, 'end': float, 'overall_degree': float, 'notes': list[note_match_type]}
+
+#---For the output of the API (output of `unify_results`)
+note_match_out_type = dict[str, int | str] # {'pitch_deg': int, 'duration_deg': int, 'sequencing_deg': int, 'id': str}
+match_out_type = dict[str, int | list[note_match_out_type]] # {'overall_degree': int, 'notes': list[note_match_out_type]}
+file_matches_out_type = dict[str, str | int | list[match_out_type]] # {'source': str, 'number_of_occurrences': int, 'max_match_degree': int, 'matches': list[match_out_type]}
+
 
 ##-Functions
 def min_aggregation(*degrees):
@@ -316,19 +332,70 @@ def process_crisp_results_to_json(result):
 
     return json.dumps(process_crisp_results_to_dict(result))
 
-def process_results_to_dict(result, query):
+def process_results_to_dict(result: list[Record], query: str) -> list[match_type]:
     '''
     Process the results of the query and return a sorted list of dictionaries.
-    Each dictionary represent a song.
 
-    - result : the result of the query (list from `run_query`) ;
-    - query  : the *fuzzy* query (to extract info from it).
+    Each dictionary represent a song.
+    Note that there will be duplicates; use `unify_results` to merge them.
+
+    In:
+        - result: the result of the query (list from `run_query`) ;
+        - query: the *fuzzy* query (to extract info from it).
+
+    Out:
+        the results, in the following format:
+        ```
+        [
+            {
+                'source': str,
+                'start': float,
+                'end': float,
+                'overall_degree': float,
+
+                'notes': [
+                    {
+                        'note_deg': int,
+                        'pitch_deg': int,
+                        'duration_deg': int,
+                        'sequencing_deg': int,
+                        'membership_functions_degrees': str, (opt)
+
+                        'note': {
+                            'dur': int,
+                            'dots': int | None,
+                            'start': float | None,
+                            'end': float | None,
+                            'id': str | None,
+
+                            'pitches': [
+                                {
+                                    'class': str,
+                                    'octave': int,
+                                    'accid': str | None
+                                },
+                                .
+                                .
+                                .
+                            ]
+                        }
+
+                    },
+                    .
+                    .
+                    .
+                ]
+            },
+            .
+            .
+            .
+        ]
+        ```
     '''
 
     sequence_details = get_ordered_results_2(result, query)
 
     res = []
-    
     for source, start, end, sequence_degree, note_details in sequence_details:
         seq_dict = {}
         seq_dict['source'] = source
@@ -344,23 +411,33 @@ def process_results_to_dict(result, query):
             note_dict['duration_deg'] = duration_deg
             note_dict['sequencing_deg'] = sequencing_deg
             note_dict['note_deg'] = note_deg
+
             if membership_functions_degrees:
                 note_dict['membership_functions_degrees'] = membership_functions_degrees
+
             seq_dict['notes'].append(note_dict)
+
         res.append(seq_dict)
 
     return res
 
-def process_results_to_json(result, query):
+def process_results_to_json(result: list[Record], query: str) -> str:
     '''
     Process the results of the query and return a sorted list of dictionaries.
     Each dictionary represent a song.
 
-    - result : the result of the query (list from `run_query`) ;
-    - query  : the *fuzzy* query (to extract info from it).
+    In:
+        - result: the result of the query (list from `run_query`) ;
+        - query: the *fuzzy* query (needed to extract info from it).
+
+    Out:
+        A string json representing the unified results (see `unify_results` for the data format)
     '''
 
-    return json.dumps(process_results_to_dict(result, query))
+    res_dict = process_results_to_dict(result, query)
+    unified_results = unify_results(res_dict)
+
+    return json.dumps(unified_results)
 
 def process_results_to_text(result, query):
     '''
@@ -392,7 +469,6 @@ def process_results_to_text(result, query):
 
     return res
 
-
 def process_results_to_mp3(result, query, max_files, driver):
     sequence_details = get_ordered_results_2(result, query)
 
@@ -412,6 +488,120 @@ def process_results_to_mp3(result, query, max_files, driver):
         notes = get_notes_from_source_and_time_interval(driver, source, start, end)
         file_name = f"{source}_{start}_{end}_{round(sequence_degree, 2)}.mp3"
         generate_mp3(notes, file_name, audio_dir, bpm=60)
+
+def unify_results(query_results: list[match_type]) -> list[file_matches_out_type]:
+    '''
+    The results are returned match by match. This function groups the matches by source.
+
+    It counts the number of occurrences, and add the IDs when possible.
+
+    In:
+        - query_results: the results of the query, as returned by `process_results_to_dict`.
+    Out:
+        The result array, grouped by source, in the following format:
+            ```
+            [
+                {
+                    'source': str,
+                    'number_of_occurrences': int,
+                    'max_match_degree': int,       (opt)
+                    'matches': [                   (opt)
+                        {
+                            'overall_degree': int,
+                            'notes': [
+                                {
+                                    'note_deg': int,
+                                    'pitch_deg': int,
+                                    'duration_deg': int,
+                                    'sequencing_deg': int,
+                                    'id': str
+                                },
+                                ...
+                            ]
+                        },
+                        ...
+                    ]
+                },
+                ...
+            ]
+            ```
+
+            `max_match_degree` is the maximum of all the corresponding `overall_degree`s.
+    '''
+
+    #---Function that creates a match
+    def make_match(match: match_type) -> match_out_type:
+        '''
+        Creates a match for the output.
+
+        In:
+            - match: the input match
+        Out:
+            The match in the good format for the output
+        '''
+    
+        m = {}
+
+        m['overall_degree'] = match['overall_degree']
+        m['notes'] = []
+
+        # Add the notes of the current match
+        for note in match['notes']:
+            n_entry = {}
+
+            n_entry['id'] = note['note']['id']
+            n_entry['note_deg'] = note['note_deg']
+            n_entry['pitch_deg'] = note['pitch_deg']
+            n_entry['duration_deg'] = note['duration_deg']
+            n_entry['sequencing_deg'] = note['sequencing_deg']
+
+            m['notes'].append(n_entry)
+
+        return m
+
+    #---Init
+    results_dict = {} # Internal representation: {source: file_matches_out_type}. It is easier to add matches this way. It is then converted to a list.
+    seen_sources = [] # Used to mark the viewed sources
+
+    for match in query_results:
+        src: str = match['source']
+
+        #---New source
+        if src not in seen_sources:
+            seen_sources.append(src)
+
+            # Create a new entry for the source
+            res_entry = {}
+
+            # Add source, occurrences and max degree
+            res_entry['source'] = src
+            res_entry['number_of_occurrences'] = 1
+            res_entry['max_match_degree'] = match['overall_degree']
+
+            # Add the current match
+            m1 = make_match(match)
+            res_entry['matches'] = [m1]
+
+            results_dict[src] = res_entry
+
+        #---Source already seen
+        else:
+            results_dict[src]['number_of_occurrences'] += 1
+            
+            if match['overall_degree'] > results_dict[src]['max_match_degree']:
+                results_dict[src]['max_match_degree'] = match['overall_degree']
+
+            # Make match
+            m = make_match(match)
+            results_dict[src]['matches'].append(m)
+
+    # Convert `results_dict` to a list
+    ret = list(results_dict.values())
+
+    return ret
+
+
+
 
 ##-Run
 if __name__ == "__main__":

@@ -73,6 +73,27 @@ class Chord:
         '''
         Put all the relevant attributes into a dict.
         Used to convert to JSON.
+
+        Out:
+            the chord, in the following format:
+            ```
+            {
+                'dur': int,
+                'dots': int | None,
+                'start': float | None,
+                'end': float | None,
+                'id': str | None,
+
+                'pitches': [
+                    {
+                        'class': str,
+                        'octave': int,
+                        'accid': str | None
+                    },
+                    ...
+                ]
+            }
+            ```
         '''
     
         d = {

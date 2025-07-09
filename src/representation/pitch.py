@@ -406,6 +406,16 @@ class Pitch:
         '''
         Put all the relevant attributes into a dict.
         Used to convert to JSON.
+
+        Out:
+            the pitch, in the following format:
+            ```
+            {
+                'class': str,
+                'octave': int,
+                'accid': str | None
+            }
+            ```
         '''
     
         d = {

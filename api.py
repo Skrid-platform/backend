@@ -144,28 +144,32 @@ def execute_query():
     ```
 
     Returns the results, in the following format: `{ 'results': r }`, where `r` has the following shape:
-    ```
-    [
-        {
-            'source': str,
-            'global_degree': int,
-            'notes': [
-                {
-                    'pitch_deg': int,
-                    'duration_deg': int,
-                    'sequencing_deg': int,
-                    'id': str
-                },
-                .
-                .
-                .
-            ]
-        },
-        .
-        .
-        .
-    ]
-    ```
+        ```
+        [
+            {
+                'source': str,
+                'number_of_occurrences': int,
+                'max_match_degree': int,       (opt)
+                'matches': [                   (opt)
+                    {
+                        'overall_degree': int,
+                        'notes': [
+                            {
+                                'note_deg': int,
+                                'pitch_deg': int,
+                                'duration_deg': int,
+                                'sequencing_deg': int,
+                                'id': str
+                            },
+                            ...
+                        ]
+                    },
+                    ...
+                ]
+            },
+            ...
+        ]
+        ```
     '''
 
     data = request.get_json()
