@@ -9,9 +9,7 @@ import neo4j
 
 #---Project
 from src.db.neo4j_connection import run_query
-from src.representation.chord import Chord
-from src.representation.duration import Duration
-from src.representation.pitch import Pitch
+from src.representation.chord import Chord, Duration, Pitch
 
 ##-Functions
 def find_duration_range_multiplicative_factor_sym(duration: float, factor: float, alpha: float = 0.0) -> tuple[float, float]:

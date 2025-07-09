@@ -26,9 +26,7 @@ from src.core.fuzzy_computation import (
     pitch_degree_with_intervals,
     duration_degree_with_multiplicative_factor
 )
-from src.representation.chord import Chord
-from src.representation.duration import Duration
-from src.representation.pitch import Pitch
+from src.representation.chord import Chord, Duration, Pitch
 from src.core.note_calculations import calculate_intervals_list, calculate_dur_ratios_list
 from src.audio.generate_audio import generate_mp3
 

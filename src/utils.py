@@ -13,9 +13,7 @@ import re
 #---Project
 from src.db.neo4j_connection import run_query
 from src.core.refactor import move_attribute_values_to_where_clause
-from src.representation.chord import Chord
-from src.representation.pitch import Pitch
-from src.representation.duration import Duration
+from src.representation.chord import Chord, Duration, Pitch
 
 def create_query_from_list_of_notes(
     notes: list[Chord],

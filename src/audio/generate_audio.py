@@ -11,9 +11,7 @@ import numpy as np
 import os
 
 #---Project
-from src.representation.chord import Chord
-from src.representation.duration import Duration
-from src.representation.pitch import Pitch
+from src.representation.chord import Chord, Duration, Pitch
 
 ##-Init
 # Frequency mapping for notes (A4 = 440 Hz)
