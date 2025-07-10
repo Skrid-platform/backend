@@ -464,7 +464,7 @@ def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str | 
     where_clause = '\nWHERE\n' + preexisting_where_clause  + ' AND\n'.join(where_clauses)
     return where_clause
 
-def create_return_clause(query: str, notes_dict: dict[str, dict[str, int | str]], duration_gap, intervals, allow_homothety) -> str:
+def create_return_clause(query: str, notes_dict: dict[str, dict[str, int | str | list[str]]], duration_gap, intervals, allow_homothety) -> str:
     '''
     Create the RETURN clause for the compiled query.
 
@@ -540,7 +540,7 @@ def create_return_clause(query: str, notes_dict: dict[str, dict[str, int | str]]
     
     return return_clause
 
-def reformulate_fuzzy_query(query):
+def reformulate_fuzzy_query(query: str) -> str:
     '''
     Converts a fuzzy query to a cypher one.
 
