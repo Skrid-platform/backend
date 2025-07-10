@@ -63,10 +63,31 @@ def does_query_edits_db(query: str):
 
 
 ##-Routes
+#---Get
 @app.route('/ping', methods=['GET'])
 def ping():
     return jsonify({'message': 'pong'})
 
+@app.route('/collections-names', methods=['GET'])
+def collections_names():
+    '''This endpoints returns the list of collections names.'''
+
+    query = 'MATCH (s:Score) RETURN DISTINCT s.collection AS collection_name'
+
+    try:
+        driver = connect_to_neo4j(uri, user, password)
+
+        results = run_query(driver, query)
+        driver.close()
+
+        collections = [k.get('collection_name') for k in results]
+
+        return jsonify(collections)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+#---Post
 @app.route('/generate-query', methods=['POST'])
 def generate_query():
     '''
