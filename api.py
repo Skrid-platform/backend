@@ -226,6 +226,119 @@ def execute_crisp_query():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+@app.route('/search-results', methods=['POST'])
+def search_results():
+    '''
+    This endpoint receives the melody and search parameters and returns the associated (processed) results.
+
+    Internally, a fuzzy query is created from the melody and parameters.
+    Then it is converted to a crisp query, that is send to the database.
+    Finally, the results are processed (sorted by match degree, grouped by source) to json.
+
+    Data to post:
+        ```
+        {
+            'notes': str,
+            'pitch_distance': float,
+            'duration_factor': float,
+            'duration_gap': float,
+            'alpha': float,
+            'allow_transposition': bool,
+            'allow_homothety': bool,
+            'incipit_only': bool,
+            'collection': str
+        }
+        ```
+
+        Format of `notes`:
+            - For a normal search: see the documentation of `check_notes_input_format`. In the shape of ` "[([note1, ...], duration, dots), ...]"`, e.g `[(['c#/5', 'd/5'], 4, 0), (['c/5'], 16, 0)]`.
+            - For a contour search: check the documentation of `check_contour_input_format` (not written yet ...)
+
+        If some parameters (apart `notes`) are not specified, they will take their default values.
+
+    Returns:
+        The results, in the following format: `{ 'results': r }`, where `r` has the following shape:
+        ```
+        [
+            {
+                'source': str,
+                'number_of_occurrences': int,
+                'max_match_degree': int,       (opt)
+                'matches': [                   (opt)
+                    {
+                        'overall_degree': int,
+                        'notes': [
+                            {
+                                'note_deg': int,
+                                'pitch_deg': int,
+                                'duration_deg': int,
+                                'sequencing_deg': int,
+                                'id': str
+                            },
+                            ...
+                        ]
+                    },
+                    ...
+                ]
+            },
+            ...
+        ]
+        ```
+    '''
+
+    data = request.get_json()
+
+    try:
+        contour_search = data.get('contour_match', False)
+
+        #------Generate the fuzzy query
+        if contour_search:
+            contour = data['notes']
+            contour = check_contour_input_format(contour)
+            fuzzy_query = create_query_from_contour(
+                contour,
+                data.get('incipit_only', False),
+                data.get('collection')
+            )
+
+        else:
+            notes = data['notes']
+
+            #---Convert string to list
+            notes_chords = check_notes_input_format(notes)
+
+            fuzzy_query = create_query_from_list_of_notes(
+                notes_chords,
+                float(data.get('pitch_distance', 0.0)),
+                float(data.get('duration_factor', 1.0)),
+                float(data.get('duration_gap', 0.0)),
+                float(data.get('alpha', 0.0)),
+                data.get('allow_transposition', False),
+                data.get('allow_homothety', False),
+                data.get('incipit_only', False),
+                data.get('collection')
+            )
+
+        #------Convert it to a crisp query
+        crispQuery = reformulate_fuzzy_query(fuzzy_query)
+
+        #------Send the query
+        if does_query_edits_db(crispQuery):
+            return jsonify({'error': 'Keyword not allowed in query (edits the database)'}), 400
+
+        driver = connect_to_neo4j(uri, user, password)
+        result = run_query(driver, crispQuery)
+        driver.close()
+
+        #------Process the results
+        output = process_results_to_json(result, fuzzy_query)
+
+        return jsonify({'results': output})
+
+    except Exception as e:
+        print(e)
+        return jsonify({'error': str(e)}), 400
+
 @app.route('/convert-recording', methods=['POST'])
 def convert_recording_to_notes():
     '''
