@@ -10,6 +10,8 @@ from ast import literal_eval
 import os
 from random import randint
 
+from neo4j import Record
+
 #---Project
 from src.core.reformulation_V3 import reformulate_fuzzy_query
 from src.db.neo4j_connection import connect_to_neo4j, run_query
@@ -61,6 +63,36 @@ def does_query_edits_db(query: str):
 
     return False
 
+def send_query(query: str) -> list[Record]:
+    '''
+    Sends a crisp query to the database.
+    It first checks that the query does not edit the database.
+
+    In:
+        - query: the crisp query to send to the database
+    Out:
+        The results from the database.
+    '''
+
+    if does_query_edits_db(query):
+        raise PermissionError('Operation not allowed: the query edits the database.')
+
+    driver = connect_to_neo4j(uri, user, password)
+
+    results = run_query(driver, query)
+    driver.close()
+
+    return results
+
+def get_collections_names() -> list[str]:
+    '''Returns the list of the available collections in the database'''
+
+    query = 'MATCH (s:Score) RETURN DISTINCT s.collection AS collection_name'
+    results = send_query(query)
+    collections = [k.get('collection_name') for k in results]
+
+    return collections
+
 
 ##-Routes
 #---Get
@@ -72,20 +104,40 @@ def ping():
 def collections_names():
     '''This endpoints returns the list of collections names.'''
 
-    query = 'MATCH (s:Score) RETURN DISTINCT s.collection AS collection_name'
-
     try:
-        driver = connect_to_neo4j(uri, user, password)
-
-        results = run_query(driver, query)
-        driver.close()
-
-        collections = [k.get('collection_name') for k in results]
+        collections = get_collections_names()
 
         return jsonify(collections)
 
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
+@app.route('/collection/<collection_name>', methods=['GET'])
+def collection(collection_name: str):
+    '''
+    This endpoint returns the sources (file names) of the scores contained in the specified collection.
+
+    URL data:
+        - collection_name: the name of the collection.
+
+    If `collection_name` is not in the database, an error with code 400 is returned.
+    '''
+
+    try:
+        collections = get_collections_names()
+
+        if collection_name not in collections:
+            raise ValueError(f'The collection "{collection_name}" was not found in the database')
+
+        query = f'MATCH (s:Score) WHERE s.collection CONTAINS "{collection_name}" RETURN s.source as source ORDER BY s.source'
+        results = send_query(query)
+        sources = [k.get('source') for k in results]
+
+        return jsonify(sources)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
 
 #---Post
 @app.route('/generate-query', methods=['POST'])
@@ -198,15 +250,8 @@ def execute_query():
         fuzzyQuery = data['query']
         crispQuery = reformulate_fuzzy_query(fuzzyQuery)
 
-        if does_query_edits_db(crispQuery):
-            return jsonify({'error': 'Keyword not allowed in query (edits the database)'}), 400
-
-        driver = connect_to_neo4j(uri, user, password)
-
-        result = run_query(driver, crispQuery)
+        result = send_query(crispQuery)
         output = process_results_to_json(result, fuzzyQuery)
-
-        driver.close()
 
         return jsonify({'results': output})
 
@@ -232,15 +277,8 @@ def execute_crisp_query():
     try:
         query = data.get('query')
 
-        if does_query_edits_db(query):
-            return jsonify({'error': 'Keyword not allowed in query (edits the database)'}), 400
-
-        driver = connect_to_neo4j(uri, user, password)
-
-        result = run_query(driver, query)
+        result = send_query(query)
         results_as_dicts = [record.data() for record in result] # Convert Neo4j Record objects to dictionaries
-
-        driver.close()
 
         return jsonify({'results': results_as_dicts})
 
@@ -344,12 +382,7 @@ def search_results():
         crispQuery = reformulate_fuzzy_query(fuzzy_query)
 
         #------Send the query
-        if does_query_edits_db(crispQuery):
-            return jsonify({'error': 'Keyword not allowed in query (edits the database)'}), 400
-
-        driver = connect_to_neo4j(uri, user, password)
-        result = run_query(driver, crispQuery)
-        driver.close()
+        result = send_query(crispQuery)
 
         #------Process the results
         output = process_results_to_json(result, fuzzy_query)
