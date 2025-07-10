@@ -102,7 +102,13 @@ def ping():
 
 @app.route('/collections-names', methods=['GET'])
 def collections_names():
-    '''This endpoints returns the list of collections names.'''
+    '''
+    This endpoints returns the list of collections names.
+
+    Returns:
+        The collections names, in a list of strings
+        E.g `["Albert Poulain", "Francois-Marie Luzel", "Joseph Mahe Original"]`
+    '''
 
     try:
         collections = get_collections_names()
@@ -115,12 +121,16 @@ def collections_names():
 @app.route('/collection/<collection_name>', methods=['GET'])
 def collection(collection_name: str):
     '''
-    This endpoint returns the sources (file names) of the scores contained in the specified collection.
+    This endpoint returns the sources (MEI file names) of the scores contained in the specified collection.
 
     URL data:
         - collection_name: the name of the collection.
 
     If `collection_name` is not in the database, an error with code 400 is returned.
+
+    Returns:
+        The MEI file names from the collection `collection_name`, in a list of string.
+        E.g `["luzel1.mei", "luzel2.mei", ...]`
     '''
 
     try:
@@ -140,7 +150,7 @@ def collection(collection_name: str):
 
 
 #---Post
-@app.route('/generate-query', methods=['POST'])
+@app.route('/generate-query', methods=['POST']) #TODO: not used by frontend
 def generate_query():
     '''
     This endpoint makes a fuzzy query from notes, filters and fuzzy parameters.
@@ -165,6 +175,9 @@ def generate_query():
         - For a contour search: check the documentation of `check_contour_input_format` (not written yet ...)
 
     If some parameters (apart `notes`) are not specified, they will take their default values.
+
+    Returns:
+        `{ 'query': q }`, where `q` (str) is the fuzzy query generated from the input.
     '''
 
     data = request.get_json()
@@ -204,7 +217,7 @@ def generate_query():
         print(e)
         return jsonify({'error': str(e)}), 400
 
-@app.route('/execute-fuzzy-query', methods=['POST'])
+@app.route('/execute-fuzzy-query', methods=['POST']) #TODO: not used by frontend
 def execute_query():
     '''
     This endpoint sends a fuzzy query, and return the processed results
@@ -258,7 +271,7 @@ def execute_query():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@app.route('/execute-crisp-query', methods=['POST'])
+@app.route('/execute-crisp-query', methods=['POST']) #TODO: not used by frontend
 def execute_crisp_query():
     '''
     This endpoint sends a crisp query to the database.

@@ -92,14 +92,17 @@ A Flask-based API that exposes key functionalities for use in front-end applicat
 
 #### Available Endpoints:
 
-| Endpoint               | Method | Description                                     |
-|------------------------|--------|-------------------------------------------------|
-| `/ping`                | GET    | Health check                                    |
-| `/generate-query`      | POST   | Generate a fuzzy or contour query               |
-| `/compile-query`       | POST   | Compile a fuzzy query into Cypher               |
-| `/execute-fuzzy-query` | POST   | Execute a fuzzy query and return results        |
-| `/execute-crisp-query` | POST   | Execute a crisp Cypher query and return results |
-| `/convert-recording`   | POST   | Converts a recording to music notes             |
+| Endpoint                 | Method | Description                                      |
+|--------------------------|--------|--------------------------------------------------|
+| `/ping`                  | GET    | Health check                                     |
+| `/collections-names`     | GET    | Retrieve the names of the available collections  |
+| `/collection/<col_name>` | GET    | Gets the file names of the collection `col_name` |
+| `/generate-query`        | POST   | Generate a fuzzy or contour query                |
+| `/compile-query`         | POST   | Compile a fuzzy query into Cypher                |
+| `/execute-fuzzy-query`   | POST   | Execute a fuzzy query and return results         |
+| `/execute-crisp-query`   | POST   | Execute a crisp Cypher query and return results  |
+| `/search-results`        | POST   | Perform a search from melody and parameters      |
+| `/convert-recording`     | POST   | Converts a recording to music notes              |
 
 #### Example usage:
 ```bash
