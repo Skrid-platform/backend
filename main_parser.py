@@ -329,8 +329,7 @@ class Parser:
         #---Add arguments
         self.parser_w.add_argument(
             'NOTES',
-            # type=check_notes_input_format,
-            help='notes as a list of lists : [[(class_1, octave_1), duration_1, dots_1], [(class_2, octave_2), duration_2, dots_2], ...]. E.g \"[[(\'c\', 5), 1, 0], [(\'d\', 5), 4, 1]]\"'
+            help="notes as a list of chords : [([note1, note2, ...], duration, dots), ...]. E.g \"[(['c#/5'], 4, 0), (['b/4'], 8, 1), (['b/4'], 8, 0), (['a/4', 'd/5'], 16, 2)]\""
         )
 
         self.parser_w.add_argument(
