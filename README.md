@@ -121,13 +121,53 @@ curl -X POST http://localhost:5000/convert-recording \
 ---
 
 ## 📁 File Structure
-
 Source modules for parsing, reformulation, database interaction, and query execution are organized into:
-- `main_parser.py`: CLI entry point.
-- `api.py`: Flask server.
-- `reformulation_V3.py`, `neo4j_connection.py`, `process_results.py`, `utils.py`: Core logic modules.
+| File / folder        | Description                                              |
+|----------------------|----------------------------------------------------------|
+| `main_parser.py`     | CLI entry point                                          |
+| `api.py`             | Flask server                                             |
+| `src/core/`          | core logic modules                                       |
+| `src/representation/`| classes used for an internal representation of the notes |
+| `src/db/`            | connection to the neo4j database                         |
+| `src/audio/`         | modules managing audio                                   |
 
-A formal breakdown will be added once the refactor is complete.
+File tree:
+```
+.
+├── src/
+│   ├── audio/
+│   │   ├── generate_audio.py
+│   │   └── recording_to_notes.py
+│   ├── core/
+│   │   ├── combine_queries.py
+│   │   ├── extract_notes_from_query.py
+│   │   ├── fuzzy_computation.py
+│   │   ├── note_calculations.py
+│   │   ├── process_results.py
+│   │   ├── refactor.py
+│   │   └── reformulation_V3.py
+│   ├── db/
+│   │   └── neo4j_connection.py
+│   ├── representation/
+│   │   ├── chord.py
+│   │   ├── duration.py
+│   │   └── pitch.py
+│   └── utils.py
+├── tests/
+│   └── testing_utilities.py
+│
+├── uploads/
+│
+├── api.py
+├── main_parser.py
+│
+├── Dockerfile
+├── requirements.txt
+│
+├── LICENSE.md
+├── README.md
+└── TODO.md
+```
 
 ---
 
