@@ -74,6 +74,7 @@ def calculate_chord_intervals(query_nodes: dict[str, dict[str, int | str | list[
     When transposition is allowed, the search is made on intervals between Events.
     For chords, we use the lowest note of the chord as a reference to calculate the intervals with other Events (should be done in data-ingestion).
     It is also needed to check, in the query, that the intervals between the pitches in the same chord are the same. This is what does this function (calculate conditions to ensure this).
+    It is also needed when pitch distance is greater than 0.
 
     In:
         - query_nodes: the dictionary of notes, as returned by `extract_notes_from_query`

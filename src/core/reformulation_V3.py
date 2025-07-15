@@ -387,11 +387,13 @@ def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str | 
     where_clauses = []
     if allow_transposition:
         intervals = calculate_intervals_list(notes_dict)
-        chords_conditions = calculate_chord_intervals(notes_dict)
-        where_clauses.extend(chords_conditions)
 
     if allow_homothety:
         dur_ratios = calculate_dur_ratios_list(notes_dict)
+
+    if pitch_distance > 0 or allow_transposition:
+        chords_conditions = calculate_chord_intervals(notes_dict)
+        where_clauses.extend(chords_conditions)
 
     # Extract Fact and Event nodes (Event: for the duration; Fact: for the class and octave)
     f_nodes = [node for node, attrs in notes_dict.items() if attrs.get('type') == 'Fact']

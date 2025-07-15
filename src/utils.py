@@ -83,14 +83,15 @@ def create_query_from_list_of_notes(
             fact_properties = []
 
             if pitch.class_ is not None:
-                fact_properties.append(f"class:'{pitch.class_}'")
+                class_and_accid = pitch.get_class_accid()
+                fact_properties.append(f"class:'{class_and_accid}'")
 
             if pitch.octave is not None:
                 fact_properties.append(f'octave:{pitch.octave}')
 
-            if pitch_distance == 0 and pitch.accid is not None:
-                accid = pitch.accid.replace('#', 's')
-                where_clause_accids.append(f"(f{fact_nb}.accid = '{accid}' OR f{fact_nb}.accid_ges = '{accid}')")
+            # if pitch_distance == 0 and pitch.accid is not None:
+            #     accid = pitch.accid.replace('#', 's')
+            #     where_clause_accids.append(f"(f{fact_nb}.accid = '{accid}' OR f{fact_nb}.accid_ges = '{accid}')")
 
             # Join all defined properties
             properties_str = ', '.join(fact_properties)
