@@ -1,24 +1,33 @@
-import re
-import numpy as np
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-def extract_notes_from_query_dict(query: str) -> dict:
+'''Extracts informations from a query'''
+
+##-Imports
+import re
+
+##-Functions
+def extract_notes_from_query_dict(query: str) -> dict[str, dict[str, int | str | list[str]]]:
     '''
     Extract nodes and their attributes from a given query, including node types.
 
-    Input:
+    Also adds an attribute `children` for the Event nodes listing their Facts children,
+    and a `parent` attribute for the Fact nodes describing their Event parent.
+
+    In:
         - query: The fuzzy query.
 
-    Output:
-        - Dictionary with node names as keys, each containing a dictionary of attributes including 'type'.
+    Out:
+        Dictionary with node names as keys, each containing a dictionary of attributes including 'type'.
 
     Example Output:
         {
-            'e0': {'type': 'Event'},
-            'e1': {'type': 'Event'},
-            'e2': {'type': 'Event'},
-            'f0': {'type': 'Fact', 'class': 'c', 'octave': 5, 'dur': 1},
-            'f1': {'type': 'Fact', 'class': 'd', 'octave': 5, 'dur': 1},
-            'f2': {'type': 'Fact', 'class': 'e', 'octave': 5, 'dur': 2},
+            'e0': {'type': 'Event', 'children': ['f0']},
+            'e1': {'type': 'Event', 'children': ['f1']},
+            'e2': {'type': 'Event', 'children': ['f2']},
+            'f0': {'type': 'Fact', 'class': 'c', 'octave': 5, 'dur': 1, parent: 'e0'},
+            'f1': {'type': 'Fact', 'class': 'd', 'octave': 5, 'dur': 1, parent: 'e1'},
+            'f2': {'type': 'Fact', 'class': 'e', 'octave': 5, 'dur': 2, parent: 'e2'},
             't0': {'type': 'NEXT', 'interval': 1},
             't1': {'type': 'NEXT'},
             ...
@@ -49,6 +58,8 @@ def extract_notes_from_query_dict(query: str) -> dict:
     # Extract all patterns (nodes and relationships) in the MATCH clause
     pattern_regex = re.compile(r'(\(|\[)([^\(\)\[\]]+)(\)|\])')
     matches = pattern_regex.findall(match_clause)
+    
+    # Convert the graph from the match clause to a dict (so we loose the links)
     for open_bracket, content, close_bracket in matches:
         # Determine if it's a node or relationship based on brackets
         is_node = open_bracket == '(' and close_bracket == ')'
@@ -64,6 +75,25 @@ def extract_notes_from_query_dict(query: str) -> dict:
 
         if node_type:
             node_attributes[variable]['type'] = node_type
+
+
+    # Add the links from Event to Fact with an attribute 'parent' in the concerned Fact
+    # First extract the (e{i})--(f{j}:Fact)
+    pattern_regex_2 = re.compile(r'(\(|\[)([^\(\)\[\]]+)(\)|\])--(\(|\[)([^\(\)\[\]]+)(\)|\])')
+    matches_2 = pattern_regex_2.findall(match_clause) #TODO: this will only work if the Facts are declared using the pattern `(e{i})--(f{j}:Fact)`, but not if the IS link is written.
+    
+    for _, event, _, _, fact, _ in matches_2:
+        # Get variable name
+        event_var_name = event.split(':', 1)[0].strip()
+        fact_var_name = fact.split(':', 1)[0].strip()
+
+        # Ensure that it is well Event -> Fact, and add the attributes
+        if node_attributes[event_var_name]['type'] == 'Event' or node_attributes[fact_var_name]['type'] in ('Fact', 'rest'):
+            if 'children' not in node_attributes[event_var_name]:
+                node_attributes[event_var_name]['children'] = []
+
+            node_attributes[event_var_name]['children'].append(fact_var_name)
+            node_attributes[fact_var_name]['parent'] = event_var_name
 
     # Extract attributes from the WHERE clause
     where_match = re.search(r'\bWHERE\b', rest_of_query, flags=re.IGNORECASE)
@@ -105,6 +135,10 @@ def extract_notes_from_query_dict(query: str) -> dict:
             # Remove surrounding parentheses from value if present
             if value.startswith('(') and value.endswith(')'):
                 value = value[1:-1].strip()
+
+            # For accidentals, there is a condition "(f{idx}.accid = 's' OR f{idx}.accid_ges = 's')", and `value` here is "'s')"
+            if value[0] == "'" and value[-2:] == "')":
+                value = value[1:-2]
 
             # Remove quotes from value if present
             if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
@@ -423,6 +457,7 @@ def extract_attributes_with_membership_functions(query):
 
     return matches
 
+##-Run
 if __name__ == "__main__":
     query = """DEFINEASC leapUp AS (1.0,1.5)
     DEFINEDESC slow AS (2.0,3.0)

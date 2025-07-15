@@ -1,15 +1,28 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''Refactors a fuzzy query to a canonical (standard) version'''
+
+##-Imports
+#---General
 import re
 import csv
 from io import StringIO
-from extract_notes_from_query import extract_fuzzy_membership_functions, extract_fuzzy_parameters
 
-def move_attribute_values_to_where_clause(query):
+#---Project
+# from src.core.extract_notes_from_query import extract_fuzzy_membership_functions, extract_fuzzy_parameters
+
+##-Functions
+def move_attribute_values_to_where_clause(query: str) -> str:
     '''
     Move attribute values to the where clause of the query. Also checks that all nodes and relationships have a type.
 
-    - IN : query        : a fuzzy query where some attribute values may be in the match clause ;
-    - OUT : the query where attribute values have been moved
+    In:
+        - query: a fuzzy query where some attribute values may be in the match clause
+    Out:
+        the query where attribute values have been moved
     '''
+
     # Initialize dictionaries to keep track of variables and their types
     node_variables = {}
     relationship_variables = {}
@@ -28,6 +41,7 @@ def move_attribute_values_to_where_clause(query):
         rest_start = match_start + rest_match.start()
         match_clause = query[match_start:rest_start].strip()
         rest_of_query = query[rest_start:].strip()
+
     else:
         match_clause = query[match_start:].strip()
         rest_of_query = ''
@@ -287,9 +301,11 @@ def refactor_variable_names(query):
 
     return new_query
 
+##-Run
 if __name__ == "__main__":
     with open('fuzzy_query.cypher', 'r') as file:
         fuzzy_query = file.read()
+
     fuzzy_query = move_attribute_values_to_where_clause(fuzzy_query)
     fuzzy_query = refactor_variable_names(fuzzy_query)
     print(fuzzy_query)

@@ -1,28 +1,61 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+'''Defines a CLI argument parser to interface the features'''
+
 ##-Imports
 #---General
 import argparse
 import os
 from os.path import exists
 
-# import neo4j.exceptions.CypherSyntaxError
 import neo4j
 
 #---Project
-from reformulation_V3 import reformulate_fuzzy_query
-from neo4j_connection import connect_to_neo4j, run_query
-from process_results import process_results_to_text, process_results_to_mp3, process_results_to_json, process_crisp_results_to_json
-from utils import get_first_k_notes_of_each_score, create_query_from_list_of_notes, create_query_from_contour, check_notes_input_format, check_contour_input_format
+from src.core.reformulation_V3 import reformulate_fuzzy_query
+from src.core.process_results import (
+    process_results_to_text,
+    process_results_to_mp3,
+    process_results_to_json,
+    process_crisp_results_to_json
+)
+from src.db.neo4j_connection import connect_to_neo4j, run_query
+from src.utils import (
+    get_first_k_notes_of_each_score,
+    create_query_from_list_of_notes,
+    create_query_from_contour,
+    check_notes_input_format,
+    check_contour_input_format
+)
+from src.representation.chord import Chord, Duration, Pitch
 
 #---Performance tests
-from testing_utilities import PerformanceLogger
+def import_PerformanceLogger():
+    global PerformanceLogger
+    from tests.testing_utilities import PerformanceLogger
 
 ##-Init
 # version = '1.0'
+recording_to_notes_not_imported = True
+
+NEO4J_DEFAULT_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_DEFAULT_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_DEFAULT_PWD = os.getenv("NEO4J_PASSWORD", "1234678")
 
 ##-Util
+def import_recording_to_notes():
+    '''
+    Imports the module `recording_to_notes.py` if not already imported.
+    Useful as it is long to load.
+    '''
+
+    global recording_to_notes_not_imported
+    global RecordingToNotes
+
+    if recording_to_notes_not_imported:
+        from src.audio.recording_to_notes import RecordingToNotes
+        recording_to_notes_not_imported = False
+
 def restricted_float(x, mn=None, mx=None):
     '''
     Defines a new type to restrict a float to the interval [mn ; mx].
@@ -70,6 +103,7 @@ def get_file_content(fn, parser=None):
     Try to read the file `fn`.
     If not found and `parser` != None, raise an error with `parser.error`. If `parser` is None, raise an `ArgumentTypeError`.
     '''
+
     try:
         with open(fn, 'r') as f:
             content = f.read()
@@ -93,6 +127,33 @@ def write_to_file(fn, content):
     with open(fn, 'w') as f:
         f.write(content)
 
+def get_notes_from_audio(fn: str, parser: argparse.ArgumentParser | None = None) -> list[Chord]:
+    '''
+    Convert the audio file `fn` to music notes using `recording_to_notes.py`.
+
+    In:
+        - fn: the path to the audio file
+        - parser: used to raise the error with the current parser. Otherwise, raise an `argparse.ArgumentTypeError`.
+
+    Out:
+        the notes, in the format wanted by the `write` mode of the parser:
+        `[[(class_1, octave_1), ..., (class_1n, octave_1n), duration_1, dots_1], ...]`
+        E.g `"[[('c', 5), 1, 0], [('d', 5), ('f', 5), 4, 1]]"`
+    '''
+
+    import_recording_to_notes()
+
+    try:
+        C = RecordingToNotes()
+        notes = C.get_notes(fn)
+
+    except FileNotFoundError:
+        if parser != None:
+            parser.error(f'The file {fn} has not been found')
+        else:
+            raise argparse.ArgumentTypeError(f'The file {fn} has not been found')
+
+    return notes
 
 
 def list_available_songs(driver, collection=None):
@@ -130,7 +191,7 @@ class Parser:
             \tcompile a query from file : python3 main_parser.py compile -F fuzzy_query.cypher -o crisp_query.cypher
             \tsend a query              : python3 main_parser.py send -F crisp_query.cypher -t result.txt
             \tsend a query 2            : python3 main_parser.py -u user -p pwd send -F -f fuzzy_query.cypher -t result.txt -m 6
-            \twrite a fuzzy query       : python3 main_parser.py write \"[[('c', 5), 1, 1], [('d', 5), None]]\" -a 0.5 -t -o fuzzy_query.cypher
+            \twrite a fuzzy query       : python3 main_parser.py write \"[(['c#/5'], 4, 0), (['b/4'], 8, 1), (['a/4', 'd/5'], 16, 2)]\" -a 0.5 -t -o fuzzy_query.cypher
             \twrite a query from a song : python3 main_parser.py w \"$(python3 main_parser.py g \"10343_Avant_deux.mei\" 9)\" -p 2
             \tget notes from a song     : python3 main_parser.py get Air_n_83.mei 5 -o notes
             \tlist all songs            : python3 main_parser.py l
@@ -148,17 +209,17 @@ class Parser:
 
         self.parser.add_argument(
             '-U', '--URI',
-            default=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+            default=NEO4J_DEFAULT_URI,
             help='the uri to the neo4j database'
         )
         self.parser.add_argument(
             '-u', '--user',
-            default=os.getenv("NEO4J_USER", "neo4j"),
+            default=NEO4J_DEFAULT_USER,
             help='the username to access the database'
         )
         self.parser.add_argument(
             '-p', '--password',
-            default=os.getenv("NEO4J_PASSWORD", "1234678"),
+            default=NEO4J_DEFAULT_PWD,
             help='the password to access the database'
         )
 
@@ -168,6 +229,7 @@ class Parser:
         self.create_compile();
         self.create_send();
         self.create_write();
+        self.create_recording_convert();
         self.create_get();
         self.create_list();
 
@@ -181,6 +243,17 @@ class Parser:
         '''
 
         self.driver = connect_to_neo4j(uri, user, password)
+
+    def clear_neo4j_cache(self):
+        '''
+        Clears the Neo4j cache.
+        It creates the driver and closes it (using the authentification data given in argument)
+        '''
+    
+        args = self.parser.parse_args()
+        self.init_driver(args.URI, args.user, args.password)
+        run_query(self.driver, "CALL db.clearQueryCaches()")
+        self.close_driver()
 
     def close_driver(self):
         '''Closes the driver'''
@@ -256,14 +329,18 @@ class Parser:
         #---Add arguments
         self.parser_w.add_argument(
             'NOTES',
-            # type=check_notes_input_format,
-            help='notes as a list of lists : [[(class_1, octave_1), duration_1, dots_1], [(class_2, octave_2), duration_2, dots_2], ...]. E.g \"[[(\'c\', 5), 1, 0], [(\'d\', 5), 4, 1]]\"'
+            help="notes as a list of chords : [([note1, note2, ...], duration, dots), ...]. E.g \"[(['c#/5'], 4, 0), (['b/4'], 8, 1), (['b/4'], 8, 0), (['a/4', 'd/5'], 16, 2)]\""
         )
 
         self.parser_w.add_argument(
             '-F', '--file',
             action='store_true',
             help='NOTES is a file name (can be create with get mode)'
+        )
+        self.parser_w.add_argument(
+            '-A', '--audio',
+            action='store_true',
+            help='NOTES is a file name of an audio file (can be create with get mode)'
         )
         self.parser_w.add_argument(
             '-o', '--output',
@@ -317,6 +394,23 @@ class Parser:
             '-C', '--contour-match',
             action='store_true',
             help='Match only the contour of the melody, i.e the general shape of melodic and rythmic intervals between notes'
+        )
+
+    def create_recording_convert(self):
+        '''Creates the recording_convert subparser and add its arguments.'''
+
+        #---Init
+        self.parser_r = self.subparsers.add_parser('recording_convert', aliases=['r'], help='converts a recording to notes')
+
+        #---Add arguments
+        self.parser_r.add_argument(
+            'AUDIO_FILE',
+            help='path to the audio file'
+        )
+
+        self.parser_r.add_argument(
+            '-o', '--output',
+            help='give a filename where to write result. If not set, just print it.'
         )
 
     def create_get(self):
@@ -384,6 +478,9 @@ class Parser:
         elif args.subparser in ('w', 'write'):
             self.parse_write(args)
 
+        elif args.subparser in ('r', 'recording_convert'):
+            self.parse_recording_convert(args)
+
         elif args.subparser in ('g', 'get'):
             self.parse_get(args)
 
@@ -434,11 +531,14 @@ class Parser:
         try:
             if testing_mode:
                 logger.start("only_query")
+
             res = run_query(self.driver, crisp_query)
+
             if testing_mode:
                 logger.end("only_query")
+
         except neo4j.exceptions.CypherSyntaxError as err:
-            print('parse_send: query syntax error: ' + str(err))
+            print(f'parse_send: query syntax error: {err}')
             return
 
         if args.text_output == None and args.mp3 == None:
@@ -475,31 +575,60 @@ class Parser:
         if args.allow_transposition and args.contour_match:
             self.parser_w.error('not possible to use `-t` and `-C` at the same time')
 
-        if args.file:
+        if args.file: # Read notes from a file
             notes_input = get_file_content(args.NOTES, self.parser_w)
+
+        elif args.audio: # Convert notes from an audio
+            notes_input_chords = get_notes_from_audio(args.NOTES, self.parser_w)
+            notes_input_array = [c.to_array_format() for c in notes_input_chords]
+            notes_input = str(notes_input_array)
+
         else:
             notes_input = args.NOTES
         
         # Validate notes input based on contour_match flag
-        if args.contour_match:
-            # Contour match mode: Validate that the input is in the correct dual-batch format
+        if args.contour_match: # Contour match mode: Validate that the input is in the correct dual-batch format
             contour = check_contour_input_format(notes_input)
             print(contour)
-
-
             query = create_query_from_contour(contour, args.incipit_only, args.collections)
-        else:
-            # Normal mode: Validate that the input is a list of notes
+
+        else: # Normal mode: Validate that the input is a list of notes
             try:
                 notes = check_notes_input_format(notes_input)
+
             except (ValueError, SyntaxError):
-                self.parser_w.error("NOTES must be a valid list format. Example: \"[[(\'c\', 5), 1], [(\'d\', 5), 4, 1]]\"")
-            query = create_query_from_list_of_notes(notes, args.pitch_distance, args.duration_factor, args.duration_gap, args.alpha, args.allow_transposition, args.allow_homothety, args.incipit_only, args.collections)
+                self.parser_w.error("NOTES must be a valid list format. Example: \"[(['c#/5'], 1), (['d/5', 'f/5'], 4, 1)]\"")
+
+            query = create_query_from_list_of_notes(
+                notes,
+                args.pitch_distance,
+                args.duration_factor,
+                args.duration_gap,
+                args.alpha,
+                args.allow_transposition,
+                args.allow_homothety,
+                args.incipit_only,
+                args.collections
+            )
 
         if args.output == None:
             print(query)
+
         else:
             write_to_file(args.output, query)
+
+    def parse_recording_convert(self, args):
+        '''Parse the args for the recording_convert mode'''
+
+        fn = args.AUDIO_FILE
+
+        res = get_notes_from_audio(fn, self.parser_r)
+
+        if args.output == None:
+            print(res)
+
+        else:
+            write_to_file(args.output, res)
 
     def parse_get(self, args):
         '''Parse the args for the get mode'''
@@ -525,7 +654,7 @@ class Parser:
         self.init_driver(args.URI, args.user, args.password)
 
         if args.number_per_line != None and args.number_per_line < 0:
-            self.close_driver();
+            self.close_driver()
             self.parser_l.error('argument `-n` takes a positive value !')
 
         songs = list_available_songs(self.driver, args.collection)
@@ -548,7 +677,7 @@ class Parser:
         else:
             write_to_file(args.output, res)
 
-        self.close_driver();
+        self.close_driver()
 
 
     # class Version(argparse.Action):
@@ -564,19 +693,23 @@ class Parser:
 if __name__ == '__main__':
     testing_mode = False
 
-    if testing_mode:
-        logger = PerformanceLogger()
-        app = Parser()
-        app.parse()
-        logger.save()
+    try:
+        if testing_mode:
+            import_PerformanceLogger()
+            logger = PerformanceLogger()
 
-        # Set up a driver just to clear the cache
-        uri = "bolt://localhost:7687"  # Default URI for a local Neo4j instance
-        user = "neo4j"                 # Default username
-        password = "12345678"          # Replace with your actual password
-        driver = connect_to_neo4j(uri, user, password)
-        run_query(driver, "CALL db.clearQueryCaches()")
-    
-    else:
         app = Parser()
         app.parse()
+
+        if testing_mode:
+            logger.save()
+            app.clear_neo4j_cache()
+        
+    except neo4j.exceptions.AuthError as err:
+        print(f'Authentification error to the neo4j database: "{err}"')
+        exit()
+
+    except neo4j.exceptions.ServiceUnavailable as err:
+        print(f'Connection error to the neo4j database: "{err}"')
+        exit()
+

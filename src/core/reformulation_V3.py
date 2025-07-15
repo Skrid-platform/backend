@@ -1,27 +1,63 @@
-import re
-from fuzzy_computation import find_frequency_bounds, find_nearby_pitches
-from extract_notes_from_query import extract_notes_from_query_dict, extract_fuzzy_parameters, extract_match_clause, extract_where_clause, extract_attributes_with_membership_functions, extract_membership_function_support_intervals
-from fuzzy_computation import find_duration_range_decimal, find_duration_range_multiplicative_factor_sym
-from utils import calculate_intervals_list, calculate_dur_ratios_list
-from fuzzy_computation import convert_note_to_sharp
-from refactor import move_attribute_values_to_where_clause, refactor_variable_names
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-def make_duration_condition(duration_factor, duration, node_name, alpha, dotted):
-    if duration == None:
+'''Converts fuzzy queries into cypher ones'''
+
+##-Imports
+#---General
+import re
+
+#---Project
+from src.representation.pitch import Pitch
+from src.core.fuzzy_computation import (
+    find_duration_range_multiplicative_factor_sym
+)
+from src.core.extract_notes_from_query import (
+    extract_notes_from_query_dict,
+    extract_fuzzy_parameters,
+    extract_match_clause,
+    extract_where_clause,
+    extract_attributes_with_membership_functions,
+    extract_membership_function_support_intervals
+)
+from src.core.refactor import move_attribute_values_to_where_clause, refactor_variable_names
+from src.core.note_calculations import calculate_chord_intervals, calculate_intervals_list, calculate_dur_ratios_list
+
+##-Functions
+def make_duration_condition(duration_factor: float, dur: int | None, node_name: str, alpha: float, dots: int) -> str:
+    '''
+    Creates the duration condition for the WHERE clause.
+
+    In:
+        - duration_factor: the fuzzy parameter indicating the factor for the duration. If it is 1, it is an exact search.
+        - dur: the duration of the note, without accounting for the dots. It should be in the "int" format (power of 2: 1 for whole, 2, 4, ...)
+        - node_name: the name of the node in the cypher query
+        - alpha: the alpha cut value
+        - dots: the number of dots for the note
+    '''
+    if dur == None:
         return ''
 
     # Before reforumation step, we use 'dur' attribute in the data model and in fuzzy query expression to be coherent
     # 'dur' attribute is given in power of two (1, 2, 4, ...) and does not take dots into account
     # 'duration' attribut is given in fraction (0.125, 0.325, ...) and takes dots into account
-    duration = 1.0/duration
-    if dotted:
-        duration = duration*1.5
+    duration = 1 / dur
+
+    # Add the duration of the dots
+    if dots != None:
+        i = 1
+        while dots > 0:
+            duration += (1 / dur) / (2**i)
+
+            i += 1
+            dots -= 1
 
     if duration_factor != 1:
         min_duration, max_duration = find_duration_range_multiplicative_factor_sym(duration, duration_factor, alpha)
         res = f"{node_name}.duration >= {min_duration} AND {node_name}.duration <= {max_duration}"
     else:
         res = f"{node_name}.duration = {duration}"
+
     return res
 
 def make_duration_ratio_condition(duration_ratio, duration_gap, duration_factor, idx, alpha):
@@ -35,14 +71,14 @@ def make_duration_ratio_condition(duration_ratio, duration_gap, duration_factor,
     if duration_gap > 0:
         if duration_factor > 1:
             duration_ratio_condition = (
-                f"EXISTS(f{idx}.duration) AND EXISTS(f{idx + 1}.duration) AND "
-                f"{min_ratio} <= f{idx + 1}.duration / f{idx}.duration AND "
-                f"f{idx + 1}.duration / f{idx}.duration <= {max_ratio}"
+                f"EXISTS(e{idx}.duration) AND EXISTS(e{idx + 1}.duration) AND "
+                f"{min_ratio} <= e{idx + 1}.duration / e{idx}.duration AND "
+                f"e{idx + 1}.duration / e{idx}.duration <= {max_ratio}"
             )
         else:
             duration_ratio_condition = (
-                f"EXISTS(f{idx}.duration) AND EXISTS(f{idx + 1}.duration) AND "
-                f"f{idx + 1}.duration / f{idx}.duration = {duration_ratio}"
+                f"EXISTS(e{idx}.duration) AND EXISTS(e{idx + 1}.duration) AND "
+                f"e{idx + 1}.duration / e{idx}.duration = {duration_ratio}"
             )
     else:
         if duration_factor > 1:
@@ -90,83 +126,48 @@ def make_interval_condition(interval, duration_gap, pitch_distance, idx, alpha):
                 interval_condition = f"n{idx}.interval = {interval}"
     return interval_condition
 
-def split_note_accidental(note):
-    """
-    Splits a note string into its base note and accidental.
-
-    Parameters:
-        note (str): The note string (e.g., 'c', 'c#', 'db').
-
-    Returns:
-        tuple: A tuple containing the base note and accidental.
-    """
-    match = re.match(r'^([a-gA-G])([s#]?)$', note)
-    if match:
-        base_note = match.group(1).lower()
-        accidental = match.group(2)
-        if accidental == '':
-            accidental = None
-        else:
-            # Sharps are notated with s here (can be # or s in find_nearby_pitches)
-            accidental = 's'
-        return base_note, accidental
-    else:
-        raise ValueError(f"Invalid note name: {note}")
-
-def make_pitch_condition(pitch_distance, pitch, octave, name, alpha):
-    """
+def make_pitch_condition(pitch_distance: float, pitch: Pitch, name: str, alpha: float):
+    '''
     Creates a pitch condition for a given note, handling accidentals properly.
 
-    Parameters:
-        pitch_distance (float): The pitch distance tolerance.
-        pitch (str): The pitch class.
-        octave (int): The octave number.
-        name (str): The variable name of the note in the query.
+    In:
+        - pitch_distance: the pitch distance tolerance
+        - pitch: the pitch to search for
+        - name: the variable name of the note in the query
+        - alpha: the alpha cut value
 
-    Returns:
+    Out:
         str: The pitch condition as a string.
-    """
-    if pitch is None:
-        if octave is None:
+    '''
+
+    if pitch.class_ is None:
+        if pitch.octave is None:
             pitch_condition = ''
         else:
-            pitch_condition = f"{name}.octave = {octave}"
+            pitch_condition = f"{name}.octave = {pitch.octave}"
     else:
-        if pitch_distance == 0 or pitch == 'r':
-            if pitch == 'r':
+        if pitch_distance == 0 or pitch.class_ == 'r':
+            if pitch.class_ == 'r':
                 pitch_condition = f"{name}.type = 'rest'"
             else:
-                # Split pitch into base note and accidental
-                base_note, accidental = split_note_accidental(pitch)
-                pitch_condition = f"{name}.class = '{base_note}'"
-                if accidental:
-                    # Add condition for accidental, including accid and accid_ges
-                    pitch_condition += f" AND ({name}.accid = '{accidental}' OR {name}.accid_ges = '{accidental}')"
+                pitch_condition = f"{name}.class = '{pitch.class_}'"
+
+                if pitch.accid is not None: # Add condition for accidental, including accid and accid_ges
+                    # Only sharps are checked, because:
+                    #   1. pitch.accid is converted to sharp in the class Pitch
+                    #   2. the data loader (data-ingestion) converts notes to sharp.
+
+                    accid = pitch.accid.replace('#', 's')
+                    pitch_condition += f" AND ({name}.accid = '{accid}' OR {name}.accid_ges = '{accid}')"
+
                 else:
-                    # No accidental, so accid is NULL or empty
-                    pitch_condition += f" AND NOT EXISTS({name}.accid)"
-                if octave is not None:
-                    pitch_condition += f" AND {name}.octave = {octave}"
+                    # No accidental on the searched note, so accid is NULL or empty and same for accid_ges, or accid_ges is not null, and accid is 'n'.
+                    pitch_condition += f" AND ((NOT EXISTS({name}.accid) AND NOT EXISTS({name}.accid_ges)) OR {name}.accid = 'n')"
+
+                if pitch.octave is not None:
+                    pitch_condition += f" AND {name}.octave = {pitch.octave}"
         else:
-            o = 4 if octave is None else octave  # Default octave if not specified
-            near_pitches = find_nearby_pitches(pitch, o, pitch_distance)
-
-            # pitch_condition = '('
-            # for n, o_ in near_pitches:
-            #     base_note, accidental = split_note_accidental(n)
-            #     base_condition = f"{name}.class = '{base_note}'"
-            #     if accidental:
-            #         base_condition += f" AND ({name}.accid = '{accidental}' OR {name}.accid_ges = '{accidental}')"
-            #     else:
-            #         base_condition += f" AND NOT EXISTS({name}.accid) AND NOT EXISTS({name}.accid)"
-            #     if octave is None:
-            #         pitch_condition += f"\n  ({base_condition}) OR "
-            #     else:
-            #         pitch_condition += f"\n  ({base_condition} AND {name}.octave = {o_}) OR "
-            # # Remove the trailing ' OR ' and close the parentheses
-            # pitch_condition = pitch_condition.rstrip(' OR ') + '\n)'
-
-            low_freq_bound, high_freq_bound = find_frequency_bounds(pitch, o, pitch_distance, alpha)
+            low_freq_bound, high_freq_bound = pitch.find_frequency_bounds(pitch_distance, alpha)
             pitch_condition = f"{low_freq_bound} <= {name}.frequency AND {name}.frequency <= {high_freq_bound}"
             
     return pitch_condition
@@ -175,20 +176,22 @@ def make_sequencing_condition(duration_gap, name_1, name_2, alpha):
     sequencing_condition = f"{name_1}.end >= {name_2}.start - {duration_gap * (1 - alpha)}"
     return sequencing_condition
 
-def create_match_clause(query):
+def create_match_clause(query: str, notes: dict[str, dict[str, int | str | list[str]]]) -> str:
     '''
     Create the MATCH clause for the compiled query.
 
-    - query        : the entire query string;
+    In:
+        - query: the entire query string;
+        - notes: the notes extracted from the query
+
+    Out:
+        a string representing the MATCH clause
     '''
 
     _, _, duration_gap, _, allow_transposition, _ = extract_fuzzy_parameters(query)
 
     if duration_gap > 0:
         # Proceed to create the MATCH clause as per current code
-
-        #---Extract notes from the query
-        notes = extract_notes_from_query_dict(query)
 
         #---Init
         event_nodes = [node for node, attrs in notes.items() if attrs.get('type') == 'Event']
@@ -283,7 +286,19 @@ def create_match_clause(query):
 
         return match_clause
 
-def create_where_clause(query, allow_transposition, allow_homothety, pitch_distance, duration_factor, duration_gap, alpha = 0.0):
+def create_where_clause(query: str, notes_dict: dict[str, dict[str, int | str | list[str]]], allow_transposition: bool, allow_homothety: bool, pitch_distance: float, duration_factor: float, duration_gap: float, alpha: float = 0.0) -> str:
+    '''
+    Create the WHERE clause for the compiled query.
+
+    In:
+        - query: the entire query string;
+        - notes_dict: the notes extracted from the query
+        The other params are the fuzzy parameters
+
+    Out:
+        a string representing the WHERE clause
+    '''
+
     # Step 1: Extract the WHERE clause from the query
     try:
         where_clause = extract_where_clause(query)
@@ -367,45 +382,65 @@ def create_where_clause(query, allow_transposition, allow_homothety, pitch_dista
             preexisting_where_clause = ''
     else:
         preexisting_where_clause = ''
-    # Step 3: Extract notes and make conditions for each note
-    notes_dict = extract_notes_from_query_dict(query)
 
+    # Step 3: Extract notes and make conditions for each note
     where_clauses = []
     if allow_transposition:
         intervals = calculate_intervals_list(notes_dict)
+
     if allow_homothety:
         dur_ratios = calculate_dur_ratios_list(notes_dict)
-    # Extract Fact nodes (notes with durations)
+
+    if pitch_distance > 0 or allow_transposition:
+        chords_conditions = calculate_chord_intervals(notes_dict)
+        where_clauses.extend(chords_conditions)
+
+    # Extract Fact and Event nodes (Event: for the duration; Fact: for the class and octave)
     f_nodes = [node for node, attrs in notes_dict.items() if attrs.get('type') == 'Fact']
+    e_nodes = [node for node, attrs in notes_dict.items() if attrs.get('type') == 'Event']
+
     for idx, f_node in enumerate(f_nodes):
         attrs = notes_dict[f_node]
-        duration = attrs.get('dur')
 
+        # Pitch
+        if not allow_transposition:
+            p = Pitch((attrs.get('class'), attrs.get('octave')))
+            pitch_condition = make_pitch_condition(pitch_distance, p, f_node, alpha)
+
+            if pitch_condition:
+                where_clauses.append(pitch_condition)
+
+    for idx, e_node in enumerate(e_nodes):
+        attrs = notes_dict[e_node]
+
+        # Pitch
+        if allow_transposition:
+            if idx < len(e_nodes) - 1:
+                interval_condition = make_interval_condition(intervals[idx], duration_gap, pitch_distance, idx, alpha)
+
+                if interval_condition:
+                    where_clauses.append(interval_condition)
+
+
+        # Rhythm
         if allow_homothety:
-            if idx < len(f_nodes) - 1:
+            if idx < len(e_nodes) - 1:
                 duration_ratio_condition = make_duration_ratio_condition(dur_ratios[idx], duration_gap, duration_factor, idx, alpha)
+
                 if duration_ratio_condition:
                     where_clauses.append(duration_ratio_condition)
+
         else:
-            duration_condition = make_duration_condition(duration_factor, duration, f_node, alpha, attrs.get('dots'))
+            duration_condition = make_duration_condition(duration_factor, attrs.get('dur'), e_node, alpha, attrs.get('dots'))
+
             if duration_condition:
                 where_clauses.append(duration_condition)
         
-        if allow_transposition:
-            if idx < len(f_nodes) - 1:
-                interval_condition = make_interval_condition(intervals[idx], duration_gap, pitch_distance, idx, alpha)
-                if interval_condition:
-                    where_clauses.append(interval_condition)
-        else:
-            pitch_condition = make_pitch_condition(pitch_distance, attrs.get('class'), attrs.get('octave'), f_node, alpha)
-            if pitch_condition:
-                where_clauses.append(pitch_condition)
-        
-
-
+        # Duration gap
         if duration_gap > 0:
-            if idx < len(f_nodes) - 1:
+            if idx < len(e_nodes) - 1:
                 sequencing_condition = make_sequencing_condition(duration_gap, f'e{idx}', f'e{idx+1}', alpha)
+
                 if sequencing_condition:
                     where_clauses.append(sequencing_condition)
 
@@ -431,7 +466,7 @@ def create_where_clause(query, allow_transposition, allow_homothety, pitch_dista
     where_clause = '\nWHERE\n' + preexisting_where_clause  + ' AND\n'.join(where_clauses)
     return where_clause
 
-def create_return_clause(query, notes_dict, duration_gap, intervals, allow_homothety):
+def create_return_clause(query: str, notes_dict: dict[str, dict[str, int | str | list[str]]], duration_gap, intervals, allow_homothety) -> str:
     '''
     Create the RETURN clause for the compiled query.
 
@@ -476,7 +511,9 @@ def create_return_clause(query, notes_dict, duration_gap, intervals, allow_homot
     for idx, fact_node_name in enumerate(fact_nodes):
         return_clauses.extend([
             f"\n{fact_node_name}.octave AS octave_{idx}",
-            f"{fact_node_name}.class AS pitch_{idx}"
+            f"{fact_node_name}.class AS pitch_{idx}",
+            f"{fact_node_name}.accid AS accid_{idx}",
+            f"{fact_node_name}.accid_ges AS accid_ges_{idx}"
         ])
     
     # Add source, start, and end from the first and last events
@@ -505,7 +542,7 @@ def create_return_clause(query, notes_dict, duration_gap, intervals, allow_homot
     
     return return_clause
 
-def reformulate_fuzzy_query(query):
+def reformulate_fuzzy_query(query: str) -> str:
     '''
     Converts a fuzzy query to a cypher one.
 
@@ -522,10 +559,10 @@ def reformulate_fuzzy_query(query):
     notes = extract_notes_from_query_dict(query)
     
     #------Construct the MATCH clause
-    match_clause = create_match_clause(query)
+    match_clause = create_match_clause(query, notes)
 
     #------Construct the WHERE clause
-    where_clause = create_where_clause(query, allow_transposition, allow_homothety, pitch_distance, duration_factor, duration_gap, alpha)
+    where_clause = create_where_clause(query, notes, allow_transposition, allow_homothety, pitch_distance, duration_factor, duration_gap, alpha)
 
     #------Construct the return clause
     return_clause = create_return_clause(query, notes, duration_gap, allow_transposition, allow_homothety)
@@ -535,9 +572,11 @@ def reformulate_fuzzy_query(query):
     new_query = match_clause  + where_clause + return_clause
     return new_query.strip('\n')
 
+##-Run
 if __name__ == '__main__':
     with open('fuzzy_query.cypher', 'r') as file:
         fuzzy_query = file.read()
+
     fuzzy_query = move_attribute_values_to_where_clause(fuzzy_query)
     fuzzy_query = refactor_variable_names(fuzzy_query)
     print(reformulate_fuzzy_query(fuzzy_query))
